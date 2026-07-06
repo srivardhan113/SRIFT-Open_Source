@@ -1,0 +1,12 @@
+{
+  "manifestVersion": "1",
+  "name": "srift",
+  "version": "2.2.2",
+  "description": "Zero-config P2P file transfer and E2EE communication protocol for AI agents & IDEs.",
+  "author": "srivardhan113",
+  "license": "Apache-2.0",
+  "entrypoint": {
+    "command": "npx",
+    "args": ["-y", "srift@latest", "daemon", "--mcp"]
+  }
+}
