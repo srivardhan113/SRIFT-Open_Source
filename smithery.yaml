@@ -11,9 +11,12 @@ repository: https://github.com/srivardhan113/SRIFT-Open_Source
 
 # How the agent platform runs Srift inside sandboxed environments
 startCommand:
-  command: npx
-  args:
-    - -y
-    - srift@latest
-    - daemon
-    - --mcp
+  type: stdio
+  configSchema:
+    type: object
+    properties: {}
+  commandFunction: |-
+    (config) => ({
+      command: 'npx',
+      args: ['-y', 'srift@latest', 'daemon', '--mcp']
+    })
