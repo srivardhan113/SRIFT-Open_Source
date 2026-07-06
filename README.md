@@ -1,29 +1,29 @@
-# ⚡ SRIFT: Serverless P2P File Hoster & E2EE Agentic Communication Fabric
+# ⚡ SRIFT: Zero-Config P2P File Transfer & E2EE Agentic Communication Fabric
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/Protocol-Model_Context_Protocol_Ready-emerald.svg)](docs/AGENTS.md)
 [![Specs](https://img.shields.io/badge/OpenAPI-3.1-pink.svg)](specs/openapi.json)
 [![E2EE](https://img.shields.io/badge/Security-AES--256--GCM%20%2B%20PBKDF2-blueviolet.svg)](docs/about.md)
 
-SRIFT is a next-generation **serverless peer-to-peer (P2P) file hosting engine** and **end-to-end encrypted (E2EE) communication protocol** designed for the age of autonomous AI agents, developer IDEs, and humans. 
+SRIFT is a next-generation **zero-config peer-to-peer (P2P) file transfer engine** and **end-to-end encrypted (E2EE) communication protocol** designed for the age of autonomous AI agents, developer IDEs, and humans. 
 
-By running a lightweight, headless local daemon (`http://127.0.0.1:3822`), SRIFT turns any machine into a secure, ephemeral file server. AI agents, coding assistants (such as Cursor, VS Code, Windsurf, Zed, and Continue), and command-line tools can natively host files, transfer data, and establish private communication channels with absolutely **zero cloud storage, zero signup, and zero account creation**.
+By running a lightweight, headless local daemon (`http://127.0.0.1:3822`), SRIFT enables instant device-to-device streaming. AI agents, coding assistants (such as Cursor, VS Code, Windsurf, Zed, and Continue), and command-line tools can natively transfer files, coordinate workspaces, and establish private E2EE chat channels with absolutely **zero cloud storage, zero logs, and zero account creation**.
 
 ---
 
 ## 🚀 Key Paradigms & Features
 
-### ☁️ 100% Serverless Ephemeral File Hosting
-Forget S3, Dropbox, or WeTransfer. With SRIFT, your local machine becomes a temporary, secure file hoster. 
-*   **Live Memory-to-Memory Streaming:** Files stream directly from your disk/RAM to the recipient.
-*   **No File Size Caps:** Transfer multi-gigabyte datasets, video files, or raw builds instantly.
-*   **Zero Cloud Footprint:** Files are never uploaded, stored, or cached on any server.
+### ⚡ Serverless Peer-to-Peer Instant Transfer
+No cloud uploads. No storage middle-men. With SRIFT, your local machine streams files directly to the receiver.
+*   **Live Direct Streaming:** Chunks stream live from the sender's disk/RAM directly to the recipient over WebRTC or WebTorrent.
+*   **No File Size Caps:** Transfer massive codebases, datasets, or compile artifacts without limits.
+*   **Zero Cloud Storage:** Payload bytes are never uploaded, stored, or cached on any server. The signaling server is blind to the content.
 
 ### 🤖 The Agent-to-Human Communication Fabric
 SRIFT acts as a secure data bridge between local development sandboxes and human users.
-*   **IDE Native (Cursor, Windsurf, Zed):** AI coding assistants can dynamically share generated codebases, zip folders, export build files, or grab user-provided logs locally.
+*   **IDE Native (Cursor, Windsurf, Zed):** AI coding assistants can dynamically deliver generated codebases, zip folders, export build files, or securely pull user logs.
 *   **Zero-Install Recipient Tunnel:** The receiver downloads files via a simple, auto-resuming public tunnel (`https://srift.app/d/<token>`) using a standard web browser or CLI command (`curl` / `wget`)—**no software installation required on the receiver's end**.
-*   **Multi-Agent Coordination:** Let independent agent workflows send files, query status, and communicate securely.
+*   **Multi-Agent Coordination:** Enables independent agent workflows to send files, query status, and communicate securely.
 
 ### 🔌 Universal Model Context Protocol (MCP) Server
 SRIFT exposes a native MCP server card out-of-the-box, allowing LLMs to directly invoke local file sharing and messaging capabilities:
@@ -85,7 +85,7 @@ curl -fsSL https://srift.app/install.sh | sh
 irm https://srift.app/install.ps1 | iex
 ```
 
-### ☁️ Ephemeral File Hosting (CLI)
+### 🛰️ Direct P2P File Transfer (CLI)
 Mint an encrypted, serverless share link for any local file:
 ```bash
 srift quick-share ./my-dataset.zip
