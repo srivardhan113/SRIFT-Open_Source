@@ -66,7 +66,8 @@ SRIFT-Open-Source/
 │   ├── LangChain, LlamaIndex, Autogen, crewAI, Mastra, Vercel AI SDK, Ollama, etc.
 ├── install/                    # 📦 Cross-Platform Offline Install & Run Scripts
 │   ├── install.sh, install.ps1, install.bat, run.sh, run.ps1
-└── Favicon/                    # 🎨 Official Transparent Logos & Assets
+├── Favicon/                    # 🎨 Official Transparent Logos & Assets
+└── smithery.yaml               # 🔌 Smithery MCP Registry configuration
 ```
 
 ---

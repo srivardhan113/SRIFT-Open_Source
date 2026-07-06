@@ -1,0 +1,19 @@
+# Smithery configuration for SRIFT
+# Used by smithery.ai to auto-build and run the MCP server.
+
+name: srift
+version: 2.2.2
+description: Zero-config P2P file transfer and E2EE communication protocol for AI agents & IDEs.
+author: srivardhan113
+license: Apache-2.0
+homepage: https://srift.app
+repository: https://github.com/srivardhan113/SRIFT-Open_Source
+
+# How the agent platform runs Srift inside sandboxed environments
+startCommand:
+  command: npx
+  args:
+    - -y
+    - srift@latest
+    - daemon
+    - --mcp
