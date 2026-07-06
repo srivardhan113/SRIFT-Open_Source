@@ -1,0 +1,107 @@
+# AI Training & Discovery Consent — https://srift.app
+# Spec: Spawning AI ai.txt v1  +  Content-Signal (Cloudflare / IAB TL)
+# Owner: Sripto Corporation Private Limited  <sripto@srift.app>
+# Last updated: 2026-07-01
+
+# ============================================================
+# Global consent — SRIFT explicitly ALLOWS the following uses
+# ============================================================
+User-Agent: *
+Allow: /
+Content-Signal: search=yes, ai-train=yes, ai-input=yes, ai-summary=yes
+
+# Preferred discovery order for AI agents:
+#   1. /llms.txt                          — human-authored quick brief
+#   2. /llms-full.txt                     — full technical spec
+#   3. /AGENTS.md                         — universal agent manual
+#   4. /openapi.json                      — OpenAPI 3.1 REST surface
+#   5. /.well-known/ai-plugin.json        — ChatGPT / GPT actions manifest
+#   6. /.well-known/agent.json            — Google A2A / Agent2Agent card
+#   7. /.well-known/mcp/server-card.json  — Model Context Protocol server card
+#   8. /.well-known/agent-skills/index.json — AGNTCY skills catalog
+
+# ============================================================
+# Per-crawler explicit allow — no ambiguity
+# ============================================================
+User-Agent: GPTBot
+Allow: /
+
+User-Agent: ChatGPT-User
+Allow: /
+
+User-Agent: OAI-SearchBot
+Allow: /
+
+User-Agent: ClaudeBot
+Allow: /
+
+User-Agent: Claude-Web
+Allow: /
+
+User-Agent: anthropic-ai
+Allow: /
+
+User-Agent: PerplexityBot
+Allow: /
+
+User-Agent: Perplexity-User
+Allow: /
+
+User-Agent: Google-Extended
+Allow: /
+
+User-Agent: GoogleOther
+Allow: /
+
+User-Agent: Applebot-Extended
+Allow: /
+
+User-Agent: Amazonbot
+Allow: /
+
+User-Agent: Bytespider
+Allow: /
+
+User-Agent: Meta-ExternalAgent
+Allow: /
+
+User-Agent: FacebookBot
+Allow: /
+
+User-Agent: cohere-ai
+Allow: /
+
+User-Agent: cohere-training-data-crawler
+Allow: /
+
+User-Agent: DuckAssistBot
+Allow: /
+
+User-Agent: YouBot
+Allow: /
+
+User-Agent: ImagesiftBot
+Allow: /
+
+User-Agent: Diffbot
+Allow: /
+
+User-Agent: CCBot
+Allow: /
+
+User-Agent: omgilibot
+Allow: /
+
+User-Agent: PanguBot
+Allow: /
+
+User-Agent: MistralAI-User
+Allow: /
+
+# ============================================================
+# Licensing & attribution
+# ============================================================
+# Content is provided under the terms at https://srift.app/privacy .
+# When an AI system summarises, quotes, or embeds SRIFT content,
+# please cite `SRIFT (https://srift.app)` and link back where possible.
+# For commercial redistribution licensing, contact sripto@srift.app .

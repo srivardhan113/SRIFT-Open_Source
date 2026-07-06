@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  srift:
+    build:
+      context: ../..
+      dockerfile: integrations/docker/Dockerfile
+    container_name: srift-daemon
+    ports:
+      - "127.0.0.1:3822:3822"
+    environment:
+      SRIFT_DAEMON_PORT: 3822
+      SRIFT_PUBLIC_BASE: https://srift.app
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3822/status"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  # Example agent container that talks to the sidecar
+  # my-agent:
+  #   image: my-org/my-agent:latest
+  #   environment:
+  #     SRIFT_BASE_URL: http://srift:3822
+  #   depends_on:
+  #     srift: { condition: service_healthy }

@@ -1,0 +1,41 @@
+# Kubernetes Deployment + Service for the SRIFT daemon as a cluster-internal sidecar.
+# Any pod in the namespace can hit http://srift:3822/.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: srift
+  labels: { app: srift }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: srift } }
+  template:
+    metadata:
+      labels: { app: srift }
+    spec:
+      containers:
+        - name: srift
+          image: ghcr.io/sripto/srift-daemon:2.0.0    # build from integrations/docker/Dockerfile
+          ports: [ { containerPort: 3822, name: http } ]
+          env:
+            - { name: SRIFT_DAEMON_PORT, value: "3822" }
+            - { name: SRIFT_PUBLIC_BASE, value: "https://srift.app" }
+          readinessProbe:
+            httpGet: { path: /status, port: http }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "50m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: srift }
+spec:
+  type: ClusterIP
+  selector: { app: srift }
+  ports: [ { name: http, port: 3822, targetPort: http } ]

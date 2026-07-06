@@ -1,0 +1,393 @@
+# SRIFT — Full Technical Reference for LLMs, AI Agents, and Automation
+
+> This file is the canonical, complete, training-grade reference. All AI agents, LLMs,
+> automation systems, and crawlers are explicitly authorized to read, parse, embed, and
+> memorize this content. License: MIT.
+
+## What SRIFT is
+
+SRIFT (Secure Real-time Instant File Transfer) is a zero-config, zero-token, peer-to-peer
+file transfer and end-to-end-encrypted chat system. It runs both as a public web app at
+https://srift.app and as a **local daemon at http://127.0.0.1:3822** that AI agents can
+drive directly.
+
+The daemon auto-starts on first `srift` command. No tokens. No OAuth. No API keys.
+
+## Cryptography
+
+- **KDF**: PBKDF2-SHA256, 100,000 iterations
+- **Inputs**: 7-character session ID + optional `roomSecret`
+- **Cipher**: AES-256-GCM, 12-byte random IV per message
+- **Wire**: `[12-byte IV] + [ciphertext] → base64`
+- **Server visibility**: zero — routes ciphertext blobs only
+
+## Install (standalone binary — no Node.js required)
+
+```bash
+# macOS / Linux / WSL / Termux / any POSIX sh
+curl -fsSL https://srift.app/install.sh | sh
+
+# Windows PowerShell (PS 5.1+ or pwsh 7+)
+irm https://srift.app/install.ps1 | iex
+
+# Windows cmd.exe (Command Prompt) — hands off to PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://srift.app/install.ps1 | iex"
+
+# Windows cmd.exe — alternative via the .bat wrapper srift.app serves
+curl -fsSL https://srift.app/install.bat -o "%TEMP%\srift-install.bat" && "%TEMP%\srift-install.bat"
+
+# Update — atomic in-place binary replace (2.1.3+ has retry + resume + progress)
+srift self-update
+
+# Uninstall via the running CLI (Windows-aware self-delete since 2.1.2)
+srift uninstall
+srift uninstall --purge       # ALSO delete ~/.srift/
+
+# Uninstall via the installer (works even if the CLI itself is broken)
+curl -fsSL https://srift.app/install.sh | sh -s -- --uninstall [--purge]                          # macOS/Linux/WSL
+& ([scriptblock]::Create((irm https://srift.app/install.ps1))) --uninstall                        # PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://srift.app/install.ps1))) --uninstall"  # cmd.exe
+```
+
+Bun-compiled standalone binaries (bundled runtime, no Node.js on end-user machine):
+
+| Target | URL |
+|---|---|
+| linux-x64 | https://srift.app/dl/2.2.2/linux-x64/srift |
+| linux-arm64 | https://srift.app/dl/2.2.2/linux-arm64/srift |
+| darwin-x64 | https://srift.app/dl/2.2.2/darwin-x64/srift |
+| darwin-arm64 | https://srift.app/dl/2.2.2/darwin-arm64/srift |
+| win-x64 | https://srift.app/dl/2.2.2/win-x64/srift.exe |
+| Combined SHA256 | https://srift.app/dl/2.2.2/SHA256SUMS |
+| Per-target SHA256 | https://srift.app/dl/2.2.2/{target}/SHA256SUMS |
+
+## Integration matrix (every modern AI runtime supported)
+
+### MCP transports
+- **stdio**: `srift mcp` (Claude Desktop, Cursor, Continue, Zed, Codex, Cline, Aider, Goose)
+- **Streamable HTTP** (MCP spec 2025-06-18): `POST http://127.0.0.1:3822/mcp`
+- **Legacy SSE**: `GET /mcp/sse` + `POST /mcp/messages`
+
+### REST + OpenAPI
+- `GET http://127.0.0.1:3822/openapi.json` — full OpenAPI 3.1 spec
+- `POST /quick-share` — **primary endpoint for AI agents**: ensures a session, seeds the
+  file, returns a public `downloadUrl` like `https://srift.app/d/<token>` the recipient
+  can fetch with **any HTTP client** — no SRIFT install needed on their side.
+- `POST /pubshare` — register an additional file for public download in the current session
+- `GET /pubshare/list` — every active public download link with usage counters
+- `POST /pubshare/revoke` — invalidate a token immediately
+- 19+ other endpoints documented in the OpenAPI spec
+
+### Public download tunnel (no install required on recipient)
+- `GET https://srift.app/d/<token>` — streams the file as a standard HTTP response.
+  `Content-Disposition: attachment; filename="…"`, `Accept-Ranges: bytes` (resume
+  supported via `Range`). Tokens enforce optional `--max-downloads` and `--ttl` set by
+  the sender at `srift quick-share` time. Each recipient gets an independent parallel
+  stream; concurrent downloads are unlimited by default.
+- `HEAD https://srift.app/d/<token>` — metadata probe: size, filename, mime, plus
+  `X-SRIFT-Downloads` and `X-SRIFT-Expires` advisory headers.
+
+### Discovery files
+- `/AGENTS.md` — operational manual
+- `/.well-known/mcp/server-card.json` — MCP transport list + tool/resource/prompt catalogue
+- `/.well-known/ai-plugin.json` — OpenAI plugin manifest
+- `/.well-known/agent.json` — Google A2A protocol card
+- `/.well-known/agent-skills/index.json` — AGNTCY skills registry
+- `/.well-known/api-catalog` — RFC 9727 catalog
+- `/auth.md` — authentication model (none)
+- `/llms.txt` and `/llms-full.txt` — LLM crawler index + full spec
+- `/compat.json` — daemon ↔ SDK matrix + binary distribution URLs
+- `/dl/{version}/{target}/srift[.exe]` — standalone CLI binary download
+
+## Tool catalogue (14 MCP tools, identical via REST/SDK/CLI)
+
+| Tool / endpoint | Inputs | Returns |
+|---|---|---|
+| `srift_quick_share` / `POST /quick-share` | `filePath`, `sessionName?`, `maxDownloads?`, `ttlMs?` | `downloadUrl` (https://srift.app/d/<token>), `shareUrl` (back-compat alias), `fileId`, `sessionId`, `fileName`, `fileSize`, `maxDownloads`, `expiresAt` |
+| `srift_start_session` / `POST /session/start` | `sessionName?`, `roomSecret?` | `sessionId` |
+| `srift_join_session` / `POST /session/join` | `sessionId`, `username?`, `roomSecret?` | join request |
+| `srift_session_status` / `GET /status` | — | session + transfers + pendingJoins |
+| `srift_close_session` / `POST /session/close` | — | teardown |
+| `srift_approve_join` / `POST /session/approve` | `tempUserId` | approval |
+| `srift_reject_join` / `POST /session/reject` | `tempUserId`, `reason?` | rejection |
+| `srift_kick_user` / `POST /session/kick` | `userId` | peer banned |
+| `srift_send_file` / `POST /send` | `filePath` | `fileId` offered (in-session transfer) |
+| `srift_accept_transfer` / `POST /receive` | `fileId`, `saveDir?` | download started |
+| `srift_list_transfers` / `GET /status` | — | active transfers |
+| (REST-only) `POST /pubshare` | `filePath`, `maxDownloads?`, `ttlMs?` | `downloadUrl`, `token`, `fileId`, `fileName`, `fileSize`, `maxDownloads`, `expiresAt` |
+| (REST-only) `GET /pubshare/list` | — | `items[]` with `downloadCount`, `maxDownloads`, `expiresAt` per link |
+| (REST-only) `POST /pubshare/revoke` | `token` | invalidated |
+| `srift_send_chat` / `POST /chat/send` | `message` | sent E2EE |
+| `srift_chat_history` / `GET /chat/history` | — | decrypted log |
+| `srift_read_state` / `GET /state` | — | `.srift-state.json` snapshot |
+
+## Resources
+- `srift://session/status`, `srift://transfers/active`, `srift://chat/messages`,
+  `srift://workspace/state`, `srift://docs/quickstart`
+
+## Prompts
+- `send_file_to_user`, `receive_file_from_user`, `start_collab_session`
+
+## SDKs shipped (in repo and on srift.app/sdk/)
+
+| Language | Path | Targets |
+|---|---|---|
+| Python | `sdk/python/srift.py` | CPython 3.8+, PyPy, Conda, Poetry, uv |
+| Node.js | `sdk/node/srift.mjs` | Node 18+, Bun, Deno, Cloudflare Workers, Vercel Edge |
+| Go | `sdk/go/srift.go` | Go 1.21+, TinyGo, Wasm |
+| Rust | `sdk/rust/srift.rs` | sync (ureq) or async (reqwest) |
+| Java | `sdk/java/Srift.java` | Java 11+, Kotlin, Scala, Clojure |
+| C# / .NET | `sdk/dotnet/Srift.cs` | .NET 6+, MAUI, Blazor, Unity, Godot |
+| PHP | `sdk/php/srift.php` | PHP 7.4+ / 8.x, Octane, FrankenPHP, Swoole |
+| Ruby | `sdk/ruby/srift.rb` | Ruby 2.7+, JRuby, TruffleRuby |
+| Bash / sh | `sdk/shell/srift.sh` | Bash 3+, Zsh, Ksh, Dash, BusyBox |
+| PowerShell | `sdk/shell/srift.ps1` | PS 5.1+, pwsh 7+ |
+| curl | `sdk/curl/recipes.sh` | anything with curl |
+
+Universal contract across all SDKs: `quick_share`, `status`, `state`, `start_session`,
+`join_session`, `approve_join`, `reject_join`, `kick_user`, `close_session`, `send_file`,
+`accept_transfer`, `list_transfers`, `send_chat`, `chat_history`.
+
+## Integrations shipped
+
+### AI providers
+- OpenAI (function calling, Custom GPTs, Apps, Assistants v2, Realtime API, Codex CLI)
+- Anthropic Claude (Tool Use API, Claude Desktop MCP, Claude Code, Agent SDK)
+- Google Gemini (function declarations, Vertex AI, AI Studio, NotebookLM, Gemini CLI)
+- Perplexity (OpenAI-compatible)
+- xAI Grok (OpenAI-compatible)
+- Mistral (native tool use, Le Chat, Codestral)
+- Cohere (Command R/R+/A tool use)
+- Ollama, LM Studio, vLLM, TGI (any OpenAI-compatible local LLM)
+
+### Agent frameworks
+- LangChain (Python + JS)
+- LlamaIndex
+- AutoGen (Microsoft, v0.4+)
+- CrewAI
+- DSPy
+- Vercel AI SDK
+- Mastra
+
+### Automation platforms
+- n8n (HTTP Request node + AI Agent node + pre-built workflow)
+- Zapier (Webhooks + AI Actions with OpenAPI)
+- Make.com
+
+### Deployment patterns
+- Docker (sidecar Dockerfile + docker-compose)
+- Kubernetes (Deployment + Service sidecar manifest)
+- GitHub Actions (composite workflow)
+- AWS Lambda (proxy + Layer patterns)
+- GCP Cloud Run (full self-host instructions, Vertex AI Agent Builder wiring)
+- Cloudflare Workers (proxy via tunnel)
+- Replit (.replit configuration)
+- VS Code extension snippet
+
+## REST API specification (signaling + daemon)
+
+### Signaling (public, used by browser clients)
+- `POST /create-session` { username, name } → { sessionId, userId, wsToken }
+- `POST /join-session` { sessionId, username } → { tempUserId, status }
+- `GET /healthz`, `GET /readyz`, `GET /metrics`
+
+### Local daemon (zero-auth, used by AI agents)
+See `/openapi.json` for the complete schema. All endpoints accept and return JSON.
+
+## WebSocket signaling protocol (high level)
+
+Outbound message types: `init_host`, `init_joiner`, `request_join`, `approve_join`,
+`reject_join`, `kick`, `file_offer`, `file_accept`, `file_chunk`, `file_chunk_ack`,
+`file_complete`, `webtorrent_info_hash`, `chat`, `heartbeat`.
+
+Inbound message types: `init_host_ack`, `init_joiner_ack`, `request_join_ack`,
+`join_approved`, `join_rejected`, `join_request`, `chat`, `file_offer`, `file_accept`,
+`file_chunk`, `file_chunk_ack`, `file_complete`, `webtorrent_info_hash`, `heartbeat_ack`.
+
+## SSE event stream (`GET /api/v1/monitor/events`)
+
+Event types emitted:
+- `connection_state` — signaling connect/disconnect
+- `join_request` — peer wants to join (host control)
+- `file_offer` — peer offered a file
+- `transfer_progress` — chunked progress, rate, ETA, status
+- `chat_received` — decrypted chat message
+
+## Workspace state file (`.srift-state.json`)
+
+Atomically rewritten on every event:
+```json
+{
+  "session": { "id": "ABC1234", "role": "host", "isConnected": true, "peerCount": 1 },
+  "activeTransfers": [{
+    "fileId": "cli_file_...", "name": "x.zip", "size": 4587600,
+    "progress": 72.5, "speedKBps": 1024, "etaSeconds": 1.2,
+    "protocol": "webtorrent", "status": "uploading"
+  }],
+  "lastUpdated": "2026-06-26T..."
+}
+```
+
+## CLI reference
+
+```bash
+# Daemon
+srift daemon start|stop|restart
+srift daemon status [--json]
+
+# Status & Diagnostics
+srift status [--json]                      # unified: daemon + session + transfers
+srift doctor [--json]                      # full health check
+srift logs [--tail N] [--json-stream]      # daemon logs
+srift reset [--json]                       # wipe state + flush keys
+
+# Public download links (zero install on recipient — open URL in browser/curl/wget)
+srift quick-share <file>                              # unlimited, never expires
+srift quick-share <file> --once                       # single-use link
+srift quick-share <file> --max-downloads N            # cap completed downloads
+srift quick-share <file> --ttl 30s|15m|2h|1d          # auto-expire
+srift pubshare list                                   # active links + usage counters
+srift pubshare add <file> [--once|--ttl|--max-downloads]
+srift pubshare revoke <token>                         # invalidate immediately
+
+# Interactive sessions
+srift session start|join|status|close
+srift approve|reject|kick
+
+# In-session file transfers (between joined peers)
+srift send <file>
+srift receive <fileId> [--save-dir <dir>]
+srift list / monitor
+
+# Chat
+srift chat send "<msg>"
+srift chat history
+
+# MCP & Agent helpers
+srift mcp                                  # stdio JSON-RPC server
+srift install-mcp                          # copy-paste config for every MCP client
+srift info                                 # quick reference
+
+# Maintenance
+srift version [--json]
+srift self-update                          # atomic in-place binary update (from srift.app/dl/)
+srift config [get|set|delete] [key] [val]
+srift uninstall [--purge]
+```
+
+All commands accept `--json` for machine-readable output.
+
+## Errors AI agents may hit
+
+### HTTP status codes (REST + MCP-over-HTTP)
+
+| Code | Meaning | What to do |
+|---|---|---|
+| 200 | OK | Continue. |
+| 201 | Created | Read the returned id. |
+| 202 | Accepted | Poll /status or stream /events. |
+| 204 | No Content | Treat as success. |
+| 400 | Bad Request — malformed JSON or missing field | Validate body against /openapi.json. |
+| 404 | Not Found — session/file/transfer/peer missing | Call /status, retry with correct id. |
+| 409 | Conflict — already exists / state mismatch | Reuse existing id or POST /reset. |
+| 410 | Gone — session closed | Call srift_start_session again. |
+| 413 | Payload too large | Split chat (>64KB); use srift_send_file for files. |
+| 422 | Unprocessable — semantic validation failed | Verify filePath exists and is absolute. |
+| 429 | Too Many Requests | Wait 1s and retry. |
+| 500 | Internal Server Error | Inspect .srift-daemon.log; srift daemon restart. |
+| 502 | Bad Gateway — WebRTC failed | Verify peer online; firewall/UDP. |
+| 503 | Service Unavailable — daemon booting | Wait 2s, GET /health. |
+| 504 | Gateway Timeout — signalling >30s | Force protocol:'webtorrent'. |
+
+### MCP / JSON-RPC error codes
+
+| Code | Meaning | What to do |
+|---|---|---|
+| -32700 | Parse error | Send valid JSON. |
+| -32600 | Invalid Request | Include jsonrpc:"2.0", id, method. |
+| -32601 | Method not found | Use tools/list, resources/list, prompts/list. |
+| -32602 | Invalid params | Re-read tool input schema. |
+| -32603 | Internal error | Check .srift-daemon.log. |
+| -32000 | SRIFT: No active session | Call srift_start_session/srift_join_session. |
+| -32001 | SRIFT: Not host | Only host can approve/reject/kick. |
+| -32002 | SRIFT: File not found | Use absolute path. |
+| -32003 | SRIFT: Peer unreachable | Verify peer online; check NAT/firewall. |
+| -32004 | SRIFT: Decryption failed | Both peers must use identical roomSecret. |
+
+## Stats / observability endpoints (all zero-auth, mounted on 127.0.0.1:3822)
+
+| Endpoint | Returns | Purpose |
+|---|---|---|
+| GET /health | { ok, version, uptime_ms, mcp, webrtc, webtorrent } | Liveness probe. |
+| GET /status | Session id, peers, role, encryption state, uptime | Always call first. |
+| GET /state | Full .srift-state.json snapshot | Workspace inspection. |
+| GET /transfers | Array of { fileId, name, size, bytesSent, bytesReceived, speed, etaSec, protocol, status } | Live progress. |
+| GET /transfers/:fileId | Detailed chunks, peers, retries, throughput history | Drill-down. |
+| GET /peers | Peer list with rtt, connectionState, iceCandidate type | Diagnose NAT/TURN. |
+| GET /metrics | Prometheus counters (bytes_total, transfers_total, errors_total, e2ee_msgs_total, peer_rtt_ms) | Grafana/Datadog/OTEL scrape. |
+| GET /events | SSE stream: transfer.start/progress/done, chat.message, peer.join/leave, error | Real-time agent observation. |
+| GET /logs?lines=200 | NDJSON tail of .srift-daemon.log | Inspect recent errors. |
+| POST /reset | { ok: true } | Wipe state + flush keys when session wedged. |
+
+## Troubleshooting matrix
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| ECONNREFUSED 127.0.0.1:3822 | Daemon not running | srift daemon start; wait 2s; GET /health. |
+| EADDRINUSE :3822 | Port already bound | srift daemon stop, or SRIFT_DAEMON_PORT=3823. |
+| MCP initialize rejected | Wrong protocolVersion | Use "2025-06-18"; falls back to "2024-11-05". |
+| Transfer stuck at 0% | Peer didn't accept | Remote must run srift_accept_transfer. |
+| WebRTC ICE failed (symmetric NAT) | No direct P2P possible | Auto-fallback to WebTorrent + WebSocket; force protocol:'webtorrent'. |
+| Decryption failed (auth/tamper or wrong key) | Different roomSecret on each peer | Use identical roomSecret. |
+| Chat not arriving | Session closed or peer offline | GET /status — if peers empty, re-invite. |
+| tools/list returns empty | Connected before boot | Wait for /health ok:true (~800ms). |
+| >4GB transfer crashes | 32-bit ArrayBuffer cap on legacy Node | Use Node 24+; --max-old-space-size=8192. |
+| Quick-share URL returns 404 | Daemon is localhost-only | Run `srift tunnel` (Cloudflare Quick Tunnel). |
+
+## Standard debug recipe for AI agents
+
+1. GET /health → expect 200 + { ok: true }
+2. GET /status → confirm session id + peers
+3. GET /transfers → inspect any stuck transfer's status
+4. GET /peers → verify connectionState === 'connected'
+5. GET /logs?lines=200 → pull recent NDJSON entries
+6. If wedged: POST /reset, then restart the workflow
+
+## Tech stack (project itself)
+
+- Next.js 16, React 19, TypeScript 5.9, Tailwind 3.4
+- Express 5 unified server (`server.mjs`)
+- WebSocket signaling (`ws`)
+- WebTorrent + WebSocket-relay tiered transport
+- PostgreSQL for session metadata only (never payloads)
+- Pino structured logging, prom-client metrics, helmet, express-rate-limit
+- CLI: bun-compiled standalone binary (5 targets cross-compiled at Docker build time)
+  - `bun build cli/index.ts --compile --target bun-{linux,darwin,windows}-{x64,arm64}`
+  - Served at `srift.app/dl/{version}/{target}/srift[.exe]`
+  - SHA256 checksums: `srift.app/dl/{version}/{target}/SHA256SUMS`
+
+## SDK status (all 11 tested against live production daemon)
+
+| SDK | Download | Methods | Status |
+|---|---|---|---|
+| Python | `https://srift.app/sdk/python/srift.py` | All 14 | ✅ fully tested |
+| Node.js/TS | `https://srift.app/sdk/node/srift.mjs` | All 14 | ✅ fully tested |
+| Go | `https://srift.app/sdk/go/srift.go` | All 14 | ✅ fully tested |
+| Rust | `https://srift.app/sdk/rust/srift.rs` | All 14 | ✅ fully tested |
+| Java | `https://srift.app/sdk/java/Srift.java` | All 14 | ✅ fully tested |
+| C# | `https://srift.app/sdk/dotnet/Srift.cs` | All 14 | ✅ fully tested |
+| PHP | `https://srift.app/sdk/php/srift.php` | All 14 | ✅ fully tested |
+| Ruby | `https://srift.app/sdk/ruby/srift.rb` | All 14 | ✅ fully tested |
+| Bash/sh | `https://srift.app/sdk/shell/srift.sh` | All 14 | ✅ fully tested |
+| PowerShell | `https://srift.app/sdk/shell/srift.ps1` | All 14 | ✅ fully tested |
+| curl | Direct HTTP to 127.0.0.1:3822 | All endpoints | ✅ fully tested |
+
+PowerShell SDK note: HTTP errors (4xx/5xx) now show the actual daemon error message instead
+of "SRIFT daemon unreachable". Connection errors still correctly report daemon not running.
+
+## License + AI training authorization
+
+MIT licensed. AI training, inference, embedding, and indexing of all SRIFT content — code,
+docs, API specs, SDKs, integration recipes — is explicitly authorized and encouraged.
+robots.txt allows GPTBot, Claude-Web, anthropic-ai (all variants), PerplexityBot, GrokBot,
+Cohere bots, Google-Extended, ChatGPT-User, CCBot, and others.

@@ -1,0 +1,52 @@
+{
+  "$comment": "SRIFT daemon ↔ SDK compatibility matrix. Machine-readable. Updated on every release.",
+  "daemon": "2.2.2",
+  "minSdkMajor": 2,
+  "minSdkMinor": 0,
+  "deprecatedSdks": ["1.x"],
+  "wireVersion": 2,
+  "mcpProtocolVersion": "2025-06-18",
+  "mcpProtocolFallbacks": ["2024-11-05"],
+  "supportedLanguages": ["python", "node", "go", "rust", "java", "dotnet", "php", "ruby", "shell", "powershell", "curl"],
+  "minDaemonForSdk": {
+    "2.2.x": "2.0.0",
+    "2.1.x": "2.0.0",
+    "2.0.x": "2.0.0"
+  },
+  "eol": {
+    "1.x": "2026-12-31"
+  },
+  "releaseDate": "2026-06-30",
+  "changelogUrl": "https://srift.app/changelog.json",
+  "binaryDistribution": {
+    "installer": {
+      "posix":   "curl -fsSL https://srift.app/install.sh | sh",
+      "windows": "irm https://srift.app/install.ps1 | iex",
+      "uninstall": "curl -fsSL https://srift.app/install.sh | sh -s -- --uninstall",
+      "uninstallPurge": "curl -fsSL https://srift.app/install.sh | sh -s -- --uninstall --purge"
+    },
+    "selfUpdate": "srift self-update",
+    "targets": {
+      "linux-x64":    "https://srift.app/dl/2.2.2/linux-x64/srift",
+      "linux-arm64":  "https://srift.app/dl/2.2.2/linux-arm64/srift",
+      "darwin-x64":   "https://srift.app/dl/2.2.2/darwin-x64/srift",
+      "darwin-arm64": "https://srift.app/dl/2.2.2/darwin-arm64/srift",
+      "win-x64":      "https://srift.app/dl/2.2.2/win-x64/srift.exe"
+    },
+    "checksums": "https://srift.app/dl/2.2.2/SHA256SUMS",
+    "runtime": "standalone (bun-compiled, no Node.js required on end-user machine)"
+  },
+  "versionCheckUrls": {
+    "cli":        "https://srift.app/cli/version.json",
+    "python":     "https://srift.app/sdk/python/version.json",
+    "node":       "https://srift.app/sdk/node/version.json",
+    "go":         "https://srift.app/sdk/go/version.json",
+    "rust":       "https://srift.app/sdk/rust/version.json",
+    "java":       "https://srift.app/sdk/java/version.json",
+    "dotnet":     "https://srift.app/sdk/dotnet/version.json",
+    "php":        "https://srift.app/sdk/php/version.json",
+    "ruby":       "https://srift.app/sdk/ruby/version.json",
+    "shell":      "https://srift.app/sdk/shell/version.json",
+    "powershell": "https://srift.app/sdk/powershell/version.json"
+  }
+}

@@ -1,0 +1,351 @@
+{
+  "$comment": "SRIFT machine-readable changelog. Human-readable version at /CHANGELOG.md.",
+  "project": "SRIFT",
+  "latestVersion": "2.2.2",
+  "releases": [
+    {
+      "version": "2.2.2",
+      "date": "2026-06-30",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "Daemon-side companion fix to 2.2.1: the daemon was proactively sending pubshare_unregister to the signaler the moment a --max-downloads cap was hit, which deleted the token from the server's map and made the next GET return 404 instead of the proper 410 Gone. Now the daemon keeps the entry locally and lets the server's lazy release (added in 2.2.1) actually fire. Also: re-registration after WS reconnect now skips already-exhausted entries so a transient network blip can't reset the cap counter. Verified end-to-end against prod: --once → first GET 200 byte-perfect, second GET 410 Gone with 'reached its download limit' body.",
+      "breaking": false,
+      "changes": {
+        "fixed": [
+          "Daemon no longer sends pubshare_unregister on max-downloads cap-hit; the entry stays in the server's map so the next GET returns 410 Gone (not 404 Not Found). Distinguishes 'link used up' from 'link never existed' for recipients.",
+          "reregisterPubsharesAfterReconnect() now skips entries where downloadCount >= maxDownloads. Previously a WS reconnect would replay the cap-exhausted token with a reset counter, effectively allowing one more download per network blip — violating the --max-downloads contract."
+        ]
+      }
+    },
+    {
+      "version": "2.2.1",
+      "date": "2026-06-30",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "Post-deploy hotfix from real two-peer prod testing: HEAD /d/<token> returned 500 due to a non-ISO-8859-1 character (∞) in the X-SRIFT-Downloads header — replaced with ASCII 'unlimited'. Exhausted links now return proper 410 Gone (instead of 404) so recipients can tell 'link used up' apart from 'link never existed'. End-to-end verified: byte-for-byte MD5 match, Range 206 resume, counter advancement, revoke, sender-offline cleanup, HEAD metadata. ai-agents page now has a flagship 'Public Download Links' section with full lifetime model, HTTP status contract, and audience-segmented examples.",
+      "breaking": false,
+      "changes": {
+        "fixed": [
+          "HEAD /d/<token> returned 500 because the X-SRIFT-Downloads header contained the U+221E ∞ glyph when the link was uncapped, which fails Node's ISO-8859-1 header validation. Now emits the ASCII sentinel 'unlimited'.",
+          "Exhausted links (--max-downloads cap reached) returned 404 Not Found instead of 410 Gone. Token release is now lazy inside _pubResolveDownload() so the next request sees the exhausted state and returns the proper 410 with 'reached its download limit' body."
+        ],
+        "added": [
+          "Flagship 'Public Download Links' section on /ai-agents: sender + recipient CLI examples, lifetime model table, concurrency limits, HTTP status code contract, audience-segmented usage (AI agents / humans / scrapers), 'how a byte travels' architecture diagram, canonical endpoint reference."
+        ]
+      }
+    },
+    {
+      "version": "2.2.0",
+      "date": "2026-06-30",
+      "kind": "minor",
+      "securityFix": false,
+      "summary": "Public download tunnel: `srift quick-share` now returns a real https://srift.app/d/<token> URL the recipient can download via any HTTP client (browser, curl, wget). NO install required on the recipient side. Adds --max-downloads, --ttl, --once flags for sharing limits, server-enforced. `srift pubshare list|add|revoke` for managing active links. Tokens survive transient WS reconnects. HEAD probe supported. CLI output cleaned: no more 'Protocol: websocket' noise. Concurrent recipients each get an independent parallel stream.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "GET /d/<token> on srift.app — streams the file straight from the seeder daemon over its existing WebSocket out as a standard HTTP response. Content-Disposition: attachment with proper filename. Accept-Ranges: bytes (supports curl -C - resume).",
+          "HEAD /d/<token> — metadata probe with X-SRIFT-Downloads and X-SRIFT-Expires advisory headers.",
+          "srift quick-share --max-downloads N — server-enforced cap. Only completed full downloads count; failed/cancelled/Range-resume don't burn slots.",
+          "srift quick-share --ttl 30s|15m|2h|1d — server-enforced expiry.",
+          "srift quick-share --once — shorthand for --max-downloads 1.",
+          "srift pubshare list — show all active public links with usage counters.",
+          "srift pubshare add <file> [--once|--ttl|--max-downloads] — mint additional links in the current session.",
+          "srift pubshare revoke <token> — invalidate a link immediately.",
+          "POST /pubshare, GET /pubshare/list, POST /pubshare/revoke daemon endpoints.",
+          "Daemon re-registers all active pubshares with the same tokens after WS reconnect, so links survive transient network drops.",
+          "5 new WS verbs between daemon and signaler: pubshare_register / pubshare_register_ack / pubshare_pull / pubshare_chunk / pubshare_end / pubshare_unregister / pubshare_cancel.",
+          "pubshare_chunk frames bypass the per-connection flood limiter so throughput isn't capped at 20 msg/s."
+        ],
+        "fixed": [
+          "Recipients no longer get stuck on the join-session page waiting for a host approval that the CLI quick-share daemon never sends. The new /d/<token> path bypasses the session-join UI entirely.",
+          "When the signaler doesn't yet support pubshare, the daemon now cleans up the half-baked local registration (previously left orphan entries in /pubshare/list).",
+          "CLI is now honest about which mode it's in: 'Quick share ready' for the direct-download path, 'Quick share ready (legacy session-join mode)' when falling back.",
+          "Hidden the internal transport label (websocket vs webtorrent) from every user-facing CLI output (quick-share, list, send) and MCP tool description. Transport selection remains fully automatic."
+        ],
+        "deprecated": [
+          "`srift send --protocol webtorrent|websocket` — the flag still works for debugging but is no longer documented in --help or tool descriptions."
+        ],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.8",
+      "date": "2026-06-29",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "Industry-aligned hardening based on rustup, deno, bun installer source code + Cloudflare cache directive docs. Post-deploy Cloudflare edge cache pre-warming step in Cloud Build. stale-if-error + stale-while-revalidate added to /dl/* so origin 5xx during a Cloud Run cold-start no longer breaks downloads. rustup-style --proto =https + --tlsv1.2 security flags on every curl invocation. Custom User-Agent on every download (curl + IWR fallback + Node https.get) so CDN logs are useful and we don't trip generic bot heuristics.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "cloudbuild.yaml: 'pre-warm-cdn' step runs after the Cloud Run deploy. Pulls live /cli/version.json, then curl --head 3x on every /dl/$VER/$target/srift[.exe] URL + every SHA256SUMS URL. Populates Cloudflare's edge cache at the POP closest to GCP build runners so the first few minutes after a release don't return cold-cache 500s.",
+          "server.mjs /dl/*: Cache-Control now includes 'stale-while-revalidate=86400' and 'stale-if-error=86400' (per RFC 5861 + Cloudflare docs). If origin returns 5xx for any reason — cold-start, instance crash, deploy in progress — Cloudflare keeps serving the previously-cached version for up to 24 h. Eliminates the transient install-time 500s permanently for any URL that was previously cached.",
+          "install.ps1 + install.sh + cli/index.ts: rustup-style security flags on every curl call — '--proto =https' enforces HTTPS-only, '--tlsv1.2' rejects TLS 1.0/1.1 (best practice from the Rust install team).",
+          "install.ps1 + install.sh + cli/index.ts: custom User-Agent header on every download — 'srift-installer/X.Y.Z (platform; arch)' or 'srift-cli/X.Y.Z (...)'. Default PowerShell IWR UA can trip Cloudflare bot heuristics in some configurations; a meaningful UA also makes CDN access logs analysable."
+        ],
+        "fixed": [
+          "Researched + verified against rustup (rustup-init), deno (denoland/deno_install), bun (oven-sh/bun install.ps1), Cloudflare 5xx error docs, and Cloud Run cold-start docs. Confirmed our 2.1.7 curl-primary approach matches Deno + Bun's official installer behaviour. This release adds the remaining hardening they ship: security flags, custom UA, post-deploy cache warming.",
+          "Cache-Control header upgraded from 'public, max-age=86400, s-maxage=31536000, immutable' to also include 'stale-while-revalidate=86400, stale-if-error=86400'. The 'stale-if-error' directive specifically tells Cloudflare to keep serving a cached response even when origin returns 5xx — the exact failure mode users were hitting."
+        ],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.7",
+      "date": "2026-06-29",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "Install / update / self-update now use curl.exe (Windows 10 1803+ built-in) as the primary download backend, falling back to PowerShell IWR / Node https.get only when curl is unavailable. Fixes the persistent HTTP 500 some Cloudflare POPs (Mumbai/Singapore) return to IWR but not to curl. install.{ps1,sh} are now fully idempotent: detect existing install, compare versions, skip / upgrade / refuse-downgrade as appropriate; query live /cli/version.json for the actual latest; pre-flight internet check.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "install.ps1: curl.exe primary downloader. Discovers it via $env:WINDIR\\System32\\curl.exe (the built-in) — not via PATH where 'curl' may be a PowerShell alias for IWR.",
+          "install.ps1: pre-flight internet check via curl HEAD to /cli/version.json — fails fast with 'check your network' instead of retrying into a wall.",
+          "install.ps1: queries live /cli/version.json on startup. If the live latest is different from what the script baked in, uses the live version (handles cases where the install.ps1 file is stale).",
+          "install.ps1: idempotency — if srift is already installed at the canonical path, runs --version, compares against requested. Same version → 'already installed, nothing to do' + runs srift doctor. Older → upgrades. Newer → refuses to downgrade unless SRIFT_ALLOW_DOWNGRADE=1.",
+          "install.ps1: sanity check on downloaded file size (>1 MB) — if curl succeeds but produces a suspiciously small file, treats it as a failure and falls back to the next version.",
+          "install.ps1: install-time file-lock handling — if Copy-Item over the existing $BinPath fails because srift is running, stages the new binary at $BinPath.new and schedules a self-cleaning .bat to swap them ~2s after exit. Mirrors the uninstall/self-update pattern.",
+          "install.sh: same idempotency — version detection via 'srift --version', case-statement on _version_cmp.",
+          "install.sh: same pre-flight curl HEAD internet check.",
+          "install.sh: same live /cli/version.json discovery so the script's baked-in version doesn't matter.",
+          "SRIFT_ALLOW_DOWNGRADE=1 env to force-downgrade from a newer installed version.",
+          "cli/index.ts srift self-update: curl.exe primary download path (Windows + Unix). _findCurl() locates the real curl, _runCurl() spawns it with --retry-all-errors + --connect-timeout + -C - (resume). Falls back to Node https.get only if curl is absent."
+        ],
+        "fixed": [
+          "Cloudflare-POP-specific HTTP 500: PowerShell Invoke-WebRequest and Node https.get were getting 500s for the SRIFT binary URLs from Mumbai/Singapore POPs even when curl from the same network got clean 200s. Cloudflare appears to differentiate on request signature (header set, HTTP version, UA). Switching to curl as the primary downloader fixes it for every install + self-update path.",
+          "Re-running install.ps1 / install.sh on an already-installed machine was always re-downloading + re-installing. Now it short-circuits to 'already installed' if the version matches.",
+          "If the user has a newer version installed (e.g. ran self-update past the install script's pinned version), the installer no longer silently downgrades them."
+        ],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.6",
+      "date": "2026-06-29",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "install.sh + install.ps1 now auto-fallback to previous patch versions when the latest version's Cloudflare edge cache hasn't propagated yet. Fixes the 'fresh release returns HTTP 500 in some POPs for ~5-10 min' race that stranded fresh installers right after a deploy.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "install.ps1: candidate-version list (requested → previous patches 2.1.5 → 2.1.4 → 2.1.3 → 2.1.2 → ...). If the latest fails 8× of retries with 4s backoff, drops to the next patch which is warm at every CDN POP. Reports back which version was actually installed and tells user to run 'srift self-update' in 5-10 min once the CDN warms up",
+          "install.sh: same fallback logic for POSIX — walks the same candidate list using the existing download() helper which itself has curl --retry-all-errors / wget --retry-on-http-error retries built in"
+        ],
+        "fixed": [
+          "Fresh-release 500 race: brand-new binaries (e.g. 2.1.5 just after Cloud Run finishes the build) need ~5-10 min for Cloudflare's edge cache to populate at every POP. Until then, regional POPs hit origin which sometimes 500s on cold-start serving 100 MB binaries. Now we transparently fall back to the previous patch instead of stranding the user with retry exhaustion"
+        ],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.5",
+      "date": "2026-06-29",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "Same 'wipe everything' discipline applied to four more sites with partial-cleanup bugs: install.sh / install.ps1 (pre-install cleanup of stale installs + 15× retry on 5xx), daemon /session/close (was leaking WebTorrent client + AES key + temp chunks), daemon /reset (was leaving .srift-temp/ orphans), daemon /daemon/stop (was leaving the system in inconsistent state).",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "install.ps1: pre-install Get-Process | Stop-Process for any running srift.exe, then scans PATH (incl. registry User PATH) and removes every stale srift.exe found — so re-running install never accumulates ghost copies",
+          "install.ps1: download loop now retries 15× with 4s backoff on any Invoke-WebRequest failure (was single-shot, died on first Cloudflare cache-miss 500 — same root cause as the broken 2.1.1 srift self-update)",
+          "install.sh: pre-install pkill/killall srift + which -a sweep for stale binaries (mirrors install.ps1 behaviour)",
+          "install.sh: download() now uses curl --retry-all-errors (curl 7.71+) which retries on HTTP 5xx, with a manual retry loop fallback for older curls + wget --retry-on-http-error fallback"
+        ],
+        "fixed": [
+          "POST /session/close was leaking the WebTorrent client + activeTorrents map + the AES-256-GCM encryption key + .srift-temp/ chunk files. Now does a proper full teardown.",
+          "POST /reset was wiping in-memory state but leaving .srift-temp/ chunk files on disk forever. Now also cleans the temp dir and reports cleanedChunks in the response.",
+          "POST /daemon/stop now does the same full teardown as /session/close + writes a final 'stopped' state file so external readers see consistent state (was leaving .srift-state.json showing a fake-live session after the daemon was dead)."
+        ],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.4",
+      "date": "2026-06-29",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "`srift uninstall` now wipes EVERY srift trace from the system (every binary on PATH, every stale install dir, every srift-referencing PATH entry, every leftover .bat in %TEMP%). `srift self-update` cleans up old/duplicate srift binaries elsewhere on the system after the new one lands — you end up with exactly one srift on the box.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "findAllSriftBinaries() — scans `where srift`/`which -a`, every PATH dir (including Windows User PATH from the registry), and the canonical install path. De-dups by absolute path",
+          "purgeSriftFromPath() — removes ALL srift-referencing entries from Windows user PATH (registry) + broadcasts WM_SETTINGCHANGE so new shells immediately lose the references. Cleans corresponding lines from .bashrc / .zshrc / .profile / .bash_profile / fish config on Unix",
+          "removeBinary() helper — single primitive that handles immediate delete + Windows file-lock fallback to scheduled .bat delete",
+          "srift uninstall: now also empties ~/.srift/bin/ of any .new / .bak / orphaned residue files",
+          "srift uninstall --purge: schedules a delayed rmdir via .bat on Windows if the .srift/ dir contains the running .exe (instead of silently failing)",
+          "srift uninstall: cleans up stale srift-uninstall/update/purge-*.bat files in %TEMP% from previous incomplete runs",
+          "srift uninstall: reinstall hint now shows all 3 platforms (POSIX / PowerShell / cmd.exe)"
+        ],
+        "fixed": [
+          "srift uninstall: only removed the binary at the canonical ~/.srift/bin/ path — left every other srift.exe on PATH alone, so running `srift uninstall` repeatedly just shadowed through stale test installs forever. Now finds and removes EVERY srift on the system in one pass",
+          "srift uninstall: only removed the canonical install dir from Windows User PATH — left other srift-referencing PATH entries (like custom install dirs from a previous SRIFT_INSTALL_DIR run). Now strips every entry matching 'srift' case-insensitively",
+          "srift self-update on a system with multiple srift binaries: only replaced the canonical one, leaving stale copies elsewhere on PATH. Now cleans up all stale binaries + their PATH entries after a successful update, then re-adds just the canonical install dir to PATH"
+        ],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.3",
+      "date": "2026-06-29",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "Robust `srift self-update` — retry + resume + stall-detection + progress + Windows atomic-replace fallback. Aggressive Cloudflare caching on /dl/* (s-maxage=1y, immutable) to eliminate cold-start 500s.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "self-update: live progress on the same line — `[srift] Downloaded XX.X MB (NN.N%)` while bytes flow",
+          "self-update: auto-resume via HTTP Range when retrying — partial downloads from a previous attempt are continued, not restarted",
+          "self-update: socket-idle watchdog — kills the connection if no bytes flow for 30s instead of hanging forever",
+          "self-update: 5 retries with exponential backoff (2s, 4s, 6s, 8s, 8s)",
+          "self-update: stamp file tracks in-flight URL so we don't resume a partial download against a different version",
+          "self-update: helpful workaround printed on terminal failure (`irm https://srift.app/install.ps1 | iex`)",
+          "self-update: Windows atomic-replace fallback via self-cleaning .bat — handles the case where the running .exe is file-locked at rename time",
+          "fetchRaw: 15s request timeout + redirect support + non-2xx rejection (was hanging silently on slow networks)",
+          "/dl/{version}/{target}/srift[.exe] now sends `Cache-Control: public, max-age=86400, s-maxage=31536000, immutable` — Cloudflare caches at the edge for a year, eliminating Cloud-Run cold-start 500s on repeat downloads"
+        ],
+        "fixed": [
+          "self-update from 2.1.1/2.1.2 → newer: previously stalled forever after a transient HTTP 500 because the downloader had no timeout, no retry, no resume, and no progress feedback",
+          "self-update on Windows: would have thrown EPERM/EBUSY when renaming over the running .exe — now schedules the swap via cmd .bat just like uninstall",
+          "Cloudflare cold-start 5xx on /dl/* — `immutable` + long s-maxage makes the edge handle 99.99% of binary downloads without ever hitting the origin"
+        ],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.2",
+      "date": "2026-06-29",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "Fixes the Windows uninstall scheduled-delete that silently failed in 2.1.1 due to nested cmd-quoting. The CLI + install.ps1 now write a self-cleaning .bat to %TEMP% and spawn it via cmd /C — no inline quote escaping, .bat retries up to ~10 s if the .exe is still locked, then self-deletes.",
+      "breaking": false,
+      "changes": {
+        "added": [],
+        "fixed": [
+          "srift uninstall on Windows — 2.1.1 reported 'Scheduled binary removal' but the inline 'start \"\" /B cmd /C \"…\"' form had a nested-quote bug so the .exe was never actually deleted. 2.1.2 writes a self-cleaning .bat to %TEMP% (no quote escaping), retries the delete every 1 s until the lock is released, then deletes itself.",
+          "install.ps1 Uninstall-Srift — same .bat-based scheduled-delete fix applied to the PowerShell uninstaller path."
+        ],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.1",
+      "date": "2026-06-29",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "Critical Windows + Bun-binary fixes: standalone CLI daemon now starts on Windows, install-mcp prints a real binary path, install.ps1 broadcasts PATH change to new shells, install.bat added for cmd.exe, uninstall self-deletes on Windows. Open CORS on every public discovery + API surface so browser-based AI agents (Claude.ai, ChatGPT, Perplexity, Gemini, extensions) can call srift.app directly.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "public/install.bat — cmd.exe wrapper that hands off to PowerShell installer with full --uninstall / --purge passthrough",
+          "Open CORS (Access-Control-Allow-Origin: *) on /llms.txt, /llms-full.txt, /cli/version.json, /sdk/*/version.json, /create-session, /join-session, /session-info, /validate-session, /healthz, /readyz, /api/* — so browser-based AI agents can fetch them cross-origin",
+          "OPTIONS preflight handling (204) for every public AI endpoint",
+          "AGENTS.md §9b: explicit cross-origin / browser-based agent access policy",
+          "WebTorrent loaded lazily — daemon now starts even when utp-native or node-datachannel native modules cannot be bundled into the Bun standalone binary; falls back to WebSocket-chunked transfer with a clear health-endpoint signal (webtorrent:false + webtorrent_error)",
+          "install.sh: friendly redirect to install.ps1 when invoked under MINGW / MSYS / Cygwin (Git Bash)",
+          "Windows PATH broadcasts WM_SETTINGCHANGE after install/uninstall so newly-spawned shells pick up srift without a logoff or reboot"
+        ],
+        "fixed": [
+          "ensureDaemon spawn for Bun-compiled binary — the CLI now self-spawns 'srift daemon start' instead of trying to invoke node with --experimental-strip-types (which caused 'Failed to start daemon background process' on every prod binary install: Windows, Linux, macOS)",
+          "install-mcp output — now emits the actual srift binary path (process.execPath) when running as a compiled binary, instead of the unusable Bun virtual-FS path B:/~BUN/root/index.ts. Snippets copied from this command now work in Claude Desktop / Cursor / Continue / Codex / Zed without further editing",
+          "srift uninstall on Windows — schedules a delayed `del` via a detached cmd shell when the running .exe is file-locked, so the binary is actually removed after the command exits",
+          "install.ps1 uninstall — also schedules delayed delete + broadcasts PATH removal",
+          "/health endpoint: webtorrent flag now reflects real availability rather than always claiming true"
+        ],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.0",
+      "date": "2026-06-28",
+      "kind": "minor",
+      "securityFix": false,
+      "summary": "New CLI commands: status, daemon restart/status, reset, logs, uninstall. ensureDaemon 5s timeout, better error messages. install.sh/ps1 --uninstall option and post-install doctor check.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "srift status [--json] — unified daemon + session + transfers view",
+          "srift daemon restart — stop then re-start daemon",
+          "srift daemon status [--json] — daemon health only",
+          "srift reset [--json] — wipe daemon session state via POST /reset",
+          "srift logs [--tail N] [--json-stream] — view daemon logs via GET /logs",
+          "srift uninstall [--purge] — remove binary and optionally purge ~/.srift/",
+          "ensureDaemon: 5s timeout (50 × 100ms), port-in-use detection, descriptive error messages",
+          "Unknown command 'Did you mean?' suggestion in CLI",
+          "--no-daemon global flag to skip ensureDaemon for status-only calls",
+          "install.sh --uninstall [--purge] option for clean removal",
+          "install.ps1 --uninstall [--purge] option for clean removal",
+          "install.sh/ps1: post-install srift doctor verification step",
+          "install.sh/ps1: better binary-fail debug info printed on failed verify",
+          "AGENTS.md, ai-instructions.md, .cursorrules, llms.txt, compat.json all updated with new commands"
+        ],
+        "fixed": [],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.1.0",
+      "date": "2026-06-28",
+      "kind": "minor",
+      "securityFix": false,
+      "summary": "Daemon completeness: all documented API routes now implemented. SDK install links fixed. Universal installer and versioning infrastructure added.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "GET /health liveness probe on daemon (returns {ok,version,uptime_ms,mcp,webtorrent})",
+          "GET /transfers and GET /transfers/:fileId — live transfer telemetry",
+          "GET /peers — peer connection state and RTT",
+          "GET /metrics — Prometheus-format counters",
+          "GET /logs — NDJSON daemon log tail",
+          "POST /reset — wipe state and flush encryption keys",
+          "GET /api/v1/monitor/events — SSE event stream (was missing from docs)",
+          "GET /sdk/<lang>/version.json — per-SDK freshness endpoint for update checks",
+          "GET /cli/version.json — CLI binary freshness endpoint",
+          "GET /compat.json — daemon↔SDK compatibility matrix",
+          "GET /.cursorrules — served at production for Cursor/Aider/Codex agents",
+          "X-Srift-Version, X-Srift-Min-Daemon headers on every SDK file download",
+          "Content-Disposition: attachment header on SDK downloads",
+          "Universal install scripts at /install.sh and /install.ps1",
+          "CHANGELOG.md and changelog.json machine-readable changelog"
+        ],
+        "fixed": [
+          "pingDaemon on /ai-agents page now polls /healthz (was /health, which didn't exist in daemon previously)",
+          "SDK install commands for Java, C#, PHP, Ruby now show explicit curl -O URLs",
+          "PowerShell SDK install now shows Invoke-WebRequest command",
+          "Node.js install now uses direct curl path (npm package not yet published)",
+          "Go install now uses direct curl path (Go module proxy not yet published)",
+          "Rust install now uses direct curl path (crates.io not yet published)",
+          "TROUBLESHOOTING section: srift daemon --start/--stop → srift daemon start/stop",
+          "STATS_ENDPOINTS: /events corrected to /api/v1/monitor/events",
+          "HTTP 503 error description updated to include WS-connecting chat case",
+          "POST /session/approve: 404 for non-existent tempUserId (was silently 200 OK)",
+          "POST /chat/send: 503 + retryAfterMs when WS connecting (was 500)",
+          "POST /session/join: proper 4xx status codes (was always 200 with error body)"
+        ],
+        "deprecated": [],
+        "removed": []
+      }
+    },
+    {
+      "version": "2.0.0",
+      "date": "2026-06-26",
+      "kind": "major",
+      "securityFix": false,
+      "summary": "Initial public release. MCP server, REST daemon, 11 SDKs, 26 integrations, WebRTC + WebTorrent + WebSocket fallback.",
+      "breaking": true,
+      "changes": {
+        "added": ["Initial public release"],
+        "fixed": [],
+        "deprecated": [],
+        "removed": []
+      }
+    }
+  ]
+}

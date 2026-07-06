@@ -1,0 +1,239 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SRIFT API",
+    "version": "2.2.2",
+    "summary": "Zero-config, zero-token P2P E2EE file transfer + chat for any AI agent or automation. Includes a public download tunnel at https://srift.app/d/<token> so recipients need nothing installed.",
+    "description": "Two API surfaces:\n\n  1. **Local daemon** at `http://127.0.0.1:3822` (recommended for AI agents — fully token-less).\n  2. **Public signaling** at `https://srift.app` (used by browser clients).\n\nFor AI agents, use the local daemon endpoints (everything under /quick-share, /session/*, /send, /receive, /chat/*, /mcp). Documentation: https://srift.app/AGENTS.md",
+    "contact": { "email": "support@sripto.tech" },
+    "license": { "name": "MIT" }
+  },
+  "servers": [
+    { "url": "http://127.0.0.1:3822", "description": "Local daemon (zero-auth, recommended for AI agents)" },
+    { "url": "https://srift.app", "description": "Public signaling server (browser clients)" }
+  ],
+  "tags": [
+    { "name": "agent", "description": "Zero-config endpoints designed for AI agents" },
+    { "name": "session", "description": "Session lifecycle" },
+    { "name": "transfer", "description": "File transfer (P2P with fallback)" },
+    { "name": "chat", "description": "E2EE chat" },
+    { "name": "mcp", "description": "Model Context Protocol transport" },
+    { "name": "monitor", "description": "Progress + state monitoring" },
+    { "name": "discovery", "description": "Discovery / health" }
+  ],
+  "paths": {
+    "/quick-share": {
+      "post": {
+        "tags": ["agent", "transfer"],
+        "summary": "ZERO-INSTALL delivery: ensure session + seed file + return a public download URL",
+        "description": "Primary entry point for AI agents. If no session is active, creates one. Seeds the file and registers it for public HTTP download. Returns a `downloadUrl` like `https://srift.app/d/<token>` the recipient can fetch with any HTTP client (browser, curl, wget) — SRIFT install on the recipient side is NOT required. Optional `maxDownloads` and `ttlMs` enforce sharing limits server-side; failed/cancelled downloads do not count against the cap. Tokens survive transient signaler reconnects.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["filePath"],
+                "properties": {
+                  "filePath":     { "type": "string", "description": "Absolute path to the file on the seeder's machine" },
+                  "sessionName":  { "type": "string", "description": "Optional label" },
+                  "maxDownloads": { "type": "integer", "minimum": 0, "description": "Cap after N completed downloads. 0 = unlimited." },
+                  "ttlMs":        { "type": "integer", "minimum": 0, "description": "Auto-expire the link after N milliseconds. 0 = never." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success":      { "type": "boolean" },
+                    "sessionId":    { "type": "string" },
+                    "fileId":       { "type": "string" },
+                    "downloadUrl":  { "type": "string", "format": "uri", "description": "https://srift.app/d/<token> — give this to the recipient" },
+                    "shareUrl":     { "type": "string", "format": "uri", "description": "Back-compat alias of downloadUrl (or the legacy session-join URL if the signaler doesn't support pubshare yet)" },
+                    "fileName":     { "type": "string" },
+                    "fileSize":     { "type": "integer" },
+                    "maxDownloads": { "type": "integer", "description": "0 = unlimited" },
+                    "expiresAt":    { "type": ["integer", "null"], "description": "Epoch ms, or null = never" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/pubshare": {
+      "post": {
+        "tags": ["agent", "transfer"],
+        "summary": "Register an additional file for public download in the current session",
+        "description": "Like /quick-share, but requires an already-active session. Use this to mint multiple download links from one daemon session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["filePath"],
+                "properties": {
+                  "filePath":     { "type": "string" },
+                  "maxDownloads": { "type": "integer", "minimum": 0 },
+                  "ttlMs":        { "type": "integer", "minimum": 0 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "OK" },
+          "409": { "description": "No active session" }
+        }
+      }
+    },
+    "/pubshare/list": {
+      "get": {
+        "tags": ["agent", "transfer"],
+        "summary": "List every active public download link with usage counters",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/pubshare/revoke": {
+      "post": {
+        "tags": ["agent", "transfer"],
+        "summary": "Invalidate a download token immediately",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["token"], "properties": { "token": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Unknown token" } }
+      }
+    },
+    "/d/{token}": {
+      "parameters": [
+        { "name": "token", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Issued by POST /quick-share or /pubshare" }
+      ],
+      "get": {
+        "tags": ["transfer", "discovery"],
+        "summary": "Public download tunnel — recipient downloads the file via standard HTTP",
+        "description": "Streams the file as a standard HTTP response from the seeder's daemon via the signaler. `Content-Disposition: attachment; filename=\"…\"` so browsers and `curl -OJ` / `wget --content-disposition` auto-name the file. Supports HTTP Range (`Accept-Ranges: bytes`) for resume. Honours `maxDownloads` and `ttlMs` set at registration time. Concurrent recipients each get an independent parallel stream.",
+        "responses": {
+          "200": { "description": "Full file" },
+          "206": { "description": "Partial content (Range)" },
+          "404": { "description": "Token unknown / expired / sender offline" },
+          "410": { "description": "Token expired or exhausted (max-downloads reached)" },
+          "416": { "description": "Range not satisfiable" },
+          "503": { "description": "Sender offline" },
+          "504": { "description": "Timed out waiting for first byte from sender" }
+        },
+        "servers": [{ "url": "https://srift.app" }]
+      },
+      "head": {
+        "tags": ["transfer", "discovery"],
+        "summary": "Metadata probe (size, filename, mime, X-SRIFT-Downloads, X-SRIFT-Expires)",
+        "responses": { "200": { "description": "OK" }, "404": { "description": "Token unknown" }, "410": { "description": "Expired or exhausted" }, "503": { "description": "Sender offline" } },
+        "servers": [{ "url": "https://srift.app" }]
+      }
+    },
+    "/status": { "get": { "tags": ["session", "monitor"], "summary": "Get session + transfers + pending join requests", "responses": { "200": { "description": "OK" } } } },
+    "/state": { "get": { "tags": ["monitor"], "summary": "Raw .srift-state.json snapshot", "responses": { "200": { "description": "OK" } } } },
+    "/session/start": {
+      "post": {
+        "tags": ["session"],
+        "summary": "Create a new session (you become host)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "sessionName": { "type": "string" }, "roomSecret": { "type": "string", "description": "Optional shared secret for stronger E2EE — never sent to server" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/session/join": {
+      "post": {
+        "tags": ["session"],
+        "summary": "Request to join an existing session",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["sessionId"], "properties": { "sessionId": { "type": "string", "description": "7-character session ID" }, "username": { "type": "string" }, "roomSecret": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/session/approve": {
+      "post": {
+        "tags": ["session"], "summary": "Host-only: approve a pending guest",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["tempUserId"], "properties": { "tempUserId": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/session/reject": {
+      "post": {
+        "tags": ["session"], "summary": "Host-only: reject a pending guest",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["tempUserId"], "properties": { "tempUserId": { "type": "string" }, "reason": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/session/kick": {
+      "post": {
+        "tags": ["session"], "summary": "Host-only: disconnect a peer",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["userId"], "properties": { "userId": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/session/close": { "post": { "tags": ["session"], "summary": "Close active session and flush keys", "responses": { "200": { "description": "OK" } } } },
+    "/send": {
+      "post": {
+        "tags": ["transfer"], "summary": "Offer a file to joined peers (in-session transfer; for public download links use /quick-share or /pubshare)",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["filePath"], "properties": { "filePath": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/receive": {
+      "post": {
+        "tags": ["transfer"], "summary": "Accept an inbound file offer",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["fileId"], "properties": { "fileId": { "type": "string" }, "saveDir": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/chat/send": {
+      "post": {
+        "tags": ["chat"], "summary": "Send an E2EE chat message",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/chat/history": { "get": { "tags": ["chat"], "summary": "Read decrypted chat log", "responses": { "200": { "description": "OK" } } } },
+    "/api/v1/monitor/events": {
+      "get": {
+        "tags": ["monitor"], "summary": "SSE event stream",
+        "description": "Server-sent events. Event types: `connection_state`, `join_request`, `file_offer`, `transfer_progress`, `chat_received`.",
+        "responses": { "200": { "description": "text/event-stream" } }
+      }
+    },
+    "/mcp": {
+      "post": { "tags": ["mcp"], "summary": "MCP JSON-RPC over Streamable HTTP (spec 2025-06-18)", "responses": { "200": { "description": "JSON-RPC response" } } },
+      "get": { "tags": ["mcp"], "summary": "MCP SSE event stream (server→client notifications)", "responses": { "200": { "description": "text/event-stream" } } }
+    },
+    "/mcp/sse": { "get": { "tags": ["mcp"], "summary": "Legacy MCP SSE transport (open stream, then POST /mcp/messages)", "responses": { "200": { "description": "text/event-stream" } } } },
+    "/mcp/messages": { "post": { "tags": ["mcp"], "summary": "Legacy MCP transport — POST JSON-RPC messages", "responses": { "200": { "description": "JSON-RPC response" } } } },
+    "/create-session": {
+      "post": {
+        "tags": ["session"], "summary": "Public signaling: create session (used by browser clients)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "username": { "type": "string" }, "name": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/join-session": {
+      "post": {
+        "tags": ["session"], "summary": "Public signaling: request join (used by browser clients)",
+        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "required": ["sessionId"], "properties": { "sessionId": { "type": "string" }, "username": { "type": "string" } } } } } },
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/healthz": { "get": { "tags": ["discovery"], "summary": "Liveness probe", "responses": { "200": { "description": "OK" } } } },
+    "/readyz": { "get": { "tags": ["discovery"], "summary": "Readiness probe (includes DB check)", "responses": { "200": { "description": "OK" } } } },
+    "/.well-known/mcp/server-card.json": { "get": { "tags": ["discovery", "mcp"], "summary": "MCP server card", "responses": { "200": { "description": "OK" } } } },
+    "/.well-known/ai-plugin.json": { "get": { "tags": ["discovery"], "summary": "OpenAI plugin manifest", "responses": { "200": { "description": "OK" } } } },
+    "/.well-known/agent.json": { "get": { "tags": ["discovery"], "summary": "Google A2A agent card", "responses": { "200": { "description": "OK" } } } },
+    "/.well-known/agent-skills/index.json": { "get": { "tags": ["discovery"], "summary": "AGNTCY skills registry", "responses": { "200": { "description": "OK" } } } }
+  },
+  "components": { "securitySchemes": {} },
+  "security": [],
+  "externalDocs": { "description": "Full agent manual", "url": "https://srift.app/AGENTS.md" }
+}

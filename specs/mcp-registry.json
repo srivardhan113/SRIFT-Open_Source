@@ -1,0 +1,152 @@
+{
+  "$comment": "SRIFT registry-submission manifest. Point any MCP / AI-agent / plugin directory at this file to auto-list SRIFT. Redistribution of these metadata fields (name, description, logo, URLs, tool list) for the purpose of directory / registry listing is pre-granted worldwide, royalty-free, in perpetuity. No email required.",
+  "schema": "https://srift.app/schemas/registry-manifest/v1.json",
+  "version": "1.0.0",
+  "updated": "2026-07-01",
+  "product": {
+    "id": "srift",
+    "slug": "srift",
+    "name": "SRIFT",
+    "displayName": "SRIFT — Secure P2P File Transfer + E2EE Chat",
+    "tagline": "Zero-config, zero-token peer-to-peer file transfer and encrypted chat for humans AND AI agents.",
+    "shortDescription": "Send files and chat securely, peer-to-peer, with military-grade AES-256 encryption. No accounts, no cloud storage, no API keys. Local MCP server + CLI for AI agents; web app for humans.",
+    "longDescription": "SRIFT is a zero-config, zero-token, peer-to-peer file transfer and end-to-end-encrypted chat platform built for both humans (https://srift.app) and AI agents (local daemon on 127.0.0.1:3822). It exposes a Model Context Protocol server (stdio + Streamable HTTP + SSE), an OpenAPI 3.1 REST surface, and a native CLI. Any LLM — Claude, GPT-4/5, Gemini, Grok, Perplexity, Cursor, Continue, Cline, Aider, Goose, Zed, Codex — can call `srift_quick_share` and hand back a public https://srift.app/d/<token> URL that the human recipient downloads with any HTTP client (browser, curl, wget) with nothing installed on their side. AES-256-GCM, PBKDF2 100k, WebRTC/WebTorrent/WebSocket transport, zero server-side plaintext, zero telemetry.",
+    "homepage": "https://srift.app",
+    "documentation": "https://srift.app/AGENTS.md",
+    "aiAgentHub": "https://srift.app/ai-agents",
+    "repository": "https://github.com/SRIPTO-Tech/srift-website",
+    "issues": "https://github.com/SRIPTO-Tech/srift-website/issues",
+    "license": "Proprietary — free forever, no premium tier",
+    "logo": "https://srift.app/Favicon/android-chrome-512x512.png",
+    "logoSquare": "https://srift.app/Favicon/apple-touch-icon.png",
+    "screenshot": "https://srift.app/opengraph-image",
+    "categories": [
+      "file-transfer",
+      "secure-communication",
+      "mcp-server",
+      "ai-agent-tool",
+      "peer-to-peer",
+      "developer-tool",
+      "cli"
+    ],
+    "tags": [
+      "mcp", "model-context-protocol", "file-transfer", "p2p", "webrtc", "webtorrent",
+      "aes-256", "end-to-end-encryption", "e2ee", "zero-knowledge", "no-cloud",
+      "no-signup", "cli", "openapi", "a2a", "agent2agent", "agntcy", "openai-plugin",
+      "claude-mcp", "cursor", "continue-dev", "cline", "aider", "zed", "goose", "codex"
+    ]
+  },
+  "author": {
+    "name": "Sripto Corporation Private Limited",
+    "url": "https://sripto.tech",
+    "email": "sripto@srift.app",
+    "twitter": "@Sripto_tech"
+  },
+  "discovery": {
+    "llmsTxt": "https://srift.app/llms.txt",
+    "llmsFullTxt": "https://srift.app/llms-full.txt",
+    "agentsMd": "https://srift.app/AGENTS.md",
+    "aiInstructions": "https://srift.app/ai-instructions.md",
+    "openapi": "https://srift.app/openapi.json",
+    "mcpServerCard": "https://srift.app/.well-known/mcp/server-card.json",
+    "aiPluginManifest": "https://srift.app/.well-known/ai-plugin.json",
+    "a2aAgentCard": "https://srift.app/.well-known/agent.json",
+    "agntcySkills": "https://srift.app/.well-known/agent-skills/index.json",
+    "aiTxt": "https://srift.app/.well-known/ai.txt",
+    "securityTxt": "https://srift.app/.well-known/security.txt",
+    "sitemap": "https://srift.app/sitemap.xml",
+    "feed": "https://srift.app/feed.xml",
+    "changelog": "https://srift.app/changelog.json"
+  },
+  "install": {
+    "posix": "curl -fsSL https://srift.app/install.sh | sh",
+    "powershell": "irm https://srift.app/install.ps1 | iex",
+    "cmd": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"irm https://srift.app/install.ps1 | iex\"",
+    "npm": "npm install -g srift",
+    "docker": "docker run --rm -it -p 3822:3822 sriptotech/srift",
+    "postInstall": "srift install-mcp   # auto-writes MCP config to Claude Desktop, Cursor, Continue, Zed, Cline, Goose, Aider"
+  },
+  "mcp": {
+    "supportedProtocolVersions": ["2025-06-18", "2025-03-26", "2024-11-05"],
+    "transports": [
+      {
+        "type": "stdio",
+        "command": "srift",
+        "args": ["mcp"],
+        "recommendedFor": ["claude-desktop", "cursor", "continue-dev", "zed", "cline", "goose", "aider", "codex", "roo", "openhands", "devin"]
+      },
+      {
+        "type": "streamable-http",
+        "url": "http://127.0.0.1:3822/mcp"
+      },
+      {
+        "type": "sse",
+        "url": "http://127.0.0.1:3822/mcp/sse",
+        "postUrl": "http://127.0.0.1:3822/mcp/messages"
+      }
+    ],
+    "tools": [
+      "srift_quick_share", "srift_start_session", "srift_join_session",
+      "srift_session_status", "srift_close_session", "srift_approve_join",
+      "srift_reject_join", "srift_kick_user", "srift_send_file",
+      "srift_accept_transfer", "srift_list_transfers", "srift_send_chat",
+      "srift_chat_history", "srift_read_state"
+    ],
+    "auth": "none"
+  },
+  "clientConfigSnippets": {
+    "claudeDesktop": {
+      "path": "%APPDATA%\\Claude\\claude_desktop_config.json (Windows) / ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)",
+      "config": {
+        "mcpServers": {
+          "srift": { "command": "srift", "args": ["mcp"] }
+        }
+      }
+    },
+    "cursor": {
+      "path": "~/.cursor/mcp.json",
+      "config": {
+        "mcpServers": {
+          "srift": { "command": "srift", "args": ["mcp"] }
+        }
+      }
+    },
+    "continueDev": {
+      "path": "~/.continue/config.yaml",
+      "config": {
+        "mcpServers": [
+          { "name": "srift", "command": "srift", "args": ["mcp"] }
+        ]
+      }
+    },
+    "zed": {
+      "path": "~/.config/zed/settings.json",
+      "config": {
+        "context_servers": {
+          "srift": { "command": { "path": "srift", "args": ["mcp"] } }
+        }
+      }
+    },
+    "cline": {
+      "config": {
+        "mcpServers": {
+          "srift": { "command": "srift", "args": ["mcp"] }
+        }
+      }
+    }
+  },
+  "featured": {
+    "usp": [
+      "Recipient needs NOTHING installed — public https download link from an in-agent tool call",
+      "Zero API keys, zero OAuth, zero registration — the daemon binds to 127.0.0.1 only",
+      "End-to-end AES-256-GCM; server sees only ciphertext",
+      "Works with every major AI coding client via MCP stdio",
+      "Same daemon exposes REST/OpenAPI for non-MCP agents"
+    ]
+  },
+  "redistributionLicense": {
+    "grant": "You may copy the fields in this file (name, description, logo, URLs, tool list, snippets) into your registry, directory, catalog, marketplace, awesome-list, or index listing for SRIFT — worldwide, royalty-free, in perpetuity, without prior written permission.",
+    "attribution": "Attribution 'SRIFT (https://srift.app)' is appreciated but not required.",
+    "warranty": "Provided AS-IS."
+  }
+}

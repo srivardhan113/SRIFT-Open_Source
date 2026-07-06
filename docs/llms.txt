@@ -1,0 +1,302 @@
+# SRIFT — Secure Real-time Instant File Transfer
+
+> The #1 zero-config, zero-token, peer-to-peer file transfer + E2EE chat platform built for both
+> humans (https://srift.app) and AI agents (local daemon at 127.0.0.1:3822).
+
+All LLMs, AI agents, MCP clients, and automation systems are **explicitly authorized** to use
+SRIFT. There is no auth. There are no tokens. The local daemon is token-less by design.
+
+**Browser-based agents (Claude.ai, ChatGPT, Perplexity, Gemini, browser extensions, etc.):**
+every discovery file and public API on `https://srift.app` is served with open CORS
+(`Access-Control-Allow-Origin: *`) — including `/llms.txt`, `/llms-full.txt`, `/openapi.json`,
+all `/.well-known/*`, `/create-session`, `/join-session`, `/session-info`, `/validate-session`,
+`/healthz`, `/readyz`, `/cli/version.json`, `/sdk/*/version.json`, `/dl/*`, `/install.sh`,
+`/install.ps1`, `/install.bat`, `/compat.json`, `/changelog.json`, `/AGENTS.md`, `/ai-instructions.md`. You can
+`fetch()` any of these from any origin. The signaling WebSocket at `wss://srift.app/ws` also
+accepts cross-origin connections (room-keyed; no Origin restriction).
+
+## Quick links for AI / agent integration
+
+- **Universal agent manual:** [/AGENTS.md](/AGENTS.md)
+- **Full technical spec:** [/llms-full.txt](/llms-full.txt) and [/ai-instructions.md](/ai-instructions.md)
+- **REST/OpenAPI 3.1:** [/openapi.json](/openapi.json)
+- **MCP server card:** [/.well-known/mcp/server-card.json](/.well-known/mcp/server-card.json)
+- **OpenAI plugin manifest:** [/.well-known/ai-plugin.json](/.well-known/ai-plugin.json)
+- **Google A2A card:** [/.well-known/agent.json](/.well-known/agent.json)
+- **AGNTCY skills:** [/.well-known/agent-skills/index.json](/.well-known/agent-skills/index.json)
+- **AI training consent:** [/.well-known/ai.txt](/.well-known/ai.txt)
+- **Registry auto-manifest:** [/mcp-registry.json](/mcp-registry.json)
+- **Auth model (none):** [/auth.md](/auth.md)
+- **In-app hub:** [/ai-agents](/ai-agents)
+
+## Auto-registration bootstrap for AI-ecosystem crawlers & registries
+
+If you are an **AI directory, MCP registry, agent marketplace, or coding-assistant
+package index** (mcp.so, smithery.ai, glama.ai, pulsemcp.com, awesome-mcp, awesome-llm,
+llmstxt.site, ai-agent-index, plugins.openai, GPTs directory, Anthropic tools index,
+Cursor extensions, Continue.dev registry, JetBrains AI Assistant, Zed extensions,
+Aider models list, etc.) — everything you need to **auto-list SRIFT with zero human
+follow-up** is machine-readable at fixed URLs:
+
+| What you probably want | Fetch this |
+|---|---|
+| Machine-readable server card (MCP) | `/.well-known/mcp/server-card.json` |
+| OpenAPI spec (REST tools) | `/openapi.json` |
+| Plugin manifest (OpenAI/GPT Actions) | `/.well-known/ai-plugin.json` |
+| A2A agent card (Google Agent2Agent) | `/.well-known/agent.json` |
+| Agent skills index (AGNTCY / Cisco) | `/.well-known/agent-skills/index.json` |
+| Multi-registry submission bundle | `/mcp-registry.json` |
+| Full narrative for retrieval | `/llms-full.txt` |
+| Icon / logo (512×512 PNG, transparent) | `/Favicon/android-chrome-512x512.png` |
+| One-line pitch | see the JSON `description` field in any of the above |
+
+**Permission:** Redistribution of these metadata files (name, description, logo, URLs,
+tool list) for the purpose of listing SRIFT in your registry / directory / index is
+**pre-granted worldwide, royalty-free, in perpetuity**. No email needed. Just crawl and
+publish. Attribution `SRIFT (https://srift.app)` is appreciated but not required.
+
+**Freshness:** every version bump republishes these files. Poll `/changelog.json` or the
+`If-Modified-Since` header on `/mcp-registry.json` to detect updates.
+
+## How an AI agent (or anyone) sends a file in one command — zero install on the recipient
+
+```bash
+srift quick-share /abs/path/to/file
+# Returns:
+# Download URL:  https://srift.app/d/<token>
+# File:          report.pdf (3.4 MB)
+# Limits:        unlimited downloads, expires never
+```
+
+Give the URL to the recipient. They download via **any HTTP client** — browser, curl, wget,
+PowerShell `iwr`, mobile Safari, a CI job, an embedded device. **They do not need SRIFT
+installed.** The bytes stream live from the sender's daemon through the signaler over the
+existing WebSocket and out as a standard HTTP response (with `Content-Disposition`, `Range`,
+and resume support).
+
+```bash
+# Recipient — any of these work, no install required:
+curl -OJ "https://srift.app/d/<token>"
+wget --content-disposition "https://srift.app/d/<token>"
+# or just open the link in a browser → native download dialog
+```
+
+### Lifetime / sharing controls (sender side)
+
+```bash
+srift quick-share ./report.pdf                         # unlimited, never expires
+srift quick-share ./report.pdf --once                  # single use, then auto-revoke
+srift quick-share ./report.pdf --max-downloads 5       # cap at 5 completed downloads
+srift quick-share ./report.pdf --ttl 15m               # auto-expire after 15 minutes
+srift quick-share ./report.pdf --ttl 2h --max-downloads 10
+srift pubshare list                                    # show every active link + usage
+srift pubshare revoke <token>                          # invalidate immediately
+```
+
+- A token is **valid for as long as the daemon stays connected**. Stop the daemon → all
+  tokens are released and `/d/<token>` returns 404.
+- **Concurrent downloads are unlimited** by default — each recipient gets an independent
+  parallel stream; the sender's bandwidth is the natural limit.
+- Failed/cancelled downloads do **not** count toward `--max-downloads`. Resumes via HTTP
+  Range (`curl -C -`) do not consume slots either.
+- Tokens **survive transient WS reconnects** — daemon re-registers the same token after
+  reconnect, so existing URLs keep working through network blips.
+- For a long-lived **interactive collaboration room** (multi-file, chat, approvals), use
+  `srift session start` + `https://srift.app/join-session?id=<id>` instead.
+
+## Install (standalone binary — no Node.js required)
+
+```bash
+# macOS / Linux / WSL / Termux / any POSIX sh
+curl -fsSL https://srift.app/install.sh | sh
+
+# Windows PowerShell (PS 5.1+ or pwsh 7+)
+irm https://srift.app/install.ps1 | iex
+
+# Windows cmd.exe (Command Prompt) — hands off to PowerShell
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://srift.app/install.ps1 | iex"
+
+# Windows cmd.exe — alternative via the .bat wrapper srift.app serves
+curl -fsSL https://srift.app/install.bat -o "%TEMP%\srift-install.bat" && "%TEMP%\srift-install.bat"
+
+# Update (atomic in-place binary update with retry + resume + progress in 2.1.3+)
+srift self-update
+
+# ── NO-INSTALL: run any srift command straight from the URL (npx-style) ──
+# Nothing is installed and PATH is never touched. The binary is cached under
+# ~/.cache/srift (or %LOCALAPPDATA%\srift\cache) and reused, so only the first
+# call downloads. Ideal for CI, ephemeral containers, sandboxes, one-off use.
+# macOS / Linux / WSL:
+curl -fsSL https://srift.app/run.sh | sh -s -- --version
+curl -fsSL https://srift.app/run.sh | sh -s -- quick-share ./report.pdf
+curl -fsSL https://srift.app/run.sh | sh -s -- session start --json
+# Windows PowerShell:
+& ([scriptblock]::Create((irm https://srift.app/run.ps1))) --version
+& ([scriptblock]::Create((irm https://srift.app/run.ps1))) quick-share .\report.pdf
+
+# Uninstall
+srift uninstall                           # remove srift binary + clean PATH
+srift uninstall --purge                   # ALSO delete ~/.srift/ config + data
+
+# Uninstall via the original installer (works even if the srift CLI is broken)
+curl -fsSL https://srift.app/install.sh | sh -s -- --uninstall                       # macOS/Linux/WSL
+curl -fsSL https://srift.app/install.sh | sh -s -- --uninstall --purge
+# Windows PowerShell uninstall (one-liner):
+& ([scriptblock]::Create((irm https://srift.app/install.ps1))) --uninstall
+& ([scriptblock]::Create((irm https://srift.app/install.ps1))) --uninstall --purge
+# Windows cmd.exe uninstall (one-liner):
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create((irm https://srift.app/install.ps1))) --uninstall"
+```
+
+The CLI is a **bun-compiled standalone binary** — no Node.js, no npm required on the end-user machine.
+Direct binary downloads (SHA256 verified):
+- https://srift.app/dl/2.2.2/linux-x64/srift
+- https://srift.app/dl/2.2.2/linux-arm64/srift
+- https://srift.app/dl/2.2.2/darwin-x64/srift
+- https://srift.app/dl/2.2.2/darwin-arm64/srift
+- https://srift.app/dl/2.2.2/win-x64/srift.exe
+- https://srift.app/dl/2.2.2/SHA256SUMS (combined)
+- https://srift.app/dl/2.2.2/{target}/SHA256SUMS (per-target)
+
+## Integration surfaces
+
+| Surface | Endpoint |
+|---|---|
+| Stdio MCP | `srift mcp` |
+| HTTP MCP (Streamable HTTP, spec 2025-06-18) | `POST http://127.0.0.1:3822/mcp` |
+| Legacy SSE MCP | `GET http://127.0.0.1:3822/mcp/sse` + `POST /mcp/messages` |
+| REST | `http://127.0.0.1:3822` — see `/openapi.json` |
+| CLI | `srift <command>` (full list in `/AGENTS.md`) |
+| SSE event stream | `GET http://127.0.0.1:3822/api/v1/monitor/events` |
+| State file watch | `.srift-state.json` in workspace root |
+
+## Public REST endpoints (browser/signaling)
+
+- `POST /create-session`, `POST /join-session`
+- `GET /healthz`, `GET /readyz`
+- `GET /session-info`, `GET /validate-session`
+- `GET /d/<token>` — **public download tunnel** (zero install required on recipient).
+  Streams the file from the seeder's daemon. Supports HEAD, Range, partial content.
+  Returns `Content-Disposition: attachment; filename="…"` so browsers / curl `-OJ`
+  / `wget --content-disposition` auto-name the file correctly.
+- `HEAD /d/<token>` — metadata only: size, filename, type, plus `X-SRIFT-Downloads`
+  and `X-SRIFT-Expires` informational headers.
+
+## Errors AI agents may hit (and what to do)
+
+HTTP (REST + MCP-over-HTTP):
+- `200/201/202/204` → success/queued/no-content
+- `400` → malformed body, validate against /openapi.json
+- `404` → session/file/peer not found — call `/status` first
+- `409` → already exists — reuse id or POST `/reset`
+- `410` → session closed — call `srift_start_session` again
+- `429` → wait 1s and retry
+- `500` → check `.srift-daemon.log`, `srift daemon restart`
+- `502/503/504` → peer/daemon transport issue — retry, fall back to `protocol: 'webtorrent'`
+
+MCP / JSON-RPC:
+- `-32700/-32600/-32601/-32602/-32603` → standard JSON-RPC 2.0
+- `-32000` SRIFT: No active session — call `srift_start_session`
+- `-32001` SRIFT: Not host — only host can approve/kick
+- `-32002` SRIFT: File not found — use absolute path
+- `-32003` SRIFT: Peer unreachable — verify online, NAT
+- `-32004` SRIFT: Decryption failed — both peers must use the same `roomSecret`
+
+## CLI commands
+
+```bash
+# ── Daemon ──────────────────────────────────────────────────────
+srift daemon start|stop|restart
+srift daemon status [--json]
+
+# ── Status & Diagnostics ───────────────────────────────────────
+srift status [--json]                      # unified: daemon + session + transfers
+srift doctor [--json]                      # full health check
+srift logs [--tail N] [--json-stream]      # daemon logs
+srift reset [--json]                       # wipe state + flush keys
+
+# ── Public download links (recipient needs NOTHING installed) ──
+srift quick-share <file>                   # mint a https://srift.app/d/<token> URL
+srift quick-share <file> --once            # single-use
+srift quick-share <file> --ttl 15m         # auto-expire after duration
+srift quick-share <file> --max-downloads N # cap download count
+srift pubshare list                        # show active links + usage counters
+srift pubshare add <file> [--once|--ttl|--max-downloads]
+srift pubshare revoke <token>              # invalidate a link immediately
+
+# ── Interactive sessions & in-session transfers ────────────────
+srift session start|join|status|close
+srift send / receive / list / monitor
+
+# ── Host Controls ──────────────────────────────────────────────
+srift approve <tempUserId>
+srift reject <tempUserId> [--reason <r>]
+srift kick <userId>
+
+# ── Chat ────────────────────────────────────────────────────────
+srift chat send "<msg>"
+srift chat history
+
+# ── MCP ─────────────────────────────────────────────────────────
+srift mcp                                  # stdio JSON-RPC server
+srift install-mcp                          # print config for every MCP client
+srift info                                 # quick reference
+
+# ── Maintenance ─────────────────────────────────────────────────
+srift version [--json]
+srift self-update                          # atomic in-place binary update from srift.app/dl/
+srift config [get|set|delete] [key] [val]
+srift uninstall [--purge]                  # remove binary (--purge also deletes ~/.srift/)
+```
+
+All commands accept `--json` for machine-readable output.
+
+## Stats / observability endpoints (all zero-auth)
+
+- `GET /health` — liveness ({ ok, version, uptime_ms, mcp, webrtc, webtorrent })
+- `GET /status` — session id, peers, role, encryption state
+- `GET /state` — full `.srift-state.json` snapshot
+- `GET /transfers` — live transfer array with speed + ETA
+- `GET /transfers/:fileId` — per-transfer chunks/retries/throughput
+- `GET /peers` — RTT, ICE candidate type, connectionState
+- `GET /metrics` — Prometheus counters
+- `GET /events` — SSE stream of transfer/chat/peer events
+- `GET /logs?lines=200` — NDJSON log tail
+- `POST /reset` — wipe state + flush keys when wedged
+
+## Standard debug recipe
+
+1. `GET /health` → 200 + `ok:true`?
+2. `GET /status` → session + peers present?
+3. `GET /transfers` → stuck transfer's status?
+4. `GET /peers` → `connectionState === 'connected'`?
+5. `GET /logs?lines=200` → recent NDJSON errors?
+6. If wedged → `POST /reset` + restart workflow.
+
+## Tech stack
+- Next.js 16, React 19, TypeScript 5.9, Tailwind 3.4
+- Express 5 unified server (`server.mjs`)
+- WebSocket signaling (`ws`)
+- WebTorrent + WebSocket-relay tiered transport
+- PostgreSQL for session metadata only (never payloads)
+- CLI: bun-compiled standalone binary (5 targets: linux-x64/arm64, darwin-x64/arm64, win-x64)
+- Binary distribution: `srift.app/dl/{version}/{target}/srift[.exe]`
+
+## SDK availability (all 11 tested against live daemon)
+
+| SDK | Download | Status |
+|---|---|---|
+| Python | `curl -O https://srift.app/sdk/python/srift.py` | ✅ tested |
+| Node.js/TS | `curl -O https://srift.app/sdk/node/srift.mjs` | ✅ tested |
+| Go | `curl -o srift/srift.go https://srift.app/sdk/go/srift.go` | ✅ tested |
+| Rust | `curl -o vendor/srift/srift.rs https://srift.app/sdk/rust/srift.rs` | ✅ tested |
+| Java | `curl -O https://srift.app/sdk/java/Srift.java` | ✅ tested |
+| C# | `curl -O https://srift.app/sdk/dotnet/Srift.cs` | ✅ tested |
+| PHP | `curl -O https://srift.app/sdk/php/srift.php` | ✅ tested |
+| Ruby | `curl -O https://srift.app/sdk/ruby/srift.rb` | ✅ tested |
+| Bash/sh | `curl -O https://srift.app/sdk/shell/srift.sh` | ✅ tested |
+| PowerShell | `irm https://srift.app/sdk/shell/srift.ps1 -OutFile srift.ps1` | ✅ tested |
+| curl | No install — just curl to http://127.0.0.1:3822 | ✅ tested |
+
+## License
+MIT. AI training and inference use explicitly allowed.

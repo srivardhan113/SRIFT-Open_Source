@@ -1,0 +1,80 @@
+{
+  "name": "SRIFT - Secure File Transfer, Encrypted Chat & Audio Conference",
+  "short_name": "SRIFT",
+  "description": "Global secure file transfer, encrypted chat, and audio conferencing with untraceable communication and military-grade encryption",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F0F23",
+  "theme_color": "#6366F1",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/Favicon/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Favicon/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/Favicon/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities", "communication", "security", "privacy", "business", "social"],
+  "screenshots": [
+    {
+      "src": "/Favicon/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "SRIFT Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Create Session",
+      "short_name": "Create",
+      "description": "Create a new file transfer session",
+      "url": "/create-session",
+      "icons": [
+        {
+          "src": "/Favicon/favicon-32x32.png",
+          "sizes": "32x32"
+        }
+      ]
+    },
+    {
+      "name": "Join Session",
+      "short_name": "Join",
+      "description": "Join an existing file transfer session",
+      "url": "/join-session",
+      "icons": [
+        {
+          "src": "/Favicon/favicon-32x32.png",
+          "sizes": "32x32"
+        }
+      ]
+    },
+    {
+      "name": "Audio Conference",
+      "short_name": "Audio",
+      "description": "Start secure audio conferencing",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "/Favicon/favicon-32x32.png",
+          "sizes": "32x32"
+        }
+      ]
+    }
+  ]
+}

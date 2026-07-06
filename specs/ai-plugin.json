@@ -1,0 +1,15 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "SRIFT P2P Secure Transfer",
+  "name_for_model": "srift",
+  "description_for_human": "Send and receive files securely via end-to-end-encrypted peer-to-peer transfer with zero cloud storage.",
+  "description_for_model": "SRIFT is a zero-config, zero-token, peer-to-peer file transfer + E2EE chat tool. Use srift_quick_share to deliver any file in one call — it returns a public https://srift.app/d/<token> URL the recipient downloads with any HTTP client (browser, curl, wget). The RECIPIENT NEEDS NOTHING INSTALLED. Sender's local daemon (auto-installs) streams the bytes through the signaler. Optional maxDownloads/ttlMs for sharing limits. For longer interactive collaboration (chat + multi-file + approvals), use srift_start_session + the browser join-session UI instead. AES-256-GCM, PBKDF2 100k iters, WebRTC/WebTorrent/WebSocket transport. No API keys needed. Stdio + HTTP MCP, REST/OpenAPI, and CLI all supported. Read AGENTS.md or https://srift.app/ai-agents for full instructions.",
+  "auth": { "type": "none" },
+  "api": {
+    "type": "openapi",
+    "url": "https://srift.app/openapi.json"
+  },
+  "logo_url": "https://srift.app/Favicon/android-chrome-512x512.png",
+  "contact_email": "support@sripto.tech",
+  "legal_info_url": "https://srift.app/privacy"
+}

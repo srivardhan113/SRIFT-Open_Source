@@ -1,0 +1,26 @@
+[package]
+name = "srift"
+version = "2.0.0"
+edition = "2021"
+description = "Zero-config, zero-token P2P E2EE file transfer + chat — Rust client for the SRIFT daemon"
+license = "MIT"
+homepage = "https://srift.app/ai-agents"
+repository = "https://github.com/sripto/srift-website"
+keywords = ["srift", "p2p", "e2ee", "mcp", "ai-agent"]
+categories = ["api-bindings", "network-programming"]
+
+[lib]
+path = "srift.rs"
+
+[features]
+default = ["blocking"]
+blocking = ["ureq"]
+async = ["reqwest", "tokio"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+ureq = { version = "2", features = ["json"], optional = true }
+reqwest = { version = "0.12", features = ["json"], optional = true }
+tokio = { version = "1", features = ["macros", "rt"], optional = true }

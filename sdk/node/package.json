@@ -1,0 +1,19 @@
+{
+  "name": "srift",
+  "version": "2.0.0",
+  "description": "Zero-config, zero-token P2P E2EE file transfer + chat for any AI / agent / automation runtime. Node SDK.",
+  "type": "module",
+  "main": "./srift.mjs",
+  "module": "./srift.mjs",
+  "exports": {
+    ".": {
+      "import": "./srift.mjs",
+      "default": "./srift.mjs"
+    }
+  },
+  "engines": { "node": ">=18.0.0" },
+  "keywords": ["srift", "p2p", "e2ee", "mcp", "ai-agent", "file-transfer", "llm", "anthropic", "openai", "agents", "tool-use"],
+  "homepage": "https://srift.app/ai-agents",
+  "repository": { "type": "git", "url": "https://github.com/sripto/srift-website" },
+  "license": "MIT"
+}

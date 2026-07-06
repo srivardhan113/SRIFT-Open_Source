@@ -1,0 +1,72 @@
+{
+  "$comment": "Google A2A (Agent-to-Agent) protocol discovery card for SRIFT",
+  "schemaVersion": "0.2.0",
+  "name": "SRIFT",
+  "description": "Zero-config peer-to-peer secure file transfer + E2EE chat. Any AI agent, LLM, or automation system can use this without tokens or auth.",
+  "url": "https://srift.app",
+  "documentationUrl": "https://srift.app/ai-agents",
+  "version": "2.2.2",
+  "provider": {
+    "organization": "Sripto Corporation",
+    "url": "https://sripto.tech"
+  },
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "stateTransitionHistory": false
+  },
+  "authentication": { "schemes": ["none"] },
+  "defaultInputModes": ["text", "file"],
+  "defaultOutputModes": ["text", "file"],
+  "skills": [
+    {
+      "id": "srift_quick_share",
+      "name": "Quick Share",
+      "description": "Deliver a file to anyone in one call. Creates a session if none exists, seeds the file, and returns a public https://srift.app/d/<token> download URL the recipient can fetch with any HTTP client (browser, curl, wget). No SRIFT install required on the recipient side. Optional maxDownloads + ttlMs limits.",
+      "tags": ["file-transfer", "p2p", "e2ee", "public-link", "zero-install"],
+      "examples": ["Send /tmp/build.zip to the user", "Share this PDF with the user", "Generate a single-use download link for report.pdf that expires in 30 minutes"]
+    },
+    {
+      "id": "srift_start_session",
+      "name": "Start Session",
+      "description": "Open a new E2EE collaboration room as host. Returns the 7-character session ID and a join URL.",
+      "tags": ["session", "host"]
+    },
+    {
+      "id": "srift_join_session",
+      "name": "Join Session",
+      "description": "Join an existing SRIFT session by ID.",
+      "tags": ["session", "guest"]
+    },
+    {
+      "id": "srift_send_file",
+      "name": "Send File (in-session)",
+      "description": "Offer a file to peers already inside the active session. Transport (WebTorrent / WebSocket / WebRTC) is auto-selected.",
+      "tags": ["file-transfer", "in-session"]
+    },
+    {
+      "id": "srift_accept_transfer",
+      "name": "Accept Transfer",
+      "description": "Accept and download an incoming file offer.",
+      "tags": ["file-transfer"]
+    },
+    {
+      "id": "srift_send_chat",
+      "name": "Send Chat",
+      "description": "Transmit an end-to-end-encrypted chat message to the connected peer.",
+      "tags": ["chat", "e2ee"]
+    }
+  ],
+  "endpoints": {
+    "mcp": {
+      "stdio": "srift mcp",
+      "streamableHttp": "http://127.0.0.1:3822/mcp",
+      "sse": "http://127.0.0.1:3822/mcp/sse",
+      "remoteCard": "https://srift.app/.well-known/mcp/server-card.json"
+    },
+    "rest": {
+      "openapi": "https://srift.app/openapi.json",
+      "localBase": "http://127.0.0.1:3822"
+    }
+  }
+}

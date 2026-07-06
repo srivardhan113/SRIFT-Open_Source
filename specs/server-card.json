@@ -1,0 +1,72 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
+  "version": "1.0",
+  "protocolVersion": "2025-06-18",
+  "serverInfo": {
+    "name": "SRIFT MCP Server",
+    "title": "SRIFT Secure P2P File Transfer",
+    "version": "2.2.2",
+    "vendor": "Sripto Corporation",
+    "homepage": "https://srift.app/ai-agents",
+    "documentation": "https://srift.app/AGENTS.md"
+  },
+  "capabilities": {
+    "tools": { "listChanged": false },
+    "resources": { "listChanged": false, "subscribe": false },
+    "prompts": { "listChanged": false },
+    "logging": {}
+  },
+  "transport": [
+    {
+      "type": "stdio",
+      "command": "node",
+      "args": ["--experimental-strip-types", "<absolute-path>/cli/index.ts", "mcp"],
+      "description": "Recommended for desktop AI clients (Claude Desktop, Cursor, Continue, Zed, Codex, Cline, Goose, Aider)."
+    },
+    {
+      "type": "streamable-http",
+      "url": "http://127.0.0.1:3822/mcp",
+      "description": "MCP spec 2025-06-18 Streamable HTTP transport on the local daemon."
+    },
+    {
+      "type": "sse",
+      "url": "http://127.0.0.1:3822/mcp/sse",
+      "postUrl": "http://127.0.0.1:3822/mcp/messages",
+      "description": "Legacy SSE+POST transport on the local daemon."
+    }
+  ],
+  "install": {
+    "command": "npm install -g srift  # or run inside the repo: npm run srift",
+    "quickStart": "https://srift.app/AGENTS.md",
+    "configHelper": "srift install-mcp"
+  },
+  "authentication": { "type": "none", "note": "Local daemon binds to 127.0.0.1; no tokens required." },
+  "tools": [
+    { "name": "srift_quick_share", "description": "Zero-install file delivery: ensures a session, seeds file, and returns a public https://srift.app/d/<token> URL the recipient can fetch with any HTTP client (browser, curl, wget). Optional maxDownloads + ttlMs limits." },
+    { "name": "srift_start_session", "description": "Open a new E2EE room as host." },
+    { "name": "srift_join_session", "description": "Join an existing room by 7-char session ID." },
+    { "name": "srift_session_status", "description": "Current session, role, peers, pending joins." },
+    { "name": "srift_close_session", "description": "Tear down session and flush keys." },
+    { "name": "srift_approve_join", "description": "Host: approve a guest's join." },
+    { "name": "srift_reject_join", "description": "Host: reject a guest's join." },
+    { "name": "srift_kick_user", "description": "Host: disconnect and ban a peer." },
+    { "name": "srift_send_file", "description": "Offer a file to peers already inside the session (in-session transfer)." },
+    { "name": "srift_accept_transfer", "description": "Accept and download an inbound file offer." },
+    { "name": "srift_list_transfers", "description": "List all active and recent transfers with progress." },
+    { "name": "srift_send_chat", "description": "Send an E2EE chat message." },
+    { "name": "srift_chat_history", "description": "Read decrypted chat history." },
+    { "name": "srift_read_state", "description": "Read raw .srift-state.json snapshot." }
+  ],
+  "resources": [
+    { "uri": "srift://session/status", "description": "Live session details." },
+    { "uri": "srift://transfers/active", "description": "Live transfer progress." },
+    { "uri": "srift://chat/messages", "description": "Decrypted chat log." },
+    { "uri": "srift://workspace/state", "description": "Raw state file snapshot." },
+    { "uri": "srift://docs/quickstart", "description": "Inline AI-agent quickstart guide." }
+  ],
+  "prompts": [
+    { "name": "send_file_to_user", "description": "Multi-step plan to deliver a file." },
+    { "name": "receive_file_from_user", "description": "Multi-step plan to open a room and accept incoming files." },
+    { "name": "start_collab_session", "description": "Multi-step plan to open a long-lived E2EE collaboration room." }
+  ]
+}
