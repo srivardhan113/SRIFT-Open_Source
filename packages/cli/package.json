@@ -1,6 +1,6 @@
 {
   "name": "srift-transfer",
-  "version": "2.2.15",
+  "version": "2.2.16",
   "mcpName": "app.srift/srift",
   "description": "Zero-config, zero-token peer-to-peer secure file transfer, encrypted chat, and Model Context Protocol (MCP) server for AI coding agents (Claude, Cursor, Windsurf, Continue, Zed) and developers. End-to-end AES-256-GCM encrypted.",
   "keywords": [

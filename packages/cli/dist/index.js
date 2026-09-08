@@ -3171,7 +3171,7 @@ var __filename = fileURLToPath2(import.meta.url);
 var __dirname = path3.dirname(__filename);
 var DAEMON_PORT3 = parseInt(process.env.SRIFT_DAEMON_PORT || "3822", 10);
 var DAEMON_URL3 = `http://127.0.0.1:${DAEMON_PORT3}`;
-var CLI_VERSION = "2.2.15";
+var CLI_VERSION = "2.2.16";
 function parseDuration(s) {
   if (!s) return 0;
   const m = /^(\d+(?:\.\d+)?)\s*(ms|s|m|h|d)?$/i.exec(s.trim());

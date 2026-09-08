@@ -158,13 +158,13 @@ Bun-compiled standalone binaries (bundled runtime, no Node.js on end-user machin
 
 | Target | URL |
 |---|---|
-| linux-x64 | https://srift.app/dl/2.2.15/linux-x64/srift |
-| linux-arm64 | https://srift.app/dl/2.2.15/linux-arm64/srift |
-| darwin-x64 | https://srift.app/dl/2.2.15/darwin-x64/srift |
-| darwin-arm64 | https://srift.app/dl/2.2.15/darwin-arm64/srift |
-| win-x64 | https://srift.app/dl/2.2.15/win-x64/srift.exe |
-| Combined SHA256 | https://srift.app/dl/2.2.15/SHA256SUMS |
-| Per-target SHA256 | https://srift.app/dl/2.2.15/{target}/SHA256SUMS |
+| linux-x64 | https://srift.app/dl/2.2.16/linux-x64/srift |
+| linux-arm64 | https://srift.app/dl/2.2.16/linux-arm64/srift |
+| darwin-x64 | https://srift.app/dl/2.2.16/darwin-x64/srift |
+| darwin-arm64 | https://srift.app/dl/2.2.16/darwin-arm64/srift |
+| win-x64 | https://srift.app/dl/2.2.16/win-x64/srift.exe |
+| Combined SHA256 | https://srift.app/dl/2.2.16/SHA256SUMS |
+| Per-target SHA256 | https://srift.app/dl/2.2.16/{target}/SHA256SUMS |
 
 ## Integration matrix (every modern AI runtime supported)
 

@@ -1,12 +1,16 @@
 ﻿{
-  "manifestVersion": "1",
-  "name": "srift-transfer",
-  "version": "2.2.15",
-  "description": "Zero-config P2P file transfer, encrypted chat, and Model Context Protocol (MCP) server for AI coding agents & IDEs.",
-  "author": "srivardhan113",
-  "license": "Apache-2.0",
-  "entrypoint": {
-    "command": "npx",
-    "args": ["-y", "srift-transfer@latest", "mcp"]
-  }
+    "manifestVersion":  "1",
+    "name":  "srift-transfer",
+    "version":  "2.2.16",
+    "description":  "Zero-config P2P file transfer, encrypted chat, and Model Context Protocol (MCP) server for AI coding agents \u0026 IDEs.",
+    "author":  "srivardhan113",
+    "license":  "Apache-2.0",
+    "entrypoint":  {
+                       "command":  "npx",
+                       "args":  [
+                                    "-y",
+                                    "srift-transfer@latest",
+                                    "mcp"
+                                ]
+                   }
 }

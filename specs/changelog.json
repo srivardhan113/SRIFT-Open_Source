@@ -1,7 +1,7 @@
 {
   "$comment": "SRIFT machine-readable changelog. Human-readable version at /CHANGELOG.md.",
   "project": "SRIFT",
-  "latestVersion": "2.2.15",
+  "latestVersion": "2.2.16",
   "releases": [
     {
       "version": "2.2.12",

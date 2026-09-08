@@ -193,7 +193,7 @@ Returns:
     "serverInfo": {
       "name": "srift-mcp-server",
       "title": "SRIFT Secure P2P File Transfer (hosted)",
-      "version": "2.2.15"
+      "version": "2.2.16"
     }
   }
 }
