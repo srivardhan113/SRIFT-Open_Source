@@ -814,7 +814,7 @@ var init_mcp = __esm({
     SERVER_INFO = {
       name: "srift-mcp-server",
       title: "SRIFT Secure P2P File Transfer",
-      version: "2.0.0"
+      version: "2.2.15"
     };
     localDaemonBackend = { callTool, readResource };
     handleMcpMessage = createMcpHandler({

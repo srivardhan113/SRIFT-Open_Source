@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "app.srift/srift",
+  "title": "SRIFT",
+  "description": "Secure P2P file transfer and encrypted chat for AI agents. No accounts, no API keys.",
+  "repository": {
+    "url": "https://github.com/srivardhan113/SRIFT-Open_Source",
+    "source": "github"
+  },
+  "version": "2.2.15",
+  "websiteUrl": "https://srift.app",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "srift-transfer",
+      "version": "2.2.15",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeArguments": [
+        {
+          "type": "positional",
+          "value": "mcp",
+          "valueHint": "mcp"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "SRIFT_DAEMON_PORT",
+          "description": "Port for the local SRIFT daemon",
+          "isRequired": false,
+          "default": "3822"
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://srift.app/mcp"
+    }
+  ]
+}

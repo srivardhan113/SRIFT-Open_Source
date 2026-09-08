@@ -5,6 +5,7 @@
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen.svg)](https://nodejs.org/)
 [![MCP Protocol](https://img.shields.io/badge/MCP-2025--06--18-purple.svg)](https://modelcontextprotocol.io)
 [![Smithery](https://img.shields.io/badge/Smithery-srift%2Fsrift-7c3aed)](https://smithery.ai/servers/srift/srift)
+[![Glama](https://img.shields.io/badge/Glama-app.srift%2Fsrift-blueviolet.svg)](https://glama.ai/mcp/connectors/app.srift/srift)
 [![Encryption: AES-256-GCM](https://img.shields.io/badge/Encryption-AES--256--GCM-green.svg)](https://srift.app)
 [![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-success.svg)](https://srift.app/privacy)
 
@@ -334,6 +335,19 @@ First-party, zero-dependency SDKs for accessing SRIFT from any programming langu
 - **OpenAPI Specification**: [https://srift.app/openapi.json](https://srift.app/openapi.json)
 - **LLM Context (`llms.txt`)**: [https://srift.app/llms.txt](https://srift.app/llms.txt)
 - **Bug Tracker & Issues**: [https://github.com/srivardhan113/SRIFT-Open_Source/issues](https://github.com/srivardhan113/SRIFT-Open_Source/issues)
+
+### Official Listings
+
+| Surface | Link |
+|---|---|
+| npm | [`srift-transfer`](https://www.npmjs.com/package/srift-transfer) |
+| MCP Registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) |
+| Smithery | [`srift/srift`](https://smithery.ai/servers/srift/srift) |
+| Glama (connector) | [`app.srift/srift`](https://glama.ai/mcp/connectors/app.srift/srift) |
+| Glama (server) | [`SRIFT-Open_Source`](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source) |
+| GitHub | [`SRIFT-Open_Source`](https://github.com/srivardhan113/SRIFT-Open_Source) |
+
+All resolve to the same product. Install `srift-transfer`; the command is `srift`.
 
 ---
 

@@ -15,6 +15,23 @@ all `/.well-known/*`, `/create-session`, `/join-session`, `/session-info`, `/val
 `fetch()` any of these from any origin. The signaling WebSocket at `wss://srift.app/ws` also
 accepts cross-origin connections (room-keyed; no Origin restriction).
 
+
+## Official Distribution & Registry Listings
+
+SRIFT is published on these registries. All of them resolve to the same product;
+the npm package is `srift-transfer` and the installed command is `srift`.
+
+- [npm — srift-transfer](https://www.npmjs.com/package/srift-transfer): `npm install -g srift-transfer`. The published CLI, MCP server and daemon.
+- [MCP Registry — app.srift/srift](https://registry.modelcontextprotocol.io/v0/servers?search=srift): Official Model Context Protocol registry entry, DNS-verified on srift.app.
+- [Smithery — srift/srift](https://smithery.ai/servers/srift/srift): One-click MCP install for Claude Desktop, Cursor, Windsurf and other clients.
+- [Glama — app.srift/srift connector](https://glama.ai/mcp/connectors/app.srift/srift): Hosted MCP connector listing.
+- [Glama — SRIFT-Open_Source server](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source): Indexed source repository listing.
+- [GitHub — SRIFT-Open_Source](https://github.com/srivardhan113/SRIFT-Open_Source): Public source mirror, issues and releases.
+
+Hosted MCP endpoint (no install): `POST https://srift.app/mcp` — 8 orchestration
+tools. Local install exposes all 14.
+
+
 ## Quick links for AI / agent integration
 
 - [Universal Agent Manual](https://srift.app/AGENTS.md): Complete operations and tooling guide for AI coding assistants.

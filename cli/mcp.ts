@@ -47,7 +47,7 @@ const DAEMON_URL = `http://127.0.0.1:${DAEMON_PORT}`;
 const SERVER_INFO = {
   name: 'srift-mcp-server',
   title: 'SRIFT Secure P2P File Transfer',
-  version: '2.0.0',
+  version: '2.2.15',
 };
 
 // Re-export the shared catalogue so daemon.ts (server-card, etc.) keeps working unchanged.

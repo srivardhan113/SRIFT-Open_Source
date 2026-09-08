@@ -8,7 +8,15 @@
     "version": "2.2.15",
     "vendor": "Sripto Corporation",
     "homepage": "https://srift.app/ai-agents",
-    "documentation": "https://srift.app/AGENTS.md"
+    "documentation": "https://srift.app/AGENTS.md",
+    "repository": "https://github.com/srivardhan113/SRIFT-Open_Source",
+    "listings": {
+      "npm": "https://www.npmjs.com/package/srift-transfer",
+      "smithery": "https://smithery.ai/servers/srift/srift",
+      "glamaConnector": "https://glama.ai/mcp/connectors/app.srift/srift",
+      "glamaServer": "https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source",
+      "mcpRegistry": "https://registry.modelcontextprotocol.io/v0/servers?search=srift"
+    }
   },
   "capabilities": {
     "tools": { "listChanged": false },

@@ -68,7 +68,12 @@
       "stdio": "srift mcp",
       "localStreamableHttp": "http://127.0.0.1:3822/mcp",
       "localSse": "http://127.0.0.1:3822/mcp/sse",
-      "remoteCard": "https://srift.app/.well-known/mcp/server-card.json"
+      "remoteCard": "https://srift.app/.well-known/mcp/server-card.json",
+      "smithery": "https://smithery.ai/servers/srift/srift",
+      "glamaConnector": "https://glama.ai/mcp/connectors/app.srift/srift",
+      "glamaServer": "https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source",
+      "npm": "https://www.npmjs.com/package/srift-transfer",
+      "registry": "https://registry.modelcontextprotocol.io/v0/servers?search=srift"
     },
     "rest": {
       "openapi": "https://srift.app/openapi.json",

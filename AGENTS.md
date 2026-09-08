@@ -15,6 +15,22 @@ GitHub Copilot Workspace, and any other agent that follows the convention.
 
 ---
 
+
+## Official Listings
+
+| Surface | URL |
+|---|---|
+| npm | https://www.npmjs.com/package/srift-transfer |
+| MCP Registry | https://registry.modelcontextprotocol.io/v0/servers?search=srift |
+| Smithery | https://smithery.ai/servers/srift/srift |
+| Glama (connector) | https://glama.ai/mcp/connectors/app.srift/srift |
+| Glama (server) | https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source |
+| GitHub | https://github.com/srivardhan113/SRIFT-Open_Source |
+
+Install: `npm install -g srift-transfer` → provides the `srift` command.
+Hosted MCP (no install): `POST https://srift.app/mcp`.
+
+
 ## 1. What this project is
 
 **SRIFT** is a peer-to-peer secure file transfer and encrypted communications platform.
@@ -177,7 +193,7 @@ Returns:
     "serverInfo": {
       "name": "srift-mcp-server",
       "title": "SRIFT Secure P2P File Transfer (hosted)",
-      "version": "2.2.9"
+      "version": "2.2.15"
     }
   }
 }
@@ -245,7 +261,7 @@ Or with explicit binary path (no global install required):
 POST http://127.0.0.1:3822/mcp
 Content-Type: application/json
 
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"my-agent","version":"1.0.0"}}}
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"my-agent","version":"2.2.15"}}}
 ```
 
 ### Legacy SSE transport

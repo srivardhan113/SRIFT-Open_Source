@@ -14,7 +14,7 @@
 #   $env:SRIFT_NO_VERIFY  set to 1 to skip checksum verification (not recommended)
 
 $ErrorActionPreference = 'Stop'
-$DefaultVersion = '2.2.5'
+$DefaultVersion = '2.2.15'
 $BaseUrl = 'https://srift.app/dl'
 
 function Write-Info { param($m) Write-Host "[srift-run] $m" -ForegroundColor Cyan }

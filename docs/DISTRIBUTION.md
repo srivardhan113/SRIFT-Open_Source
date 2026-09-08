@@ -4,7 +4,7 @@ Everything needed to publish, list, and verify SRIFT across npm, the MCP
 registry, and the agent directories. Written so a cold session can pick this up
 with no prior context.
 
-**Last verified:** 2026-09-08 · npm `2.2.14` · MCP registry `app.srift/srift`
+**Last verified:** 2026-09-08 · npm `2.2.15` · MCP registry `app.srift/srift`
 
 ---
 
@@ -12,17 +12,17 @@ with no prior context.
 
 | Surface | Value | Status |
 |---|---|---|
-| npm package | **`srift-transfer`** | ✅ published `2.2.14` |
+| npm package | [**`srift-transfer`**](https://www.npmjs.com/package/srift-transfer) | ✅ published `2.2.15` |
 | CLI command | **`srift`** (bin name ≠ package name) | ✅ |
-| Website / API | https://srift.app | ✅ `2.2.14` |
+| Website / API | https://srift.app | ✅ `2.2.15` |
 | Hosted MCP | `POST https://srift.app/mcp` | ✅ 8 tools |
 | Local MCP | `srift mcp` (stdio) | ✅ 14 tools |
 | GitHub | `SRIPTO-Tech/srift-website` (private) | ✅ |
 | Open-source mirror | `srivardhan113/SRIFT-Open_Source` | referenced in npm metadata |
-| MCP registry | `app.srift/srift` | ✅ **published 2.2.14** |
+| MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ **published 2.2.15** (isLatest) |
 | Smithery | `srift/srift` | ✅ live ([page](https://smithery.ai/servers/srift/srift)) |
 | GitHub topics | 18 topics on the public mirror | ✅ |
-| Glama | listed | ✅ submitted and live |
+| Glama | [connector](https://glama.ai/mcp/connectors/app.srift/srift) · [server](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source) | ✅ live |
 | awesome-mcp-servers | PR submitted | ✅ |
 
 ### Known drift to fix
@@ -285,8 +285,8 @@ curl -OJ "https://srift.app/d/<token>"
 
 ## 8. Remaining work
 
-1. ~~Publish npm~~ ✅ `2.2.14`
-2. ~~MCP registry~~ ✅ `app.srift/srift` (`2.2.14`)
+1. ~~Publish npm~~ ✅ `2.2.15`
+2. ~~MCP registry~~ ✅ `app.srift/srift` (`2.2.15`)
 3. **Smithery / Glama / awesome-mcp-servers / GitHub topics**
 4. Google Search Console — no verification code set; `app/layout.tsx` only emits
    one if `GOOGLE_VERIFICATION_CODE` is in the environment
