@@ -1,6 +1,6 @@
 {
   "$comment": "SRIFT daemon ↔ SDK compatibility matrix. Machine-readable. Updated on every release.",
-  "daemon": "2.2.2",
+  "daemon": "2.2.15",
   "minSdkMajor": 2,
   "minSdkMinor": 0,
   "deprecatedSdks": ["1.x"],
@@ -16,7 +16,7 @@
   "eol": {
     "1.x": "2026-12-31"
   },
-  "releaseDate": "2026-06-30",
+  "releaseDate": "2026-09-08",
   "changelogUrl": "https://srift.app/changelog.json",
   "binaryDistribution": {
     "installer": {
@@ -27,13 +27,13 @@
     },
     "selfUpdate": "srift self-update",
     "targets": {
-      "linux-x64":    "https://srift.app/dl/2.2.2/linux-x64/srift",
-      "linux-arm64":  "https://srift.app/dl/2.2.2/linux-arm64/srift",
-      "darwin-x64":   "https://srift.app/dl/2.2.2/darwin-x64/srift",
-      "darwin-arm64": "https://srift.app/dl/2.2.2/darwin-arm64/srift",
-      "win-x64":      "https://srift.app/dl/2.2.2/win-x64/srift.exe"
+      "linux-x64":    "https://srift.app/dl/2.2.15/linux-x64/srift",
+      "linux-arm64":  "https://srift.app/dl/2.2.15/linux-arm64/srift",
+      "darwin-x64":   "https://srift.app/dl/2.2.15/darwin-x64/srift",
+      "darwin-arm64": "https://srift.app/dl/2.2.15/darwin-arm64/srift",
+      "win-x64":      "https://srift.app/dl/2.2.15/win-x64/srift.exe"
     },
-    "checksums": "https://srift.app/dl/2.2.2/SHA256SUMS",
+    "checksums": "https://srift.app/dl/2.2.15/SHA256SUMS",
     "runtime": "standalone (bun-compiled, no Node.js required on end-user machine)"
   },
   "versionCheckUrls": {

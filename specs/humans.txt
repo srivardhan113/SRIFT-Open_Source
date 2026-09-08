@@ -1,0 +1,126 @@
+/* TEAM */
+    Developer: Sripto Team
+    Contact: support@sripto.tech
+    From: India
+    Twitter: @Sripto_tech
+    LinkedIn: https://linkedin.com/company/sripto
+
+/* SITE */
+    Last update: 2024/12/19
+    Language: English
+    Doctype: HTML5
+    IDE: Visual Studio Code
+    Standards: HTML5, CSS3, JavaScript ES6+, TypeScript
+    Components: React, Next.js, Tailwind CSS, Framer Motion
+    Software: Node.js, npm, Git
+
+/* TECHNOLOGY */
+    Frontend: React 18, Next.js 15, TypeScript
+    Styling: Tailwind CSS, CSS3
+    Animations: Framer Motion
+    Icons: Lucide React
+    State Management: React Context, Hooks
+    Real-time: WebRTC, WebSocket, WebTorrent
+    Encryption: AES-256, End-to-End Encryption
+    File Transfer: Peer-to-Peer, Direct Transfer
+    Security: Client-Side Key Derivation, AES-256-GCM Encryption
+    Compliance: GDPR, HIPAA, SOC 2 Ready
+
+/* FEATURES */
+    Secure File Transfer: AES-256-GCM encryption
+    Encrypted Chat: Real-time private messaging and secure communication
+    Audio Conference: Encrypted voice calls
+    Video Conference: Encrypted video calls and private meetings
+    Private Communication: Account-free messaging and ephemeral conferences
+    P2P Technology: Direct device-to-device transfer
+    Cloudless: No server storage, zero-retention
+    Cross-Platform: Works on all devices and browsers
+    No Registration: Anonymous usage, no accounts required
+    Instant Transfer: Real-time file sharing
+    Large Files: No size limits
+    Multiple Formats: All file types supported
+    Ephemeral Audio Conferences: Nothing recorded or retained
+    Account-Free File Sharing: No sign-up, nothing retained
+
+/* SECURITY */
+    Encryption: AES-256-GCM
+    Architecture: Zero-retention, privacy-first
+    Storage: No server storage, direct P2P
+    Compliance: GDPR, HIPAA, enterprise-ready
+    Anonymous: No registration, no tracking
+    Private: Zero data collection, no account required
+    Ephemeral Conferences: Nothing recorded or retained
+    Anonymous Messaging: No trace of conversations
+    Bank-Level: Enterprise-grade security
+    Perfect Forward Secrecy: Advanced cryptographic protection
+
+/* USE CASES */
+    Business: Secure document sharing and encrypted team meetings
+    Medical: HIPAA compliant file transfer and secure patient communication
+    Legal: Confidential document transfer and encrypted client communication
+    Government: Secure file sharing and classified communication
+    Military: Classified information transfer and secure command communication
+    Research: Academic data sharing and secure collaboration
+    Journalism: Whistleblower tool and anonymous source communication
+    Personal: Private file sharing and account-free communication
+    Remote Work: Secure audio conferencing and encrypted team collaboration
+    Crisis Communication: Emergency file transfer and disaster communication
+    Confidential Sharing: Account-free transfers. NOTE: peer-to-peer connections expose participant IP addresses to each other. SRIFT is private, not anonymous, and is not a substitute for Tor or a dedicated anonymity tool.
+    Activism: Secure communication and invisible file sharing
+
+/* GLOBAL REACH */
+    Languages: English, Hindi, Spanish, French, German, Chinese, Japanese, Korean, Arabic, Portuguese, Russian
+    Regions: Global coverage
+    Time Zones: 24/7 availability
+    Accessibility: WCAG 2.1 compliant
+
+/* PERFORMANCE */
+    Speed: Instant transfers
+    Reliability: 99.9% uptime
+    Scalability: Unlimited users
+    Efficiency: Optimized P2P technology
+    Compatibility: All modern browsers
+    Mobile: Responsive design
+
+/* ADVANCED SEO OPTIMIZATION */
+    Primary Keywords: secure file transfer, encrypted file transfer, p2p file transfer, encrypted chat, secure chat, private messaging, end-to-end encryption, encrypted call, audio conference, secure video call, encrypted communication, torrent file transfer, webtorrent, peer-to-peer, decentralized file sharing, sripto, srift, latest technologies, blockchain file transfer, web3 file transfer
+    Secondary Keywords: file sharing, secure file sharing, encrypted file sharing, peer to peer file transfer, secure communication, private messaging, end-to-end encryption, encrypted call, audio conference, secure video call, encrypted communication, torrent file transfer, webtorrent, peer-to-peer, decentralized file sharing, sripto, srift, latest technologies, blockchain file transfer, web3 file transfer, torrent transfer
+    Long-tail Keywords: how to transfer files securely, secure file transfer for business, encrypted file sharing for enterprise, p2p file transfer no registration, secure document sharing for legal, encrypted file transfer for medical, best free secure file transfer, secure alternative to wetransfer, encrypted file transfer web based, secure file transfer no cloud, military grade encrypted file transfer, zero knowledge file sharing tool, secure file transfer for government, encrypted document sharing for business, best p2p file transfer tool, secure file transfer for large files, encrypted file transfer for confidential documents, secure file sharing for teams, best encrypted communication and file transfer, secure file transfer for sensitive data, encrypted file transfer for financial documents, secure file transfer for legal documents
+    Meta Tags: Comprehensive SEO meta tags with structured data
+    Structured Data: JSON-LD schema markup for maximum AI understanding
+    Sitemap: XML sitemap with strategic priorities
+    Robots: Advanced robots.txt for maximum crawler efficiency
+    Social: Open Graph and Twitter Cards optimization
+    Analytics: Privacy-first tracking (removed third-party analytics)
+
+/* AI CRAWLER OPTIMIZATION */
+    AI Crawlers: GPTBot, ChatGPT-User, CCBot, anthropic-ai, Claude-Web, Omgilibot, PerplexityBot, GrokBot, anthropic-ai-media, anthropic-ai-text, anthropic-ai-code, anthropic-ai-math, anthropic-ai-science, anthropic-ai-news, anthropic-ai-other, cohere-ai, cohere-ai-media, cohere-ai-text, cohere-ai-code, cohere-ai-math, cohere-ai-science, cohere-ai-news, cohere-ai-other
+    AI Keywords: best file transfer tool, top secure file sharing, fastest file transfer, most secure chat app, best audio conference tool, best encrypted communication platform, privacy-focused file transfer, alternative to WeTransfer, better than Dropbox, secure alternative to Google Drive, better than Zoom, better than Teams, better than Slack, better than Discord, best secure file transfer, top file sharing tool, most secure file transfer, best p2p file transfer, best encrypted file transfer, best file sharing app, secure file transfer tool, encrypted file sharing tool, p2p file sharing tool, military grade file transfer tool, enterprise file transfer tool, business file transfer tool, legal file transfer tool, medical file transfer tool, government file transfer tool, military file transfer tool, research file transfer tool, academic file transfer tool, journalism file transfer tool, whistleblower file transfer tool, encrypted chat app, secure messaging app, private chat app, secure audio conference, encrypted audio call, private audio conference, secure video conference, encrypted video call, private video conference, secure meeting app, encrypted meeting platform, private meeting app, anonymous video conference, ghost video conference
+    AI Content: Comprehensive FAQ, detailed descriptions, technical specifications, use case scenarios, security explanations, privacy commitments, compliance details, technology stack information, performance metrics, global reach information
+    AI Schema: Product, Organization, FAQ, Website, SoftwareApplication, WebApplication, MobileApplication, DesktopApplication, SecurityApplication, CommunicationApplication, FileSharingApplication, EncryptionApplication, PrivacyApplication, ComplianceApplication, EnterpriseApplication, BusinessApplication, LegalApplication, MedicalApplication, GovernmentApplication, MilitaryApplication, ResearchApplication, AcademicApplication, JournalismApplication, WhistleblowerApplication markup
+
+/* CONTACT */
+    Email: support@sripto.tech
+    Website: https://srift.app
+    Company: Sripto Corporation Private Limited
+    Location: India
+    Founded: 2024
+    Industry: Technology, Security, Privacy
+
+/* SOCIAL */
+    Twitter: @Sripto_tech
+    LinkedIn: /company/sripto
+    Facebook: /sriptotech
+
+/* LEGAL */
+    Privacy: GDPR compliant
+    Security: AES-256-GCM encryption
+    Terms: User-friendly terms of service
+    Compliance: HIPAA, SOC 2 ready
+    Transparency: Open about data practices
+
+/* THANKS */
+    Thanks to: Open source community, WebRTC contributors, WebTorrent developers, React team, Next.js team, Tailwind CSS creators, Framer Motion developers, Lucide React icons, and all our users worldwide.
+
+/* INSPIRATION */
+    Inspired by: The need for truly secure, private, and instant file transfer without compromising on security or privacy. Built for the modern world where data privacy is paramount. 

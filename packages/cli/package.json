@@ -1,0 +1,80 @@
+{
+  "name": "srift-transfer",
+  "version": "2.2.15",
+  "mcpName": "app.srift/srift",
+  "description": "Zero-config, zero-token peer-to-peer secure file transfer, encrypted chat, and Model Context Protocol (MCP) server for AI coding agents (Claude, Cursor, Windsurf, Continue, Zed) and developers. End-to-end AES-256-GCM encrypted.",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "ai-agent",
+    "ai-agents",
+    "claude",
+    "cursor",
+    "windsurf",
+    "continue-dev",
+    "cline",
+    "roo-code",
+    "zed",
+    "codex",
+    "aider",
+    "file-transfer",
+    "p2p",
+    "peer-to-peer",
+    "webrtc",
+    "webtorrent",
+    "end-to-end-encryption",
+    "e2ee",
+    "aes-256-gcm",
+    "encrypted",
+    "secure-file-transfer",
+    "send-files",
+    "cli",
+    "quick-share",
+    "agent-tools",
+    "llm-tools",
+    "developer-tools",
+    "zero-retention"
+  ],
+  "homepage": "https://srift.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/srivardhan113/SRIFT-Open_Source.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/srivardhan113/SRIFT-Open_Source/issues"
+  },
+  "license": "MIT",
+  "author": "SRIFT",
+  "type": "module",
+  "bin": {
+    "srift": "dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "uuid": "^14.0.0",
+    "ws": "^8.18.3"
+  },
+  "optionalDependencies": {
+    "webtorrent": "^2.8.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

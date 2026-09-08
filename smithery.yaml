@@ -1,22 +1,22 @@
-# Smithery configuration for SRIFT
-# Used by smithery.ai to auto-build and run the MCP server.
-
-name: srift
-version: 2.2.2
-description: Zero-config P2P file transfer and E2EE communication protocol for AI agents & IDEs.
-author: srivardhan113
-license: Apache-2.0
-homepage: https://srift.app
-repository: https://github.com/srivardhan113/SRIFT-Open_Source
-
-# How the agent platform runs Srift inside sandboxed environments
+# Smithery configuration for SRIFT (https://smithery.ai/docs)
+# Official MCP Registry ID: app.srift/srift
+# npm Package: srift-transfer
 startCommand:
   type: stdio
   configSchema:
     type: object
-    properties: {}
+    properties:
+      daemonPort:
+        type: string
+        default: "3822"
+        description: "Optional custom port for the local SRIFT daemon (default: 3822)"
   commandFunction: |-
     (config) => ({
       command: 'npx',
-      args: ['-y', 'srift@latest', 'daemon', '--mcp']
+      args: ['-y', 'srift-transfer', 'mcp'],
+      env: {
+        ...(config && config.daemonPort ? { SRIFT_DAEMON_PORT: String(config.daemonPort) } : {})
+      }
     })
+  exampleConfig:
+    daemonPort: "3822"

@@ -1,7 +1,7 @@
 {
   "name": "SRIFT - Secure File Transfer, Encrypted Chat & Audio Conference",
   "short_name": "SRIFT",
-  "description": "Global secure file transfer, encrypted chat, and audio conferencing with untraceable communication and military-grade encryption",
+  "description": "Global secure file transfer, encrypted chat, and audio conferencing with AES-256-GCM encryption and no account required",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0F0F23",

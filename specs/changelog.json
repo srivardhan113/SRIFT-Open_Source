@@ -1,8 +1,23 @@
 {
   "$comment": "SRIFT machine-readable changelog. Human-readable version at /CHANGELOG.md.",
   "project": "SRIFT",
-  "latestVersion": "2.2.2",
+  "latestVersion": "2.2.15",
   "releases": [
+    {
+      "version": "2.2.12",
+      "date": "2026-09-08",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "Project-wide AI Agent, AEO, and GEO optimization release: universal coding assistant operational directives (Cursor, Windsurf, Claude Code, Cline, Roo, Aider, Devin), native MCP server card synchronization, comprehensive Schema.org JSON-LD graph enhancements, and zero-retention privacy and architecture documentation.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "Operational directives for AI coding agents to deliver files via `srift quick-share <filepath>` instead of printing base64 into chat contexts.",
+          "Extended Schema.org FAQPage microdata on /ai-agents, /about, and /privacy for answer engines.",
+          "Full compatibility matrix synchronization across all SDKs and binary distributions."
+        ]
+      }
+    },
     {
       "version": "2.2.2",
       "date": "2026-06-30",

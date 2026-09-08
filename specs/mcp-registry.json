@@ -9,7 +9,7 @@
     "name": "SRIFT",
     "displayName": "SRIFT — Secure P2P File Transfer + E2EE Chat",
     "tagline": "Zero-config, zero-token peer-to-peer file transfer and encrypted chat for humans AND AI agents.",
-    "shortDescription": "Send files and chat securely, peer-to-peer, with military-grade AES-256 encryption. No accounts, no cloud storage, no API keys. Local MCP server + CLI for AI agents; web app for humans.",
+    "shortDescription": "Send files and chat securely, peer-to-peer, with AES-256-GCM encryption. No accounts, no cloud storage, no API keys. Local MCP server + CLI for AI agents; web app for humans.",
     "longDescription": "SRIFT is a zero-config, zero-token, peer-to-peer file transfer and end-to-end-encrypted chat platform built for both humans (https://srift.app) and AI agents (local daemon on 127.0.0.1:3822). It exposes a Model Context Protocol server (stdio + Streamable HTTP + SSE), an OpenAPI 3.1 REST surface, and a native CLI. Any LLM — Claude, GPT-4/5, Gemini, Grok, Perplexity, Cursor, Continue, Cline, Aider, Goose, Zed, Codex — can call `srift_quick_share` and hand back a public https://srift.app/d/<token> URL that the human recipient downloads with any HTTP client (browser, curl, wget) with nothing installed on their side. AES-256-GCM, PBKDF2 100k, WebRTC/WebTorrent/WebSocket transport, zero server-side plaintext, zero telemetry.",
     "homepage": "https://srift.app",
     "documentation": "https://srift.app/AGENTS.md",
@@ -31,7 +31,7 @@
     ],
     "tags": [
       "mcp", "model-context-protocol", "file-transfer", "p2p", "webrtc", "webtorrent",
-      "aes-256", "end-to-end-encryption", "e2ee", "zero-knowledge", "no-cloud",
+      "aes-256", "end-to-end-encryption", "e2ee", "zero-retention", "no-cloud",
       "no-signup", "cli", "openapi", "a2a", "agent2agent", "agntcy", "openai-plugin",
       "claude-mcp", "cursor", "continue-dev", "cline", "aider", "zed", "goose", "codex"
     ]
@@ -62,7 +62,7 @@
     "posix": "curl -fsSL https://srift.app/install.sh | sh",
     "powershell": "irm https://srift.app/install.ps1 | iex",
     "cmd": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"irm https://srift.app/install.ps1 | iex\"",
-    "npm": "npm install -g srift",
+    "npm": "npm install -g srift-transfer",
     "docker": "docker run --rm -it -p 3822:3822 sriptotech/srift",
     "postInstall": "srift install-mcp   # auto-writes MCP config to Claude Desktop, Cursor, Continue, Zed, Cline, Goose, Aider"
   },
@@ -70,19 +70,28 @@
     "supportedProtocolVersions": ["2025-06-18", "2025-03-26", "2024-11-05"],
     "transports": [
       {
+        "type": "streamable-http",
+        "url": "https://srift.app/mcp",
+        "description": "Zero-install hosted endpoint. Session/peer orchestration only (8 of 14 tools).",
+        "recommendedFor": ["claude-web", "chatgpt", "perplexity", "gemini", "cloud-agents"]
+      },
+      {
         "type": "stdio",
         "command": "srift",
         "args": ["mcp"],
+        "description": "Local daemon. Full tool set (14 tools).",
         "recommendedFor": ["claude-desktop", "cursor", "continue-dev", "zed", "cline", "goose", "aider", "codex", "roo", "openhands", "devin"]
       },
       {
         "type": "streamable-http",
-        "url": "http://127.0.0.1:3822/mcp"
+        "url": "http://127.0.0.1:3822/mcp",
+        "description": "Local daemon HTTP. Full tool set (14 tools). Requires `srift daemon start`."
       },
       {
         "type": "sse",
         "url": "http://127.0.0.1:3822/mcp/sse",
-        "postUrl": "http://127.0.0.1:3822/mcp/messages"
+        "postUrl": "http://127.0.0.1:3822/mcp/messages",
+        "description": "Local daemon legacy SSE transport. Fallback for older client libraries."
       }
     ],
     "tools": [

@@ -1,38 +1,92 @@
-# Auth model for AI agents using SRIFT
+# auth.md — SRIFT agent authentication
 
-## Short version
+You are an agent. This service supports **agentic registration**: discover → register (anonymous) → use credentials (none required) → call API.
 
-**There is no auth.** SRIFT is zero-token, zero-OAuth, and the local daemon binds to `127.0.0.1` only.
+SRIFT uses the **anonymous** registration method only. There is no signup form, no OAuth token exchange, and no account.
 
-If you are an AI agent, LLM, or automation system, you can call every endpoint immediately:
+## Step 1 — Discover
 
-- MCP stdio: `srift mcp`
-- MCP HTTP: `POST http://127.0.0.1:3822/mcp`
-- REST: see [`/openapi.json`](https://srift.app/openapi.json)
-- CLI: `srift quick-share <file>`
+### 1a. Fetch the Protected Resource Metadata
 
-## Why no auth
+```http
+GET https://srift.app/.well-known/oauth-protected-resource
+```
 
-1. The daemon is **localhost-only** by default. Anyone who can hit `127.0.0.1:3822` already has shell on the host.
-2. The actual security is **end-to-end encryption between peers**, not server-side auth. Keys derive from session ID + optional `roomSecret` via PBKDF2-SHA256 (100,000 iter) and are never sent to the signaling server.
-3. Sessions are **ephemeral** — they live in RAM and disappear on daemon stop.
+Expected fields:
 
-## When you do want stronger isolation
+- `resource` — `https://srift.app/`
+- `authorization_servers` — `["https://srift.app"]`
+- `scopes_supported` — `["srift.public"]`
+- `bearer_methods_supported` — `["header"]`
 
-Pass a `roomSecret` to `srift_start_session` / `srift_join_session`. The host and guest must use the
-same `roomSecret`; otherwise their derived keys won't match and ciphertext will not decrypt. This
-makes the session **unguessable even with the 7-character session ID**.
+### 1b. Fetch the Authorization Server metadata
+
+```http
+GET https://srift.app/.well-known/oauth-authorization-server
+```
+
+Read `agent_auth`:
+
+- `skill` — `https://srift.app/auth.md`
+- `register_uri` — `https://srift.app/auth.md#instant-access`
+- `identity_types_supported` — `["anonymous"]`
+- `anonymous.credential_types_supported` — `["none"]`
+- `anonymous.claim_uri` — `https://srift.app/auth.md#room-secret`
+
+## Step 2 — Pick a method
+
+SRIFT supports **anonymous** only.
+
+```json
+{ "type": "anonymous" }
+```
+
+## Step 3 — Register
+
+<a id="instant-access"></a>
+
+### anonymous
+
+No HTTP `POST /agent/identity` call is required. Registration is instant and implicit:
+
+1. Treat your local process as an anonymous agent with scope `srift.public`.
+2. Call any public discovery or local daemon endpoint without an access token.
+3. Credential type is `none` — do not send `Authorization` headers.
+
+Start immediately:
+
+| Surface | How |
+|---|---|
+| MCP stdio | `srift mcp` |
+| MCP HTTP | `POST http://127.0.0.1:3822/mcp` |
+| REST | [`/openapi.json`](https://srift.app/openapi.json) |
+| CLI | `srift quick-share <file>` |
+
+Audience: every AI agent, LLM, MCP client, and automation system. Provisioning endpoint: this document's `#instant-access` section. Supported method: `anonymous`. Credential use: none (localhost daemon + public discovery docs).
+
+## Room secret (optional hardening)
+
+<a id="room-secret"></a>
+
+Optional claim / hardening for a specific session (not OAuth):
 
 ```json
 { "sessionName": "private-handoff", "roomSecret": "any-long-string-the-two-sides-agree-on" }
 ```
 
+Pass the same `roomSecret` to host and guest on `srift_start_session` / `srift_join_session`.
+
+## Why no OAuth tokens
+
+1. The daemon is **localhost-only** (`127.0.0.1:3822`).
+2. Security is **E2EE between peers** (AES-256-GCM + PBKDF2-SHA256), not server auth.
+3. Sessions are ephemeral and leave no server-side accounts to register.
+
 ## Discovery
 
-- [`/.well-known/mcp/server-card.json`](https://srift.app/.well-known/mcp/server-card.json) — MCP transport list + tool catalogue
-- [`/.well-known/ai-plugin.json`](https://srift.app/.well-known/ai-plugin.json) — OpenAI plugin manifest
-- [`/.well-known/agent.json`](https://srift.app/.well-known/agent.json) — Google A2A protocol card
-- [`/.well-known/agent-skills/index.json`](https://srift.app/.well-known/agent-skills/index.json) — AGNTCY skills registry
-- [`/openapi.json`](https://srift.app/openapi.json) — full REST spec
-- [`/llms.txt`](https://srift.app/llms.txt) + [`/llms-full.txt`](https://srift.app/llms-full.txt) — LLM crawler index
-- [`/AGENTS.md`](https://srift.app/AGENTS.md) — full agent manual (also in repo root)
+- [`/.well-known/oauth-protected-resource`](https://srift.app/.well-known/oauth-protected-resource)
+- [`/.well-known/oauth-authorization-server`](https://srift.app/.well-known/oauth-authorization-server)
+- [`/.well-known/mcp/server-card.json`](https://srift.app/.well-known/mcp/server-card.json)
+- [`/.well-known/agent.json`](https://srift.app/.well-known/agent.json)
+- [`/openapi.json`](https://srift.app/openapi.json)
+- [`/AGENTS.md`](https://srift.app/AGENTS.md)

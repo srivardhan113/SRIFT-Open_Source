@@ -5,7 +5,7 @@
   "serverInfo": {
     "name": "SRIFT MCP Server",
     "title": "SRIFT Secure P2P File Transfer",
-    "version": "2.2.2",
+    "version": "2.2.15",
     "vendor": "Sripto Corporation",
     "homepage": "https://srift.app/ai-agents",
     "documentation": "https://srift.app/AGENTS.md"
@@ -19,8 +19,8 @@
   "transport": [
     {
       "type": "stdio",
-      "command": "node",
-      "args": ["--experimental-strip-types", "<absolute-path>/cli/index.ts", "mcp"],
+      "command": "srift",
+      "args": ["mcp"],
       "description": "Recommended for desktop AI clients (Claude Desktop, Cursor, Continue, Zed, Codex, Cline, Goose, Aider)."
     },
     {
@@ -36,7 +36,7 @@
     }
   ],
   "install": {
-    "command": "npm install -g srift  # or run inside the repo: npm run srift",
+    "command": "curl -fsSL https://srift.app/install.sh | sh  # Windows: irm https://srift.app/install.ps1 | iex",
     "quickStart": "https://srift.app/AGENTS.md",
     "configHelper": "srift install-mcp"
   },

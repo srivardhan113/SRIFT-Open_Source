@@ -11,17 +11,30 @@ services:
     environment:
       SRIFT_DAEMON_PORT: 3822
       SRIFT_PUBLIC_BASE: https://srift.app
+      NODE_ENV: production
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3822/status"]
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3822/status', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
       interval: 10s
       timeout: 3s
       retries: 3
+      start_period: 5s
     restart: unless-stopped
+    networks:
+      - srift-net
 
-  # Example agent container that talks to the sidecar
-  # my-agent:
-  #   image: my-org/my-agent:latest
-  #   environment:
-  #     SRIFT_BASE_URL: http://srift:3822
-  #   depends_on:
-  #     srift: { condition: service_healthy }
+networks:
+  srift-net:
+    driver: bridge

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "get-company-info",
+      "type": "skill-md",
+      "description": "Retrieve overview and core metadata for SRIFT and SRIPTO Corporation",
+      "url": "https://srift.app/.well-known/agent-skills/get-company-info/SKILL.md",
+      "digest": "sha256:e8b2ac9eafb0d380b2457d05edd96aedd8e9ab66ada262785c319b908b577050"
+    },
+    {
+      "name": "quick-share",
+      "type": "skill-md",
+      "description": "Zero-install file delivery: seed a file and get a public download URL, no session setup required on the recipient's end",
+      "url": "https://srift.app/.well-known/agent-skills/quick-share/SKILL.md",
+      "digest": "sha256:a563e346d24f0a7d2db6ff4ac2e3719c83b7eb0d73e7b502cf1842b395755744"
+    },
+    {
+      "name": "session-management",
+      "type": "skill-md",
+      "description": "Create, join, monitor, and control SRIFT end-to-end encrypted P2P sessions via the local MCP daemon",
+      "url": "https://srift.app/.well-known/agent-skills/session-management/SKILL.md",
+      "digest": "sha256:6d0f5e26adc89434d82b414e506fe46a8b7eccb36322817cb4a9b4bd18f1a027"
+    },
+    {
+      "name": "encrypted-chat",
+      "type": "skill-md",
+      "description": "Send and read end-to-end encrypted chat messages and manage in-session file transfers within an active SRIFT session",
+      "url": "https://srift.app/.well-known/agent-skills/encrypted-chat/SKILL.md",
+      "digest": "sha256:b39bd5febf62073a89ebf9e872a108fd731bd2c0fea0502b48035da9f81a9fa2"
+    }
+  ]
+}

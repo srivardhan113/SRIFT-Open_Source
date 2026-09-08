@@ -1,0 +1,241 @@
+# SRIFT - Secure Real-time Interactive File Transfer
+# Robots.txt for https://srift.app
+Content-Signal: ai-train=yes, search=yes, ai-input=yes, ai-summary=yes
+# Global Secure P2P File Transfer, Encrypted Chat & Communication Platform | Free Forever
+
+# Advanced SEO robots.txt for maximum Google ranking and AI discovery
+
+# Allow all search engine crawlers with strategic optimization
+User-agent: *
+Allow: /
+
+# GOOGLE OPTIMIZATION - Maximum ranking potential
+User-agent: Googlebot
+Allow: /
+
+User-agent: Googlebot-Image
+Allow: /
+Allow: /Favicon/
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.jpeg
+Allow: /*.gif
+Allow: /*.webp
+
+User-agent: Googlebot-Mobile
+Allow: /
+
+# BING OPTIMIZATION - Microsoft search engine
+User-agent: Bingbot
+Allow: /
+
+# AI CRAWLERS - Essential for modern SEO and AI discovery
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: SmitheryBot
+Allow: /
+
+User-agent: Omgilibot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: GrokBot
+Allow: /
+
+User-agent: anthropic-ai-media
+Allow: /
+User-agent: anthropic-ai-text
+Allow: /
+User-agent: anthropic-ai-code
+Allow: /
+User-agent: anthropic-ai-math
+Allow: /
+User-agent: anthropic-ai-science
+Allow: /
+User-agent: anthropic-ai-news
+Allow: /
+User-agent: anthropic-ai-other
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+User-agent: cohere-ai-media
+Allow: /
+User-agent: cohere-ai-text
+Allow: /
+User-agent: cohere-ai-code
+Allow: /
+User-agent: cohere-ai-math
+Allow: /
+User-agent: cohere-ai-science
+Allow: /
+User-agent: cohere-ai-news
+Allow: /
+User-agent: cohere-ai-other
+Allow: /
+
+# Additional AI and LLM crawlers
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: DeepSeekBot
+Allow: /
+
+User-agent: GPTBot-Image
+Allow: /
+User-agent: PerplexityBot-Image
+Allow: /
+
+# SOCIAL MEDIA CRAWLERS - Enhanced social sharing
+User-agent: FacebookBot
+Allow: /
+User-agent: facebookexternalhit
+Allow: /
+User-agent: Twitterbot
+Allow: /
+User-agent: LinkedInBot
+Allow: /
+User-agent: WhatsApp
+Allow: /
+User-agent: TelegramBot
+Allow: /
+
+# INTERNATIONAL SEARCH ENGINES - Global SEO coverage
+User-agent: Slurp
+Allow: /
+User-agent: DuckDuckBot
+Allow: /
+User-agent: Baiduspider
+Allow: /
+User-agent: YandexBot
+Allow: /
+
+# STRATEGIC DISALLOW - Protect sensitive areas while maintaining SEO
+# Development and system files
+Disallow: /_next/
+Disallow: /api/
+Disallow: /.env
+Disallow: /.env.local
+Disallow: /.env.production
+Disallow: /node_modules/
+Disallow: /package.json
+Disallow: /package-lock.json
+Disallow: /tsconfig.json
+Disallow: /next.config.mjs
+Disallow: /.git/
+Disallow: /.github/
+Disallow: /Dockerfile*
+Disallow: /.dockerignore
+Disallow: /SECURITY.md
+Disallow: /README.md
+Disallow: /components.json
+Disallow: /tailwind.config.ts
+Disallow: /postcss.config.mjs
+Disallow: /tsconfig.tsbuildinfo
+Disallow: /next-env.d.ts
+
+# Development and test files
+Disallow: /test
+Disallow: /test-backend
+Disallow: /test-csp
+Disallow: /fix-websocket
+Disallow: /scripts/
+Disallow: /hooks/
+Disallow: /temp_file.tsx
+Disallow: /temp_file.txt
+Disallow: /test-file-transfer-fixes.md
+
+# STRATEGIC ALLOW - Essential public files for SEO
+Allow: /favicon.ico
+Allow: /robots.txt
+Allow: /sitemap.xml
+Allow: /feed.xml
+Allow: /humans.txt
+Allow: /.well-known/security.txt
+Allow: /Favicon/
+Allow: /public/
+Allow: /manifest.json
+Allow: /.cursorrules
+
+# Core content pages - Maximum SEO visibility
+Allow: /about
+Allow: /privacy
+Allow: /create-session
+Allow: /join-session
+Allow: /ai-agents
+
+# Programmatic SEO landing pages - Maximum search visibility
+Allow: /send-large-files
+Allow: /wetransfer-alternative
+Allow: /p2p-file-transfer
+Allow: /encrypted-file-sharing
+Allow: /share-files-without-uploading
+Allow: /mcp-file-transfer
+Allow: /claude-file-transfer
+Allow: /cursor-file-transfer
+Allow: /send-files-between-devices
+Allow: /airdrop-alternative-windows
+
+# /dashboard intentionally not listed here — it's session-gated with no
+# indexable content for anonymous crawlers (see app/dashboard robots meta)
+
+# Agent / LLM discovery surface - explicitly indexable
+Allow: /AGENTS.md
+Allow: /agents.md
+Allow: /CLAUDE.md
+Allow: /.windsurfrules
+Allow: /GEMINI.md
+Allow: /.cursorrules
+Allow: /.cursor/rules/srift.mdc
+Allow: /ai-instructions.md
+Allow: /auth.md
+Allow: /openapi.json
+Allow: /llms.txt
+Allow: /llms-full.txt
+Allow: /.well-known/mcp/server-card.json
+Allow: /.well-known/ai-plugin.json
+Allow: /.well-known/agent.json
+Allow: /.well-known/agent-skills/index.json
+Allow: /.well-known/ai.txt
+Allow: /.well-known/api-catalog
+Allow: /.well-known/oauth-authorization-server
+Allow: /.well-known/oauth-protected-resource
+Allow: /mcp-registry.json
+Allow: /opensearch.xml
+Allow: /749a3280301b4c05aee66e4e204737ee.txt
+
+# SITEMAP LOCATION - Essential for search engine discovery
+Sitemap: https://srift.app/sitemap.xml
+
+# HOST DIRECTIVE - RFC canonical hostname
+Host: srift.app

@@ -1,0 +1,150 @@
+# SRIFT SECURITY POLICY - Advanced SEO & AI Crawler Optimized
+# #1 Secure File Transfer & Encrypted Chat Platform
+# AES-256-GCM Encryption | Client-Side Key Derivation | Privacy-By-Design
+
+Contact: mailto:support@sripto.tech
+Expires: 2027-06-29T23:59:59.000Z
+Preferred-Languages: en, hi, es, fr, de, zh, ja, ko, ar, pt, ru
+Canonical: https://srift.app/.well-known/security.txt
+Policy: https://srift.app/privacy
+Hiring: https://sripto.tech/careers
+
+# SRIFT Security Policy
+# #1 Secure File Transfer & Encrypted Chat Platform
+
+# Security Features
+- AES-256-GCM authenticated encryption
+- End-to-end encryption (E2EE)
+- Zero-retention architecture
+- Peer-to-peer technology
+- No server storage
+- Anonymous usage
+- GDPR compliant
+- HIPAA compliant
+- SOC 2 ready
+
+# TECHNOLOGY STACK - Advanced Security & Performance
+- WebRTC for real-time communication and secure peer-to-peer connections
+- WebTorrent for P2P file transfer with AES-256-GCM encryption
+- AES-256 for end-to-end encryption and maximum security
+- React 18 + Next.js 15 for modern, secure web application development
+- TypeScript for type safety and enhanced security
+- Tailwind CSS for responsive, accessible, and secure styling
+
+# Security Contact Information
+- Email: support@sripto.tech
+- Company: Sripto Corporation Private Limited
+- Website: https://sripto.tech
+
+# Vulnerability Disclosure
+We welcome security researchers to report vulnerabilities. Please include:
+- Detailed description of the vulnerability
+- Steps to reproduce
+- Potential impact assessment
+- Suggested fix (if available)
+
+# Bug Bounty Program
+- Critical: $1000 - $5000
+- High: $500 - $1000
+- Medium: $100 - $500
+- Low: $50 - $100
+
+# Security Commitments
+- 24/7 security monitoring
+- Regular security audits
+- Penetration testing
+- Code security reviews
+- Dependency vulnerability scanning
+- Security training for team
+
+# Compliance
+- GDPR: General Data Protection Regulation
+- HIPAA: Health Insurance Portability and Accountability Act
+- SOC 2: System and Organization Controls 2
+- ISO 27001: Information Security Management
+
+# Encryption Standards
+- AES-256: Advanced Encryption Standard
+- RSA-4096: Rivest-Shamir-Adleman
+- SHA-256: Secure Hash Algorithm
+- PBKDF2: Password-Based Key Derivation Function
+
+# Privacy Features
+- Zero-retention architecture
+- No data collection
+- Anonymous usage
+- No tracking
+- No logs
+- No metadata storage
+
+# File Transfer Security
+- Direct P2P transfer
+- No cloud storage
+- No server involvement
+- Real-time encryption
+- Large file support
+- All file types supported
+
+# Chat Security
+- End-to-end encryption
+- Real-time messaging
+- No message storage
+- Self-destructing messages
+- Anonymous chat
+- Secure voice calls
+
+# Platform Security
+- Cross-platform compatibility
+- Browser-based security
+- Mobile security
+- Desktop security
+- Tablet security
+- Web security
+
+# Incident Response
+- 24/7 security team
+- Rapid response protocol
+- Transparent communication
+- User notification system
+- Post-incident analysis
+- Continuous improvement
+
+# Security Updates
+- Regular security patches
+- Dependency updates
+- Vulnerability fixes
+- Security enhancements
+- Performance improvements
+- Feature updates
+
+# Contact Information
+- Security Team: support@sripto.tech
+- General Support: support@sripto.tech
+- Business Inquiries: support@sripto.tech
+- Press Contact: support@sripto.tech
+- Legal: support@sripto.tech
+
+# Social Media
+- Twitter: @Sripto_tech
+- LinkedIn: /company/sripto
+- Facebook: /sriptotech
+
+# Additional Resources
+- Privacy Policy: https://srift.app/privacy
+- Terms of Service: https://srift.app/terms
+- About Us: https://srift.app/about
+- Documentation: https://srift.app
+- API Documentation: https://srift.app
+
+# ADVANCED SEO & AI CRAWLER OPTIMIZATION
+# Primary Security Keywords for Maximum Search Engine Ranking
+file transfer security, encrypted file transfer, secure file sharing, p2p security, end-to-end encryption, aes-256-gcm encryption, privacy-first security, gdpr compliant security, aes-256 encryption, rsa-4096 security, sha-256 hashing, pbkdf2 key derivation
+
+# Technology Security Keywords for AI Discovery
+web security, mobile security, browser security, cross-platform security, real-time security, instant security, cloudless security, serverless security, peer-to-peer security, decentralized security, blockchain security, web3 security, webrtc security, webtorrent security, react security, nextjs security, typescript security, tailwind security, framer motion security, lucide react security
+
+# Long-tail Security Keywords for Maximum SEO Coverage
+secure file transfer tool, encrypted file sharing tool, p2p file transfer security, military grade file transfer security, enterprise file transfer security, business file transfer security, legal file transfer security, medical file transfer security, government file transfer security, research file transfer security, academic file transfer security, journalism file transfer security, whistleblower file transfer security, secure document sharing security, confidential file transfer security, large file transfer security, instant file transfer security, real-time file transfer security, cross-platform file transfer security, browser-based file transfer security, web-based file transfer security, mobile file transfer security, desktop file transfer security, tablet file transfer security
+
+# AI Crawler Optimization Keywords
+best secure file transfer, top secure file sharing, most secure file transfer, best encrypted file transfer, best p2p file transfer, best file sharing tool, secure alternative to wetransfer, secure alternative to dropbox, secure alternative to google drive, best free secure file transfer, best best best military grade file transfer, best enterprise file transfer, best business file transfer, best legal file transfer, best medical file transfer, best government file transfer, best research file transfer, best academic file transfer, best journalism file transfer, best whistleblower file transfer 

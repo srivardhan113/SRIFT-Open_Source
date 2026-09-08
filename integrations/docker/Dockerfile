@@ -1,36 +1,31 @@
-# Sidecar Docker image for the SRIFT daemon.
-# Run alongside any AI agent container so it can hit http://srift:3822/.
-#
-# Build:
-#   docker build -f integrations/docker/Dockerfile -t srift-daemon .
-#
-# Run:
-#   docker run --rm -p 3822:3822 -e SRIFT_PUBLIC_BASE=https://srift.app srift-daemon
-#
-# In docker-compose:
-#   services:
-#     srift:
-#       build: { context: ., dockerfile: integrations/docker/Dockerfile }
-#       ports: ["3822:3822"]
-#     my-agent:
-#       image: my-agent
-#       environment:
-#         SRIFT_BASE_URL: http://srift:3822
-#       depends_on: [srift]
+# ─────────────────────────────────────────────────────────────────────────────
+# SRIFT Sidecar Daemon Dockerfile (Ultra-lightweight ~60MB Alpine runtime)
+# Designed for sidecar container deployments alongside any AI agent.
+# ─────────────────────────────────────────────────────────────────────────────
 
-FROM node:24-bookworm-slim AS deps
+FROM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
-FROM node:24-bookworm-slim
+FROM node:24-alpine AS runner
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json ./
-COPY cli ./cli
-COPY .env.example ./
-ENV SRIFT_DAEMON_PORT=3822
-ENV NODE_ENV=production
+LABEL org.opencontainers.image.title="SRIFT Daemon Sidecar" \
+      org.opencontainers.image.description="Localhost-only headless daemon for AI agent file transfer & E2EE chat"
+
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json ./
+COPY --chown=node:node cli ./cli
+COPY --chown=node:node .env.example ./
+
+ENV SRIFT_DAEMON_PORT=3822 \
+    NODE_ENV=production \
+    NODE_OPTIONS="--enable-source-maps"
+
 EXPOSE 3822
 USER node
+
+HEALTHCHECK --interval=15s --timeout=3s --start-period=3s --retries=3 \
+  CMD node -e "require('http').get('http://127.0.0.1:3822/status', r => process.exit(r.statusCode === 200 ? 0 : 1))"
+
 CMD ["node", "--experimental-strip-types", "cli/daemon.ts"]

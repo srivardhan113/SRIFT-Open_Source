@@ -1,4 +1,4 @@
-# OS artifacts
+﻿# OS artifacts
 .DS_Store
 .DS_Store?
 ._*
@@ -26,9 +26,16 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment and secrets (in case of local testing)
+# Environment and secrets
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# SRIFT daemon & runtime artifacts
+.srift-state.json
+.srift-daemon.log
+.srift-temp/
+*.tgz
+*.log
