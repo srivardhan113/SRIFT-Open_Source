@@ -19,7 +19,7 @@
 #   SRIFT_NO_VERIFY  set to 1 to skip checksum verification (not recommended)
 set -eu
 
-DEFAULT_VERSION="2.2.16"
+DEFAULT_VERSION="3.0.0"
 BASE_URL="https://srift.app/dl"
 CACHE_DIR="${SRIFT_CACHE_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/srift}"
 

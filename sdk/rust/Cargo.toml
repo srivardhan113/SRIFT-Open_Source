@@ -1,11 +1,11 @@
 [package]
 name = "srift"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2021"
 description = "Zero-config, zero-token P2P E2EE file transfer + chat — Rust client for the SRIFT daemon"
 license = "MIT"
 homepage = "https://srift.app/ai-agents"
-repository = "https://github.com/sripto/srift-website"
+repository = "https://github.com/srivardhan113/SRIFT-Open_Source"
 keywords = ["srift", "p2p", "e2ee", "mcp", "ai-agent"]
 categories = ["api-bindings", "network-programming"]
 

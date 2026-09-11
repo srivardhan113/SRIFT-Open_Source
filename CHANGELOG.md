@@ -8,6 +8,76 @@ Machine-readable version: [`/changelog.json`](https://srift.app/changelog.json)
 
 ---
 
+## [3.0.0] — 2026-09-11
+
+Version realignment and version-integrity release. Consolidates the
+never-published 2.2.13–2.2.16 source bumps into a single published 3.0.0 across
+npm, the Official MCP Registry, the CLI, the local daemon, the hosted MCP
+endpoint and all ten SDKs.
+
+**Not breaking despite the major bump.** There are no API, wire-protocol or
+crypto changes; clients built against 2.x keep working, which is why
+`minSupported` stays at `2.0.0`. The major number marks the end of the
+2.2.x drift rather than an incompatibility.
+
+### Fixed — version sync was silently broken
+
+`sync-version.mjs` reported *"all references match"* while three runtime
+surfaces were stale. The `cli/mcp.ts` pattern was built from a **non-raw**
+template literal, so `\s` collapsed to `s` and `
+` to a real newline; the
+regex could never match. Because the script only compared text before and
+after, a pattern matching nothing was indistinguishable from a file already
+correct — so it was skipped silently and permanently.
+
+- MCP `serverInfo.version` was stuck at `2.2.15`.
+- The local daemon reported `2.1.8` on `/health` and `/openapi.json`, and
+  `2.0.0` on its own MCP server-card — while `compat.json` advertised `2.2.16`.
+  Its four hardcoded versions now reference one synced constant.
+- The script now **fails loudly** when any pattern matches nothing.
+
+### Fixed — a banned claim was live in production
+
+The forbidden number-one ranking claim was being served from `/feed.xml` (RSS
+heading + two descriptions) and `/.well-known/security.txt` (two banner lines).
+The audit only ever read `robots.txt`, so it reported a 100% pass throughout.
+Detection also matched CSS hex colours — the old regex only excluded a following
+digit, so hex values like `1a1a2e` and `10B981` in the OpenGraph and Twitter
+image routes were flagged — and now requires a non-word character after the
+marker.
+
+The audit now scans every served surface: all of `public/`, `app/**/route.ts`,
+`app/**/*.tsx`, and the repo-root files that `server.mjs` serves publicly
+(`CHANGELOG.md`, `AGENTS.md`, `ai-instructions.md`, `.cursorrules`).
+
+### Added — every SDK has a synced version
+
+All ten SDKs now expose exactly one version constant, idiomatic per language:
+Go `Version`, Java `VERSION`, .NET `Version`, PHP `VERSION`, Ruby `VERSION`,
+Bash `SRIFT_SDK_VERSION`, PowerShell `$Script:SriftSdkVersion`, Rust
+`pub const VERSION`, plus the pre-existing Node `VERSION` and Python
+`__version__`. Previously only Node, Python and Rust carried a version at all,
+and all three were stranded at `2.0.0`. The Node and Python MCP handshakes now
+send the constant rather than a literal.
+
+`sync-version.mjs` covers all of them (plus `cli/daemon.{ts,js}`), so one
+`package.json` bump propagates to 40 files.
+
+### Fixed — miscellaneous
+
+- `sdk/rust/Cargo.toml` `repository` pointed at the non-existent
+  `sripto/srift-website`; now `srivardhan113/SRIFT-Open_Source`.
+- Release `kind` was hardcoded `'minor'` and would have advertised this major
+  release as minor. `kind` and `publishedAt` in `/cli/version.json` and
+  `/sdk/*/version.json` are now derived from the version and the changelog.
+
+### Removed
+
+- `sdk/python/__pycache__/srift.cpython-313.pyc`, a compiled artifact committed
+  to the repository. `__pycache__/` and `*.py[cod]` are now gitignored.
+
+---
+
 ## [2.2.2] — 2026-06-30
 
 ### Fixed — daemon-side companion to the 2.2.1 cap-exhausted-410 fix

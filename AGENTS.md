@@ -193,7 +193,7 @@ Returns:
     "serverInfo": {
       "name": "srift-mcp-server",
       "title": "SRIFT Secure P2P File Transfer (hosted)",
-      "version": "2.2.16"
+      "version": "3.0.0"
     }
   }
 }
@@ -261,7 +261,7 @@ Or with explicit binary path (no global install required):
 POST http://127.0.0.1:3822/mcp
 Content-Type: application/json
 
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"my-agent","version":"2.2.15"}}}
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"my-agent","version":"1.0.0"}}}
 ```
 
 ### Legacy SSE transport

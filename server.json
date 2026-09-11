@@ -7,14 +7,14 @@
     "url": "https://github.com/srivardhan113/SRIFT-Open_Source",
     "source": "github"
   },
-  "version": "2.2.16",
+  "version": "3.0.0",
   "websiteUrl": "https://srift.app",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "srift-transfer",
-      "version": "2.2.16",
+      "version": "3.0.0",
       "transport": {
         "type": "stdio"
       },

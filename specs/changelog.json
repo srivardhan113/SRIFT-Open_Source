@@ -1,8 +1,36 @@
 {
   "$comment": "SRIFT machine-readable changelog. Human-readable version at /CHANGELOG.md.",
   "project": "SRIFT",
-  "latestVersion": "2.2.16",
+  "latestVersion": "3.0.0",
   "releases": [
+    {
+      "version": "3.0.0",
+      "date": "2026-09-11",
+      "kind": "major",
+      "securityFix": false,
+      "summary": "Version realignment and version-integrity release. Consolidates the unpublished 2.2.13-2.2.16 source bumps into a single published 3.0.0 across npm, the Official MCP Registry, the CLI, the local daemon, the hosted MCP endpoint and all ten SDKs. Fixes a silent failure in the version-sync tooling that had frozen the MCP serverInfo and daemon versions, gives every SDK a synced version constant, and removes a banned marketing claim that was live in two public surfaces. No API, wire-protocol or crypto changes: clients built against 2.x continue to work, which is why minSupported stays at 2.0.0.",
+      "breaking": false,
+      "changes": {
+        "added": [
+          "Version constant in every SDK - Go (`Version`), Java (`VERSION`), .NET (`Version`), PHP (`VERSION`), Ruby (`VERSION`), Bash (`SRIFT_SDK_VERSION`), PowerShell (`$Script:SriftSdkVersion`), Rust (`pub const VERSION`) - joining the Node and Python SDKs, which previously were the only ones with a version at all.",
+          "scripts/sync-version.mjs now covers all ten SDKs plus cli/daemon.{ts,js}, so a single package.json bump propagates to every SDK, manifest, install script and discovery surface (40 files).",
+          "sync-version fails loudly when any pattern matches nothing, instead of treating an unmatched regex as 'already in sync'.",
+          "verify-seo.mjs section 5b audits every served surface (all of public/, app/**/route.ts, app/**/*.tsx) for banned claims, not just robots.txt.",
+          "Release `kind` and `publishedAt` in /cli/version.json and /sdk/*/version.json are now derived from the version and the changelog instead of being hardcoded."
+        ],
+        "fixed": [
+          "Version sync silently skipped cli/mcp.ts: the pattern was built in a non-raw template literal, so `\\s` collapsed to `s` and the regex could never match. MCP serverInfo.version was stuck at 2.2.15 while --check reported everything in sync.",
+          "Local daemon reported 2.1.8 on /health and /openapi.json and 2.0.0 on its own MCP server-card, contradicting public/compat.json. Its four hardcoded versions now reference one synced constant.",
+          "The banned number-one ranking claim was live in /feed.xml (RSS heading plus two descriptions) and /.well-known/security.txt (two banner lines). It is now removed and the audit covers both surfaces.",
+          "Banned-claim detection matched CSS hex colours: the ranking-claim regex only excluded a following digit, so hex values such as 1a1a2e and 10B981 in the OpenGraph and Twitter image routes were flagged. It now requires a non-word character after the marker.",
+          "sdk/rust/Cargo.toml `repository` pointed at the non-existent `sripto/srift-website`; now points at srivardhan113/SRIFT-Open_Source, matching every other published manifest.",
+          "Release `kind` was hardcoded 'minor' and would have advertised this major release as a minor one."
+        ],
+        "removed": [
+          "sdk/python/__pycache__/srift.cpython-313.pyc, a compiled artifact committed to the repository. __pycache__/ and *.py[cod] are now gitignored."
+        ]
+      }
+    },
     {
       "version": "2.2.12",
       "date": "2026-09-08",
@@ -356,7 +384,9 @@
       "summary": "Initial public release. MCP server, REST daemon, 11 SDKs, 26 integrations, WebRTC + WebTorrent + WebSocket fallback.",
       "breaking": true,
       "changes": {
-        "added": ["Initial public release"],
+        "added": [
+          "Initial public release"
+        ],
         "fixed": [],
         "deprecated": [],
         "removed": []

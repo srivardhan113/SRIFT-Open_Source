@@ -15,6 +15,9 @@
 
 const DEFAULT_BASE = "http://127.0.0.1:3822";
 
+/** SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs. */
+export const VERSION = "3.0.0";
+
 export class SriftError extends Error {
   constructor(message, code) { super(message); this.name = "SriftError"; this.code = code; }
 }
@@ -123,7 +126,7 @@ export class SriftMCP {
     return this.call("initialize", {
       protocolVersion: "2025-06-18",
       capabilities: {},
-      clientInfo: { name: clientName, version: "2.0.0" },
+      clientInfo: { name: clientName, version: VERSION },
     });
   }
   async tools() { return (await this.call("tools/list")).tools; }

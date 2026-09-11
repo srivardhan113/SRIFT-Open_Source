@@ -17,6 +17,9 @@ class Client {
     public string $baseUrl;
     public int $timeout;
 
+    /** SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs. */
+    const VERSION = '3.0.0';
+
     public function __construct(?string $baseUrl = null, int $timeout = 30) {
         $this->baseUrl = rtrim($baseUrl ?? getenv('SRIFT_BASE_URL') ?: 'http://127.0.0.1:3822', '/');
         $this->timeout = $timeout;

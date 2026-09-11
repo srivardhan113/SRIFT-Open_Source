@@ -966,7 +966,7 @@ app.use(cors());
 app.use(express.json());
 
 const DAEMON_START_TIME = Date.now();
-const PACKAGE_VERSION = '2.1.8';
+const PACKAGE_VERSION = '3.0.0';
 
 // ─── GET /health — liveness probe ───
 app.get('/health', (req: Request, res: Response) => {
@@ -1748,7 +1748,7 @@ app.get('/.well-known/mcp/server-card.json', (req: Request, res: Response) => {
     $schema: 'https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json',
     version: '1.0',
     protocolVersion: '2025-06-18',
-    serverInfo: { name: 'SRIFT MCP Server (local daemon)', version: '2.0.0' },
+    serverInfo: { name: 'SRIFT MCP Server (local daemon)', version: PACKAGE_VERSION },
     capabilities: { tools: {}, resources: {}, prompts: {} },
     transport: [
       { type: 'streamable-http', url: `http://127.0.0.1:${PORT}/mcp` },
@@ -1782,7 +1782,7 @@ app.get('/.well-known/agent.json', (req: Request, res: Response) => {
     name: 'SRIFT',
     description: 'Zero-config P2P E2EE file transfer + chat for any AI agent or automation.',
     url: `http://127.0.0.1:${PORT}`,
-    version: '2.0.0',
+    version: PACKAGE_VERSION,
     capabilities: {
       streaming: true,
       pushNotifications: false,
@@ -1797,7 +1797,7 @@ app.get('/.well-known/agent.json', (req: Request, res: Response) => {
 app.get('/openapi.json', (req: Request, res: Response) => {
   res.json({
     openapi: '3.1.0',
-    info: { title: 'SRIFT Local Daemon API', version: '2.1.8', description: 'Zero-auth REST API for AI agents to drive SRIFT P2P transfer.' },
+    info: { title: 'SRIFT Local Daemon API', version: PACKAGE_VERSION, description: 'Zero-auth REST API for AI agents to drive SRIFT P2P transfer.' },
     servers: [{ url: `http://127.0.0.1:${PORT}` }],
     paths: {
       '/health': { get: { summary: 'Liveness probe', description: 'Returns {ok,version,uptime_ms,mcp,webrtc,webtorrent}', responses: { '200': { description: 'OK' } } } },

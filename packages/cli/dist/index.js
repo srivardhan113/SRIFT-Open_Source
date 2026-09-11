@@ -814,7 +814,7 @@ var init_mcp = __esm({
     SERVER_INFO = {
       name: "srift-mcp-server",
       title: "SRIFT Secure P2P File Transfer",
-      version: "2.2.15"
+      version: "3.0.0"
     };
     localDaemonBackend = { callTool, readResource };
     handleMcpMessage = createMcpHandler({
@@ -1730,7 +1730,7 @@ var init_daemon = __esm({
     app.use(cors());
     app.use(express.json());
     DAEMON_START_TIME = Date.now();
-    PACKAGE_VERSION = "2.1.8";
+    PACKAGE_VERSION = "3.0.0";
     app.get("/health", (req, res) => {
       res.json({
         ok: true,
@@ -2296,7 +2296,7 @@ data: /mcp/messages
         $schema: "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
         version: "1.0",
         protocolVersion: "2025-06-18",
-        serverInfo: { name: "SRIFT MCP Server (local daemon)", version: "2.0.0" },
+        serverInfo: { name: "SRIFT MCP Server (local daemon)", version: PACKAGE_VERSION },
         capabilities: { tools: {}, resources: {}, prompts: {} },
         transport: [
           { type: "streamable-http", url: `http://127.0.0.1:${PORT}/mcp` },
@@ -2327,7 +2327,7 @@ data: /mcp/messages
         name: "SRIFT",
         description: "Zero-config P2P E2EE file transfer + chat for any AI agent or automation.",
         url: `http://127.0.0.1:${PORT}`,
-        version: "2.0.0",
+        version: PACKAGE_VERSION,
         capabilities: {
           streaming: true,
           pushNotifications: false,
@@ -2341,7 +2341,7 @@ data: /mcp/messages
     app.get("/openapi.json", (req, res) => {
       res.json({
         openapi: "3.1.0",
-        info: { title: "SRIFT Local Daemon API", version: "2.1.8", description: "Zero-auth REST API for AI agents to drive SRIFT P2P transfer." },
+        info: { title: "SRIFT Local Daemon API", version: PACKAGE_VERSION, description: "Zero-auth REST API for AI agents to drive SRIFT P2P transfer." },
         servers: [{ url: `http://127.0.0.1:${PORT}` }],
         paths: {
           "/health": { get: { summary: "Liveness probe", description: "Returns {ok,version,uptime_ms,mcp,webrtc,webtorrent}", responses: { "200": { description: "OK" } } } },
@@ -3171,7 +3171,7 @@ var __filename = fileURLToPath2(import.meta.url);
 var __dirname = path3.dirname(__filename);
 var DAEMON_PORT3 = parseInt(process.env.SRIFT_DAEMON_PORT || "3822", 10);
 var DAEMON_URL3 = `http://127.0.0.1:${DAEMON_PORT3}`;
-var CLI_VERSION = "2.2.16";
+var CLI_VERSION = "3.0.0";
 function parseDuration(s) {
   if (!s) return 0;
   const m = /^(\d+(?:\.\d+)?)\s*(ms|s|m|h|d)?$/i.exec(s.trim());

@@ -1,7 +1,7 @@
 ﻿{
     "manifestVersion":  "1",
     "name":  "srift-transfer",
-    "version":  "2.2.16",
+    "version":  "3.0.0",
     "description":  "Zero-config P2P file transfer, encrypted chat, and Model Context Protocol (MCP) server for AI coding agents \u0026 IDEs.",
     "author":  "srivardhan113",
     "license":  "Apache-2.0",

@@ -27,7 +27,7 @@ import urllib.error
 from typing import Any, Dict, List, Optional
 
 __all__ = ["Srift", "AsyncSrift", "SriftError"]
-__version__ = "2.0.0"
+__version__ = "3.0.0"
 
 
 class SriftError(RuntimeError):

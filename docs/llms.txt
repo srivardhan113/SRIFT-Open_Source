@@ -232,13 +232,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "& ([scriptblock]::Create
 
 The CLI is a **bun-compiled standalone binary** — no Node.js, no npm required on the end-user machine.
 Direct binary downloads (SHA256 verified):
-- https://srift.app/dl/2.2.16/linux-x64/srift
-- https://srift.app/dl/2.2.16/linux-arm64/srift
-- https://srift.app/dl/2.2.16/darwin-x64/srift
-- https://srift.app/dl/2.2.16/darwin-arm64/srift
-- https://srift.app/dl/2.2.16/win-x64/srift.exe
-- https://srift.app/dl/2.2.16/SHA256SUMS (combined)
-- https://srift.app/dl/2.2.16/{target}/SHA256SUMS (per-target)
+- https://srift.app/dl/3.0.0/linux-x64/srift
+- https://srift.app/dl/3.0.0/linux-arm64/srift
+- https://srift.app/dl/3.0.0/darwin-x64/srift
+- https://srift.app/dl/3.0.0/darwin-arm64/srift
+- https://srift.app/dl/3.0.0/win-x64/srift.exe
+- https://srift.app/dl/3.0.0/SHA256SUMS (combined)
+- https://srift.app/dl/3.0.0/{target}/SHA256SUMS (per-target)
 
 ## Integration surfaces
 

@@ -2,9 +2,9 @@
 //!
 //! Pick your features in Cargo.toml:
 //!   [dependencies]
-//!   srift = { version = "2", features = ["blocking"] }   # uses ureq
+//!   srift = { version = "3", features = ["blocking"] }   # uses ureq
 //!   # OR
-//!   srift = { version = "2", features = ["async"] }      # uses reqwest + tokio
+//!   srift = { version = "3", features = ["async"] }      # uses reqwest + tokio
 //!
 //! Runs on: any target Rust supports — Linux, macOS, Windows, BSD, Wasm32-wasi,
 //! embedded (no_std variant in `srift-no-std`), Tauri, Cloudflare Workers (with reqwest-wasm).
@@ -19,6 +19,9 @@ use serde::{Deserialize, Serialize};
 use std::env;
 
 const DEFAULT_BASE: &str = "http://127.0.0.1:3822";
+
+/// SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
+pub const VERSION: &str = "3.0.0";
 
 #[derive(Debug, thiserror::Error)]
 pub enum SriftError {

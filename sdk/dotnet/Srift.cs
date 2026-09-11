@@ -19,6 +19,8 @@ namespace Srift
     public class Client : IDisposable
     {
         public readonly string BaseUrl;
+        /// <summary>SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.</summary>
+        public const string Version = "3.0.0";
         private readonly HttpClient _http;
 
         public Client(string? baseUrl = null, HttpClient? http = null)

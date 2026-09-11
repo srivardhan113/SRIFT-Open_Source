@@ -10,6 +10,9 @@ require 'json'
 require 'uri'
 
 module Srift
+  # SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
+  VERSION = '3.0.0'
+
   class Error < StandardError; end
 
   class Client

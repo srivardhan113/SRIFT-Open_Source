@@ -9,6 +9,9 @@
 
 $Script:SriftBase = if ($env:SRIFT_BASE_URL) { $env:SRIFT_BASE_URL } else { "http://127.0.0.1:3822" }
 
+# SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
+$Script:SriftSdkVersion = "3.0.0"
+
 function Invoke-SriftCall {
     param(
         [string]$Path,
