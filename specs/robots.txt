@@ -48,6 +48,9 @@ Allow: /
 User-agent: SmitheryBot
 Allow: /
 
+User-agent: GlamaBot
+Allow: /
+
 User-agent: Omgilibot
 Allow: /
 
@@ -186,6 +189,9 @@ Allow: /Favicon/
 Allow: /public/
 Allow: /manifest.json
 Allow: /.cursorrules
+Allow: /og-image.png
+Allow: /opengraph-image
+Allow: /twitter-image
 
 # Core content pages - Maximum SEO visibility
 Allow: /about

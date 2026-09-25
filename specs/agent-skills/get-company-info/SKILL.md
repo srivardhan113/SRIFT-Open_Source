@@ -1,3 +1,8 @@
+---
+name: get-company-info
+description: Retrieve overview and core metadata for SRIFT and SRIPTO Corporation
+---
+
 # get-company-info
 
 Retrieve high-level overview and specifications about SRIFT and SRIPTO Corporation.

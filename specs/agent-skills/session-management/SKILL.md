@@ -1,3 +1,8 @@
+---
+name: session-management
+description: Create, join, monitor, and control SRIFT end-to-end encrypted P2P sessions via the local MCP daemon
+---
+
 # session-management
 
 Create, join, monitor, and control SRIFT end-to-end encrypted P2P sessions ("rooms") via the local MCP daemon. Covers the full session lifecycle used for in-session file transfer and encrypted chat.

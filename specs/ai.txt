@@ -18,7 +18,7 @@ Content-Signal: search=yes, ai-train=yes, ai-input=yes, ai-summary=yes
 #   5. /.well-known/ai-plugin.json        — ChatGPT / GPT actions manifest
 #   6. /.well-known/agent.json            — Google A2A / Agent2Agent card
 #   7. /.well-known/mcp/server-card.json  — Model Context Protocol server card
-#   8. /.well-known/agent-skills/index.json — AGNTCY skills catalog
+#   8. /.well-known/agent-skills/index.json — SRIFT Agent Skills index (SRIFT convention, proposed)
 
 # ============================================================
 # Per-crawler explicit allow — no ambiguity

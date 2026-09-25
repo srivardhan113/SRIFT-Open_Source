@@ -1,3 +1,8 @@
+---
+name: encrypted-chat
+description: Send and read end-to-end encrypted chat messages and manage in-session file transfers within an active SRIFT session
+---
+
 # encrypted-chat
 
 Send and read end-to-end encrypted chat messages within an active SRIFT session, plus manage in-session file transfers, via the local MCP daemon.

@@ -16,7 +16,7 @@ with no prior context.
 | CLI command | **`srift`** (bin name ≠ package name) | ✅ |
 | Website / API | https://srift.app | ✅ `2.2.15` |
 | Hosted MCP | `POST https://srift.app/mcp` | ✅ 8 tools |
-| Local MCP | `srift mcp` (stdio) | ✅ 14 tools |
+| Local MCP | `srift mcp` (stdio) | ✅ 15 tools |
 | GitHub | `SRIPTO-Tech/srift-website` (private) | ✅ |
 | Open-source mirror | `srivardhan113/SRIFT-Open_Source` | referenced in npm metadata |
 | MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ **published 2.2.15** (isLatest) |
@@ -205,9 +205,9 @@ Free, and `topic:mcp-server` is a real discovery path.
 
 | Transport | Tools | Why |
 |---|---|---|
-| Local stdio (`srift mcp`) | **14** | full disk + key access |
-| Local HTTP (`127.0.0.1:3822/mcp`) | **14** | same daemon |
-| Hosted (`srift.app/mcp`) | **8** | orchestration only |
+| Local stdio (`srift mcp`) | **15** | full disk + key access (daemon in-process if it can't start) |
+| Local HTTP (`127.0.0.1:3822/mcp`) | **15** | same daemon |
+| Hosted (`srift.app/mcp`) | **9** | orchestration + `srift_net_diagnose` guidance |
 
 Hosted omits `srift_quick_share`, `srift_send_file`, `srift_accept_transfer`
 (need local disk) and `srift_send_chat`, `srift_chat_history`, `srift_read_state`
@@ -217,9 +217,10 @@ Hosted omits `srift_quick_share`, `srift_send_file`, `srift_accept_transfer`
 ### Encryption — be precise, this has caused real errors
 
 - **Session transfers**: end-to-end encrypted, AES-256-GCM, PBKDF2-SHA256 100k.
-- **`quick-share` public links**: **NOT** end-to-end encrypted. The link must be
-  fetchable by any browser/`curl`/`wget`, which holds no key — so bytes are
-  relayed in readable form. Guarantee is **zero retention**, not zero knowledge.
+- **`quick-share` public links**: end-to-end encrypted **only with `--encrypt`**
+  (or `--password`; key in the `#k=` fragment, browser/`srift get` decrypt
+  locally). Without it the bytes are relayed in readable form over TLS. Either
+  way the guarantee is **zero retention** (`Cache-Control: no-store`), not zero knowledge.
 - **"Zero-knowledge" is false by default.** `lib/encryption.ts` derives the key
   from `sessionId` alone unless an optional `roomSecret` is supplied — and the
   server knows the sessionId. Only `roomSecret` makes it true. It is off by
@@ -232,7 +233,20 @@ Hosted omits `srift_quick_share`, `srift_send_file`, `srift_accept_transfer`
 The sender's daemon streams the file from disk on demand. It is `detached` +
 `unref()`, so it **survives the command that created the link**. The link dies
 only when the daemon stops (sleep/reboot/`srift daemon stop`), returning
-`503 sender is offline`. Nothing is stored server-side.
+`503 sender is offline`. Nothing is stored server-side. In CI or other
+ephemeral environments the job must stay alive until the recipient has
+downloaded (`--wait` blocks until then; `--wait-timeout` exits 3) — there is
+no server-side parking.
+
+### Sandboxes and datacenter agents (embedded daemon)
+
+If the background daemon cannot start (bind `EPERM`, detached spawn or loopback
+blocked, port taken), `srift quick-share` and `srift mcp` host the daemon in
+their own process (`cli/embedded.ts`): no local port, outbound HTTPS/WSS on 443
+only. quick-share then stays running until the download completes and exits;
+`--foreground` forces this, `--keep-alive` serves until expiry. The MCP server
+switches automatically when the daemon is unreachable. `SRIFT_NO_EMBEDDED=1`
+disables the fallback. `srift doctor` / `srift_net_diagnose` report what is blocked.
 
 ### Banned claims (enforced by tests)
 

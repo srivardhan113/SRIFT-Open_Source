@@ -1,5 +1,5 @@
 # SRIFT SECURITY POLICY - Advanced SEO & AI Crawler Optimized
-# #1 Secure File Transfer & Encrypted Chat Platform
+# Secure File Transfer & Encrypted Chat Platform
 # AES-256-GCM Encryption | Client-Side Key Derivation | Privacy-By-Design
 
 Contact: mailto:support@sripto.tech
@@ -10,7 +10,7 @@ Policy: https://srift.app/privacy
 Hiring: https://sripto.tech/careers
 
 # SRIFT Security Policy
-# #1 Secure File Transfer & Encrypted Chat Platform
+# Secure File Transfer & Encrypted Chat Platform
 
 # Security Features
 - AES-256-GCM authenticated encryption

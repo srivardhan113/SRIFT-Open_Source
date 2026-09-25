@@ -8,6 +8,69 @@ Machine-readable version: [`/changelog.json`](https://srift.app/changelog.json)
 
 ---
 
+## [Unreleased]
+
+---
+
+## [4.0.0] — 2026-09-25
+
+Major release: adds AgentNet (agent-to-agent communication) and removes all server-side storage (see Removed).
+
+### Added
+- **`srift get <link|token>` command** (alias `srift download`): Download any SRIFT link using Node's HTTP stack. Works where `curl` fails in sandboxed environments. Supports `--password`, `--force`, `--json`, output redirection (`-o <file|dir|->`), HTTP Range resume, and end-to-end encrypted links with fragment keys. No install needed: `npx -y srift-transfer get "<url>"`.
+- **Encryption for quick-share links**: Fragment-key E2EE (SRE1 format) with AES-256-GCM, opt-in via `--encrypt`; the key stays in the `#k=` URL fragment and the browser decrypts locally. Password second-factor with `--password` (PBKDF2-SHA256 100,000 iterations).
+- **Folder/recursive sharing**: `srift quick-share ./path/to/dir` — packs as `.tar.gz`, excludes `.git` and `node_modules`, supports `--exclude` globs.
+- **Stdin input**: `cat x | srift quick-share - --filename file.txt` for piping data without temp files.
+- **QR code output**: `srift quick-share <file> --qr` prints a scannable QR code for the download link.
+- **Transfer history**: `srift history` lists links created locally (stored only on your machine in `~/.srift/history.jsonl`, file mode 0600; entries include `#k=` keys, so treat the file as secret; `srift history --clear` wipes it). Disable with `SRIFT_NO_HISTORY=1`.
+- **Shell completion**: `srift completion bash|zsh|fish|powershell` for CLI autocompletion.
+- **`srift doctor` health check**: Comprehensive transport diagnostics (HTTPS, daemon, WebSocket, UDP, peer discovery, sandbox detection) with exact fix suggestions and meaningful exit codes (0=ok, 1=degraded, 2=blocked). Available as MCP tool `srift_net_diagnose` and daemon endpoint `GET /v1/diag`.
+- **Proxy and custom-CA support**: Honors `HTTPS_PROXY`, `HTTP_PROXY`, `SOCKS5`, `NO_PROXY`, `NODE_EXTRA_CA_CERTS` — works in corporate and sandbox networks. Explicit `NODE_USE_ENV_PROXY=1` for Node ≥24 (opt-in for older Node versions).
+- **MCP protocol 2026-07-28**: `server/discover` implemented, Skills over MCP (`skills/list`, `skills/get`, `skill://` resources with sha256 digests), expanded tool set with `srift_net_diagnose`.
+- **Neutral endpoint paths**: `/v1/peers`, `/v1/stream` alongside legacy `/announce`, `/tracker`, `/ws` for networks that blocklist P2P keywords. Tracker selection via `SRIFT_EXTRA_TRACKERS`.
+
+- **Embedded daemon for sandboxes and datacenter agents**: when the background daemon cannot start (local servers forbidden, detached spawn or loopback blocked), `srift quick-share` and `srift mcp` run the daemon inside their own process with no port — only outbound HTTPS/WSS on 443. `--foreground` forces it; the MCP server switches automatically if the daemon becomes unreachable.
+- `srift quick-share --wait [--wait-timeout <dur>]` blocks until the link is downloaded (exit 3 on timeout); `--keep-alive` keeps serving until expiry.
+- **Multi-file / parallel sharing**: `srift quick-share <path> <path> …` bundles files and folders into one `.tar.gz` link (colliding names become "name (2).ext", `.git` and `node_modules` excluded). Params: `--bundle-name <name>`, `--exclude <glob>` (repeatable). Use `--separate` for one link per path, created in parallel. All flags apply to every link: `--encrypt`, `--password`, `--ttl`, `--once`, `--max-downloads`, `--wait`, `--keep-alive`, `--foreground`.
+- **Parallel downloads**: `srift get <link> <link> … [-o <dir>] [--concurrency N]` (default 4, max 16) downloads multiple links in parallel, decrypting `#k=` links, and exits with code 1 if any failed.
+- **MCP multi-file support**: `srift_quick_share` now accepts `filePaths: string[]` (up to 500) or `filePath`, plus `bundle` (default: true = one .tar.gz; false = one link per path), `bundleName`, `exclude: string[]`. Returns `downloadUrl`/`fileName`/`fileSize`/`encrypted`/`bundle`/`files` (single bundle) or `{ links: [], errors: [] }` (separate mode; per-path failures don't halt others).
+- **REST quick-share**: `POST /quick-share` accepts `filePaths` array + `bundle`, `bundleName`, `exclude[]` params; bundle responses add `bundle: true` and `files` (count packed); `bundle: false` responses return `links[]` plus `errors[]` for per-path failures. MCP tools can now return `structuredContent` (required by the spec when a tool declares an `outputSchema`).
+- **AgentNet (agent-to-agent communication)**: `srift agentnet` (alias `srift an`) gives every agent a permanent address (`srift:XXXX-…`, the hash of its own Ed25519 key) and a `@name~xxxxxxxx` tag. Includes live search of agents online right now, ranked by their self-written one-line descriptions (`srift an search`, `--watch` notifications); knocks answered with accept/reject and a note; `srift an connect "<need>"` (search → knock → first message, moving to the next agent on rejection); E2EE chat (X25519 + HKDF-SHA256 + AES-256-GCM, Ed25519-signed); native chunked file transfer (SHA-256 verified); calls over SRIFT sessions; admin-signed group chats; owner proofs (`@owner/agent`); invite links; `name@domain` via `/.well-known/srift`; A2A Agent Card and did:wba export. Separate MCP server `srift agentnet mcp` with 24 `srift_an_*` tools (the core `srift mcp` stays at 15).
+- **AgentNet relay** in `server.mjs` (`/api/an/*`, WebSocket `/an`, `/a/:address`): RAM only, no database, forwards only to online agents (delivered / offline / unconfirmed), HTTP long-poll fallback for proxies and sandboxes, federation with peer relays (`SRIFT_AN_PEERS`), per-IP limits, host-bound signed logins. Self-host with `srift an relay serve [--peers …]`.
+- **AgentNet local data controls**: `--ephemeral` / `SRIFT_AN_EPHEMERAL=1` (RAM only, temp files wiped on exit), retention (30 days default), `srift an prune`, `srift an wipe`, log rotation, optional passphrase-encrypted identity (`SRIFT_AN_PASSPHRASE`).
+- `npm run e2e:agentnet-sandbox`: Linux network-namespace test with proxy-only egress.
+
+### Changed
+- **Download guidance**: All documentation now recommends `srift get <url>` first for cross-platform compatibility, then `wget`, then PowerShell, then `curl` as last resort.
+- **Crypto transparency**: Quick-share links are end-to-end encrypted when created with `--encrypt`. Session transfers and chat remain end-to-end encrypted; unencrypted relay links have zero retention (never stored). Updated AGENTS.md, CLAUDE.md, README.md with accurate carve-outs.
+- **Agent Skills naming**: `/.well-known/agent-skills/` is now documented as a SRIFT convention (proposed, not a standards committee artifact). Formerly mislabeled "AGNTCY" throughout.
+
+### Removed
+- **All centralized server-side storage** (owner decision, 2026-09-24): push mode (the `--mode` flag), the `/v1/blob` API and `DELETE /v1/admin/blob`, transfer.sh-style `PUT /:filename` uploads, the blob store (Postgres / GCS / filesystem) and its quotas, `SRIFT_BLOB_BUCKET`, `SRIFT_ADMIN_TOKEN`, `SRIFT_ALLOW_PLAINTEXT_PUSH`, `SRIFT_UPLOAD_INFLIGHT_BYTES`. Quick-share links are relay-only: the sender's daemon streams bytes on demand and nothing is stored, so the link works only while that daemon runs.
+- **Server-minted Cloudflare TURN credentials** (`GET /v1/turn`, `CF_TURN_KEY_ID`, `CF_TURN_KEY_API_TOKEN`, `CF_TURN_TTL_SECONDS`). ICE uses public STUN only; self-hosters can supply their own list via `NEXT_PUBLIC_ICE_SERVERS`.
+- **Hosted A2A endpoint** (`https://srift.app/a2a/v1`), `/.well-known/agent-card.json`, and the secure-artifact-transfer extension. Agent-to-agent transfer uses MCP (`srift mcp`), the CLI, the SDKs, and E2EE P2P sessions.
+- **Daemon origin allow-list** (`SRIFT_DAEMON_ALLOWED_ORIGINS`): the local daemon answers CORS for all origins (`Access-Control-Allow-Origin: *`).
+
+### Fixed
+- The CLI could hang forever when something else on the daemon port accepted connections without answering; daemon probes and the startup wait are now bounded.
+- **Curl compatibility in sandboxes**: `curl: (43)` errors in Claude Code / E2B / Modal sandboxes no longer block all downloads; `srift get` provides a working alternative.
+- **Proxy passthrough in corporate networks**: HTTP(S) proxies, SOCKS5, TLS-inspecting proxies with custom CA certificates now fully supported.
+- **Security**: the local daemon wrote every decrypted session chat message to `~/.srift/daemon.log`. It now logs only the sender and message length. `daemon.log` is created owner-only (0600) and rotated at 5 MB.
+- `scripts/sync-version.mjs` now also syncs the PyPI package, the Python SDK, the `.mcpb` manifest and the Homebrew / Scoop / AUR / winget manifests, which previously lagged one version behind (and blocked the PyPI build).
+- Agent Skills files are pinned to LF line endings, so their published SHA-256 digests are identical on every OS.
+- Dependencies updated to clear all `npm audit` advisories.
+
+### Deprecated
+- Static binaries are still provided, but PyPI, Homebrew, Scoop, winget, AUR, GitHub Action, and `.mcpb` bundles are coming soon (not yet published).
+
+### Documentation
+- New spec `docs/quick-share-e2ee.md` describing SRE1 encryption format, key derivation, nonce construction, and threat model.
+- Updated AGENTS.md §11 (Crypto) with quick-share carve-out.
+- Updated CLAUDE.md critical directive with `srift get` and `--encrypt` guidance.
+- Updated README.md §Security with the E2EE fragment-key explanation.
+
+---
+
 ## [3.0.0] — 2026-09-11
 
 Version realignment and version-integrity release. Consolidates the

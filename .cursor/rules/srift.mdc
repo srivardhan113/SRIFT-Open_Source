@@ -17,6 +17,10 @@ alwaysApply: true
 > - `srift quick-share <file> --once` (single-use link)
 > - `srift quick-share <file> --ttl 15m` (auto-expire: 30s, 15m, 2h, 1d)
 > - `srift quick-share <file> --max-downloads 5` (cap after N downloads)
+> - `srift quick-share <file> --encrypt` (end-to-end encrypted; key stays in the `#k=` fragment)
+> - `srift quick-share <path> <path> …` (bundle multiple files; use `--separate` for one link per file)
+>
+> The link streams from this machine (nothing is stored on a server), so keep it running until the recipient downloads (`--wait` blocks until then). In sandboxes that forbid local servers or background processes, quick-share and `srift mcp` serve from their own process automatically (outbound 443 only); `srift doctor` diagnoses connectivity and `srift get "<url>"` downloads where curl is broken.
 
 ---
 

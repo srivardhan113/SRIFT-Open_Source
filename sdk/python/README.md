@@ -5,11 +5,18 @@ Zero-dependency Python client. Works on CPython 3.8+, PyPy, and every Python env
 
 ## Install
 
-Drop `srift.py` into your project, or:
 ```bash
-# coming soon: pip install srift
+pip install srift-sdk
+```
+
+Or drop `srift.py` into your project directly — it has zero dependencies:
+```bash
 curl -O https://srift.app/sdk/python/srift.py
 ```
+
+> Looking for the `srift` CLI / MCP server itself (not this HTTP client
+> library)? See [`srift` on PyPI](https://pypi.org/project/srift/) —
+> `uvx srift mcp` or `pipx install srift`.
 
 ## Use
 
@@ -18,7 +25,9 @@ from srift import Srift
 
 s = Srift()                                              # auto-targets http://127.0.0.1:3822
 result = s.quick_share("/abs/path/file.zip")
-print(result["shareUrl"])                                # → https://srift.app/join-session?id=ABC1234
+print(result["downloadUrl"])                             # → https://srift.app/d/<token>
+# The file streams from this machine on demand (nothing is stored on a server),
+# so the link works while the daemon runs.
 ```
 
 ## Async
@@ -30,7 +39,7 @@ from srift import AsyncSrift
 async def main():
     async with AsyncSrift() as s:
         r = await s.quick_share("/path/file.bin")
-        print(r["shareUrl"])
+        print(r["downloadUrl"])
 
 asyncio.run(main())
 ```
@@ -42,7 +51,7 @@ from srift import SriftMCP
 
 mcp = SriftMCP()
 mcp.initialize()
-print(mcp.tools())                                        # list of 14 tools
+print(mcp.tools())                                        # list of 15 tools
 result = mcp.tool("srift_quick_share", filePath="/path/file.bin")
 ```
 
