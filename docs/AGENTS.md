@@ -46,9 +46,9 @@ On development machines, if the local Next.js signaler server (default: `http://
 
 Architecture summary:
 - Signaling: WebSocket (with HTTP fallback)
-- Transport: WebRTC → WebTorrent → WebSocket chunked relay (auto-selected)
+- Transport: WebRTC (browser↔browser, files >5 MB) → AES-256-GCM WebSocket relay (small files, fallback, and the only transport the CLI daemon uses); WebTorrent optional, browser only
 - Crypto: AES-256-GCM + PBKDF2-SHA256 (100,000 iterations), keys derived locally
-- Server handling: Session transfers and chat are end-to-end encrypted (server never sees plaintext or keys). Quick-share links are end-to-end encrypted when created with `--encrypt` (key in the `#k=` URL fragment, never sent to the server); without it they stream plaintext through the relay, with zero retention (never stored).
+- Server handling: Session transfers and chat are encrypted with a key derived on-device from the session ID (+ optional room secret); the relay forwards ciphertext and never receives the key. Without a room secret the key is derivable from the session ID, which the server sees; start sessions with `--room-secret` (CLI) / `roomSecret` (SDK/daemon) to make it participant-only. Quick-share links are end-to-end encrypted when created with `--encrypt` (key in the `#k=` URL fragment, never sent to the server); without it they stream plaintext through the relay, with zero retention (never stored).
 
 ---
 
@@ -202,7 +202,7 @@ Returns:
     "serverInfo": {
       "name": "srift-mcp-server",
       "title": "SRIFT Secure P2P File Transfer (hosted)",
-      "version": "4.0.0"
+      "version": "4.1.0"
     }
   }
 }
@@ -233,7 +233,7 @@ The hosted endpoint tracks your MCP session via the `Mcp-Session-Id` header. Inc
 curl -X POST https://srift.app/mcp \
   -H 'Content-Type: application/json' \
   -H 'Mcp-Session-Id: <id-from-initialize-response>' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"callTool","params":{"name":"srift_start_session","arguments":{}}}'
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"srift_start_session","arguments":{}}}'
 ```
 
 ---
@@ -331,9 +331,13 @@ POST /quick-share        { filePath | filePaths[], bundle?, bundleName?, exclude
 POST /pubshare           { filePath, maxDownloads?, ttlMs? } → { downloadUrl, token, ... }
 GET  /pubshare/list                                    → { items: [...] }   # all active links + counters
 POST /pubshare/revoke    { token }                     → { success: true }  # invalidate immediately
-POST /session/start      { sessionName?, roomSecret? } → { sessionId }
+POST /session/start      { sessionName?, roomSecret? } → { sessionId, joinUrl }
 POST /session/join       { sessionId, username?, roomSecret? }
-GET  /status                                            → session + transfers + pendingJoins
+POST /session/approve    { tempUserId }                → { success, joined, userId }   # returns once the guest is in the room
+POST /session/reject     { tempUserId, reason? }
+POST /session/kick       { userId }                    # userId from /status participants
+POST /session/close
+GET  /status                                            → { session, activeTransfers, pendingJoins, participants }
 GET  /state                                             → raw .srift-state.json
 POST /send               { filePath, protocol? }       → { fileId, protocol }
 POST /receive            { fileId, saveDir? }
@@ -362,7 +366,7 @@ srift daemon status [--json]           # daemon health (version, uptime, mcp)
 
 # ── Status & Diagnostics ───────────────────────────────────────
 srift status [--json]                  # unified: daemon + session + transfers
-srift doctor [--deep] [--json]         # full health check + plan; --deep = end-to-end self-test
+srift doctor [--deep] [--json] [--fresh] # health check + plan; --deep = end-to-end self-test
 srift logs [--tail <n>] [--json-stream] # view daemon logs (default: last 50 lines)
 srift reset [--json]                   # wipe daemon session state + flush keys
 
@@ -377,20 +381,21 @@ srift quick-share <file> --keep-alive                 # serve until expiry / Ctr
 srift quick-share <file> --foreground                 # serve from this process (no background daemon)
 srift quick-share <dir|-> [--exclude <glob>] [--filename <name>] [--qr] [--json]
 srift quick-share <path> <path> ...   # bundle multiple files/folders (default: one .tar.gz link; --separate = one link each)
-srift quick-share <path> ... --bundle-name <name> --exclude <glob> --separate [--concurrency N]
+srift quick-share <path> ... --bundle-name <name> --exclude <glob> --separate
 srift get "<url>" [-o <path|dir|->] [--concurrency N]  # download/decrypt; supports multiple URLs, proxy-aware, resumable
-srift pubshare list                   # active links + usage counters
-srift pubshare add <file> [--once|--ttl|--max-downloads]
-srift pubshare revoke <token>         # invalidate a link immediately
+srift links list                      # active links + usage counters (alias: srift pubshare)
+srift links add <file> [--once|--ttl|--max-downloads]
+srift links revoke <token>            # invalidate a link immediately
+srift history [--limit N] [--clear]   # links you created (local file, 0600; contains #k= keys)
 
 # ── Interactive sessions (multi-file, chat, host approvals) ────
-srift session start [--name <n>]
-srift session join <id> [--username <name>]
+srift session start [--name <n>] [--room-secret <s>]   # → sessionId + joinUrl for browsers
+srift session join <id> [--username <name>] [--room-secret <s>]
 srift session status [--json]
 srift session close
 
 # ── Transfers ──────────────────────────────────────────────────
-srift send <file> [--protocol webtorrent|websocket] [--json]
+srift send <file> [--json]
 srift receive <fileId> [--save-dir <dir>] [--json]
 srift list [--json]
 srift monitor <fileId> [--json-stream]
@@ -398,7 +403,7 @@ srift monitor <fileId> [--json-stream]
 # ── Host Controls ──────────────────────────────────────────────
 srift approve <tempUserId>
 srift reject <tempUserId> [--reason <r>]
-srift kick <userId>
+srift kick <userId>                   # userIds: srift session status (Members)
 
 # ── Chat ────────────────────────────────────────────────────────
 srift chat send "<msg>"
@@ -406,13 +411,15 @@ srift chat history [--json]
 
 # ── MCP & Agent Helpers ─────────────────────────────────────────
 srift mcp                              # run MCP server on stdio
-srift install-mcp                      # print MCP config for every major client
+srift install-mcp [--auto]             # print MCP config for every client; --auto writes Claude Desktop's
+srift bootstrap [dir]                   # write .cursorrules + AGENTS.md into a project
 srift info                             # zero-config quick reference
 
 # ── Maintenance ─────────────────────────────────────────────────
 srift version [--json]
 srift self-update [--json]
 srift config [get|set|delete] [key] [value]
+srift completion <bash|zsh|fish|powershell>
 srift uninstall [--purge]             # remove binary; --purge also deletes ~/.srift/
 ```
 
@@ -433,7 +440,7 @@ Or run `npm run srift -- <args>` inside the repo.
 Three ways:
 
 1. **File watch** `.srift-state.json` — atomically rewritten on every state change.
-2. **SSE** subscribe `GET /api/v1/monitor/events` — events: `connection_state`, `join_request`, `file_offer`, `transfer_progress`, `chat_received`.
+2. **SSE** subscribe `GET /api/v1/monitor/events` — events: `connection_state`, `join_request`, `participants`, `file_offer`, `transfer_progress`, `chat_received`, `pubshare_download`, `session_terminated`.
 3. **MCP resources** — re-read `srift://transfers/active` or call `srift_list_transfers`.
 
 State file shape:
@@ -592,88 +599,98 @@ You can directly `fetch()` any of these from `https://claude.ai`, `https://chat.
 
 For each session a 256-bit AES key is derived locally with PBKDF2-SHA256 (100,000 iterations) from
 the 7-character session ID concatenated with an optional `roomSecret`. Every message and file
-chunk is encrypted with AES-256-GCM using a random 12-byte IV. The signaling server never sees
-plaintext, never sees the key, and never sees the derivation inputs. WebRTC and WebTorrent peer
-links are end-to-end-encrypted by the same key. Quick-share links are end-to-end encrypted only
+chunk is encrypted with AES-256-GCM using a random 12-byte IV. The signaling server never receives
+the key, but it does see the session ID, so without a `roomSecret` it could derive the key; set a
+`roomSecret` (`srift session start --room-secret <s>`) to make the key participant-only. WebRTC
+and WebTorrent peer links are encrypted with the same key. Quick-share links are end-to-end encrypted only
 when created with `--encrypt`; without it the relay streams plaintext,
 but with zero retention — nothing is written to storage and bytes are delivered directly from sender to recipient.
 
 ---
 
-## 12. HTTP error codes (REST + MCP-over-HTTP)
+## 12. HTTP status codes
+
+**Local daemon** (`http://127.0.0.1:3822`):
 
 | Code | Meaning | What to do |
 |---|---|---|
 | 200 | OK | Continue. |
-| 201 | Created | Read returned id. |
-| 202 | Accepted | Poll `/status` or stream `/events`. |
-| 204 | No Content | Treat as success. |
-| 400 | Bad Request — malformed body | Validate against `/openapi.json`. |
-| 404 | Not Found — session/file/peer missing | Call `/status`, retry with correct id. |
-| 409 | Conflict — already exists | Reuse existing id or `POST /reset`. |
-| 410 | Gone — session closed | `srift_start_session` again. |
-| 413 | Payload too large | Split message; for files use `srift_send_file`. |
-| 422 | Unprocessable — semantic validation | Verify `filePath` exists, is absolute. |
-| 429 | Too Many Requests | Wait 1s, retry. |
-| 500 | Internal Server Error | Inspect `.srift-daemon.log`; run `srift logs` or `srift daemon restart`. |
-| 502 | Bad Gateway — WebRTC failed | Check both peers online, NAT/UDP. |
-| 503 | Service Unavailable — daemon booting | Wait 2s, then `GET /health`. |
-| 504 | Gateway Timeout — signalling >30s | Force `protocol: 'webtorrent'`. |
+| 400 | Bad request (missing or invalid field) | Check the body against `/openapi.json`. |
+| 403 | Host header is not `127.0.0.1`/`localhost`, or a non-host called approve/reject/kick | Call the daemon on loopback; only the host moderates. |
+| 404 | Unknown session, transfer, file or pending join | `GET /status`, then retry with the right id. |
+| 409 | No active session, waiting for host approval, or keys not ready | Start/join a session; after `/session/approve` the guest can send. |
+| 410 | You were removed from the session or it ended | Start or join a new session. |
+| 413 | Request body over ~100 KB (e.g. a huge chat message) | Send files with `srift_send_file` / `srift quick-share`. |
+| 500 | Internal error | `srift logs`, then `srift daemon restart`. |
+| 503 | Session connection not ready yet (body has `retryAfterMs`) | Wait `retryAfterMs`, retry. |
 
-## 12a. MCP / JSON-RPC error codes
+**Download links** (`https://srift.app/d/<token>`):
 
 | Code | Meaning | What to do |
 |---|---|---|
-| -32700 | Parse error | Send valid JSON. |
-| -32600 | Invalid Request | Include `jsonrpc:"2.0"`, `id`, `method`. |
-| -32601 | Method not found | Use `tools/list`, `resources/list`, `prompts/list`. |
-| -32602 | Invalid params | Re-read tool input schema. |
-| -32603 | Internal error | Check `.srift-daemon.log`. |
-| -32000 | No active session | Call `srift_start_session`/`srift_join_session`. |
-| -32001 | Not host | Only host can approve/reject/kick. |
-| -32002 | File not found | Use absolute path; verify with `fs.access`. |
-| -32003 | Peer unreachable | Verify peer online, check firewall. |
-| -32004 | Decryption failed | Both peers must use the same `roomSecret`. |
+| 200 / 206 | File (206 = resumed range) | Continue. |
+| 404 | Unknown token, or the sender went offline | Ask the sender for a new link. |
+| 410 | Expired, or download limit reached | Ask for a new link. |
+| 416 | Resume without the `X-SRIFT-Resume` token, or bad range | Restart from byte 0 (`srift get` handles this). |
+| 424 | The sender's file was deleted or changed after sharing (`X-SRIFT-Error: sender-file`) | Permanent; ask the sender to share again. |
+| 502 | The sender dropped mid-stream | Retry; `srift get` resumes. |
+| 503 | The sender's daemon is offline | The sender must keep the daemon running. |
+| 504 | The sender did not start streaming within 20 s | Retry. |
 
-## 12b. Stats / observability endpoints
+Headers on `/d/<token>`: `X-SRIFT-Size` (total bytes), `X-SRIFT-Encrypted: SRE1|none`, `X-SRIFT-Mode: relay`.
+
+## 12a. MCP / JSON-RPC errors
+
+A tool that fails returns a normal result with `isError: true` and the reason in `content[0].text` (e.g. "No active session", "Only host can approve joins", "File not found"). Protocol errors use JSON-RPC codes:
+
+| Code | Meaning | What to do |
+|---|---|---|
+| -32600 | Invalid request | Send `jsonrpc:"2.0"`, `id`, `method`. |
+| -32601 | Method not found | Use `tools/list`, `resources/list`, `prompts/list`. |
+| -32602 | Invalid params (unknown tool, resource, prompt or skill) | Re-read the tool's input schema. |
+| -32603 | Internal error | `srift logs`. |
+| -32020 / -32021 / -32022 | MCP header mismatch / missing client capability / unsupported protocol version | Use protocol `2026-07-28` (2025-11-25, 2025-06-18, 2025-03-26 and 2024-11-05 are also accepted). |
+| -32000 | Hosted endpoint only: rate limited | Slow down; retry after a minute. |
+
+## 12b. Stats / observability endpoints (local daemon)
 
 | Endpoint | Returns | Use for |
 |---|---|---|
-| `GET /health` | `{ok,version,uptime_ms,mcp,webrtc,webtorrent}` | Liveness probe, K8s readiness. |
-| `GET /status` | Session id, peers, role, encryption state | Always call first. |
-| `GET /state` | Full `.srift-state.json` snapshot | Workspace inspection. |
-| `GET /transfers` | Array of live transfers w/ speed & ETA | Poll every 1–2 s or stream `/events`. |
-| `GET /transfers/:fileId` | Per-transfer chunks, retries, throughput | Drill-down. |
-| `GET /peers` | RTT, ICE candidate type, connectionState | Diagnose NAT / TURN-relay. |
-| `GET /metrics` | Prometheus counters | Grafana / Datadog scrape. |
-| `GET /events` | SSE stream | Real-time agent observation. |
-| `GET /logs?lines=200` | NDJSON tail of daemon log | Inspect errors without fs access. |
-| `POST /reset` | Wipe state, flush keys | Use when session wedged. |
+| `GET /health` | `{ok, version, uptime_ms, mcp, webrtc, webtorrent, session}` | Liveness probe. |
+| `GET /status` | `{session, activeTransfers, pendingJoins, participants}` | Always call first. `participants[].userId` is what `srift kick` needs. |
+| `GET /state` | Full state snapshot | Workspace inspection. |
+| `GET /transfers` | `[{fileId, name, size, progress, speedKBps, etaSeconds, protocol, status, direction, bytesTransferred}]` | Progress without SSE. |
+| `GET /transfers/:fileId` | One transfer | Drill-down. |
+| `GET /peers` | This daemon's session connection: `connectionState` (`CONNECTING`/`OPEN`/`CLOSING`/`CLOSED`), `transport`, `role` | Is the daemon connected? |
+| `GET /metrics` | Prometheus: `srift_active_transfers`, `srift_total_transfers`, `srift_chat_messages_total`, `srift_ws_connected`, `srift_session_active`, `srift_uptime_seconds` | Scraping. |
+| `GET /api/v1/monitor/events` | SSE stream (see §7) | Real-time observation. |
+| `GET /logs?lines=200` | NDJSON tail of the daemon log | Errors without file access. |
+| `GET /v1/diag?fresh=1` | Network diagnosis (same as `srift doctor --json`) | Which transports work here, with fixes. |
+| `POST /reset` | Leave the session, flush keys and state | When a session is wedged. |
 
 ## 12c. Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `ECONNREFUSED 127.0.0.1:3822` | Daemon not running | `srift daemon start`; wait 2s; `GET /health`. |
-| `EADDRINUSE :3822` | Port already bound | `srift daemon stop`, or `SRIFT_DAEMON_PORT=3823`. |
-| MCP `initialize` rejects protocolVersion | Mismatched MCP spec | Use `'2025-06-18'`; fallback `'2024-11-05'`. |
-| Transfer stuck at 0% | Peer didn't accept offer | Remote runs `srift_accept_transfer`. |
-| WebRTC ICE failed (symmetric NAT) | No direct P2P | Auto-falls back to WebTorrent + WebSocket; force `--protocol webtorrent`. |
-| `Decryption failed (auth/tamper or wrong key)` | Different `roomSecret` | Both peers must pass identical `roomSecret`. |
-| `tools/list` returns empty | Connected before boot | Wait for `/health` → `ok:true`. |
-| Daemon won't start on Windows | Path/permission | Run as user, check `.srift-daemon.log`. |
-| Transfer stuck at 99.9% (WebTorrent) | Last piece announce delay | Wait; verify NAT/firewall. |
-| `https://srift.app/d/<token>` returns 404 to receiver | Token expired, daemon stopped, or `--max-downloads` cap hit | Sender keeps daemon running; mint a new link with `srift quick-share <file>`. |
-| Direct download link unavailable (legacy fallback shown instead) | Signaler at srift.app hasn't picked up the v2.2.0+ deploy yet | Ask the maintainer to redeploy, or retry after the rollout. |
+| `ECONNREFUSED 127.0.0.1:3822` | Daemon not running | Any `srift` command starts it; or `srift daemon start`. |
+| `EADDRINUSE :3822` | Port taken | `srift daemon stop`, or set `SRIFT_DAEMON_PORT`. Quick-share and `srift mcp` fall back to an in-process daemon automatically. |
+| MCP `initialize` rejects protocolVersion | Unsupported version | Use `2026-07-28` (older versions listed in §12a work). |
+| Transfer stuck at 0% | The peer hasn't accepted the offer | The receiver runs `srift receive <fileId>` / `srift_accept_transfer`. |
+| Guest can't chat right after joining | Not approved yet (409) | The host runs `srift approve <tempUserId>`; approve returns once the guest is in the room. |
+| `Decryption failed` in a session | Different `roomSecret` | Both sides must pass the same `roomSecret`. |
+| `/d/<token>` returns 404 | Link expired or revoked, or the sender's daemon stopped | Keep the sender online (`srift daemon status`); share again. |
+| `/d/<token>` returns 424 | The shared file was deleted or edited | Share the file again. |
+| Downloads fail behind a proxy / sandbox | Blocked transport | `srift doctor --deep` names the blocked hop and the fix; `srift get` works where curl is blocked. |
 
 ## 12d. Standard debug recipe for AI agents
 
-1. `GET /health` → expect 200 + `ok:true`.
-2. `GET /status` → confirm session + peers.
-3. `GET /transfers` → inspect any stuck transfer's `status`.
-4. `GET /peers` → verify `connectionState === 'connected'`.
-5. `GET /logs?lines=200` → pull recent NDJSON log entries.
-6. If wedged: `POST /reset` and restart workflow.
+1. `GET /health` → expect 200 and `ok:true`.
+2. `GET /status` → session, pending joins, participants.
+3. `GET /transfers` → the stuck transfer's `status`.
+4. `GET /peers` → `connectionState` should be `OPEN`.
+5. `GET /logs?lines=200` → recent log entries.
+6. `GET /v1/diag?fresh=1` (or `srift doctor --deep`) → network verdict.
+7. If wedged: `POST /reset` and start again.
 
 ---
 

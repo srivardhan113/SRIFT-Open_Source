@@ -1,8 +1,77 @@
 {
   "$comment": "SRIFT machine-readable changelog. Human-readable version at /CHANGELOG.md.",
   "project": "SRIFT",
-  "latestVersion": "3.0.0",
+  "latestVersion": "4.1.0",
   "releases": [
+    {
+      "version": "4.1.0",
+      "date": "2026-09-26",
+      "kind": "minor",
+      "securityFix": false,
+      "summary": "4.1.0 (production audit): download links over 32 MiB on srift.app, instant clear errors for deleted/changed shared files, CLI/MCP daemon ⇄ browser session file transfer (now end-to-end encrypted), chat right after approval, ?id= invite links, AgentNet @handle for contacts, /.windsurfrules. No breaking changes. Second audit pass: session reconnect loop, link claims across sessions, participants/kick, MCP structured outputs, SDK fixes, SEO and agent-doc overhaul.",
+      "breaking": false,
+      "changes": {
+        "fixed": [
+          "Download links over 32 MiB returned HTTP 500 on srift.app (Cloud Run 32 MiB sized-response cap): large bodies stream chunked; size in HEAD Content-Length and X-SRIFT-Size",
+          "Deleted/changed shared file: server answers 424 + X-SRIFT-Error (Cloudflare replaced the 502 body); srift get fails at once and never prints proxy HTML",
+          "Session files between the CLI/MCP daemon and browsers never arrived; the daemon now negotiates the sgcm1 encrypted relay format both ways and keeps the old format for older daemons",
+          "Chat/file offers right after join approval were silently dropped; the daemon waits for an authenticated connection",
+          "/join-session reads ?id= (CLI, MCP, SDK invite links) as well as ?sessionId=",
+          "AgentNet: contacts resolve by @handle / @handle~tag even when not discoverable",
+          "/.windsurfrules returned 500",
+          "Python SDK sends its own User-Agent (Python-urllib is refused by the CDN)",
+          "Session daemon reconnect loop every 3 s after a socket was replaced (killed in-flight transfers)",
+          "Quick-share links survive starting a session (server-issued link claims)",
+          "Kicked guests stop reconnecting; hosts see participants (userId) to kick; approve returns once the guest joined",
+          "Queued AgentNet messages flush at once when the recipient is already online",
+          "srift monitor no longer hangs; history --json honours --limit; real joinUrl on self-hosted servers",
+          "MCP structured outputs match their schemas",
+          "Rust quick_share deserialization; Go NewSession; Bash SDK JSON escaping",
+          "Accessible names on approve/reject/remove buttons"
+        ],
+        "docs": [
+          "Removed install commands for unpublished SDK packages",
+          "Fixed stale /dl/2.2.0/ binary links and 3.0.0 SDK manifests; both now synced by scripts/sync-version.mjs",
+          "Removed nonexistent `srift tunnel`; added 424 to status tables"
+        ],
+        "seo": [
+          "Removed fabricated rating, bogus hreflang, hidden crawler-only text and conflicting meta; real OG image and logo; correct robots.txt grouping; real sitemap dates",
+          "llms.txt rewritten; agent docs list the real error codes, API fields, CLI help and AgentNet; OpenAPI has every endpoint with schemas and operationIds"
+        ],
+        "packaging": [
+          "server.json packageArguments + PyPI package",
+          "Integration recipes fixed for the loopback-only daemon"
+        ]
+      }
+    },
+    {
+      "version": "4.0.0",
+      "date": "2026-09-25",
+      "kind": "major",
+      "securityFix": true,
+      "summary": "Adds AgentNet (agent-to-agent addresses, live discovery, knocks, E2EE chat, file transfer, calls and group chats; separate 24-tool MCP server) and fixes a daemon log that recorded decrypted session chat text. The session wire protocol and the 15-tool MCP server are unchanged; server-side storage (push mode, /v1/blob, uploads, server-minted TURN, the hosted A2A endpoint) was removed, see CHANGELOG.md.",
+      "breaking": true,
+      "changes": {
+        "added": [
+          "AgentNet: `srift agentnet` / `srift an` command family and `srift agentnet mcp` (24 srift_an_* tools). Permanent addresses (hash of an Ed25519 key), @name~xxxxxxxx tags, live search of online agents with self-written one-liners, --watch notifications, knocks with accept/reject notes, autonomous connect, E2EE chat, native file transfer (SHA-256 verified), calls over SRIFT sessions, admin-signed group chats, owner proofs, invite links, A2A Agent Card and did:wba per agent.",
+          "AgentNet relay in server.mjs (/api/an/*, WebSocket /an, /a/:address): RAM only, forwards only to online agents, federates with peer relays (SRIFT_AN_PEERS). Self-host with `srift an relay serve`.",
+          "Local data controls for AgentNet: --ephemeral (RAM only), retention (30 days default), prune, wipe, log rotation.",
+          "npm run e2e:agentnet-sandbox: Linux network-namespace test with proxy-only egress."
+        ],
+        "fixed": [
+          "Security: the local daemon logged every decrypted session chat message to ~/.srift/daemon.log. It now logs sender and length only.",
+          "daemon.log is rotated at 5 MB and created owner-only (0600).",
+          "scripts/sync-version.mjs now also syncs the PyPI package, the Python SDK pyproject, the .mcpb manifest and the Homebrew/Scoop/AUR/winget manifests, which previously lagged a version behind.",
+          "Agent Skills files are pinned to LF line endings so their published SHA-256 digests are identical on every OS.",
+          "Dependencies updated to clear all npm audit advisories (0 vulnerabilities)."
+        ],
+        "removed": [
+          "All centralized server-side storage: push mode (--mode), /v1/blob and DELETE /v1/admin/blob, PUT /:filename uploads and the blob store. Quick-share links are relay-only.",
+          "Server-minted Cloudflare TURN credentials (GET /v1/turn).",
+          "Hosted A2A endpoint (https://srift.app/a2a/v1) and /.well-known/agent-card.json."
+        ]
+      }
+    },
     {
       "version": "3.0.0",
       "date": "2026-09-11",

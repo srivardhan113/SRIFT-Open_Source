@@ -16,7 +16,7 @@
 const DEFAULT_BASE = "http://127.0.0.1:3822";
 
 /** SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs. */
-export const VERSION = "3.0.0";
+export const VERSION = "4.1.0";
 
 export class SriftError extends Error {
   constructor(message, code) { super(message); this.name = "SriftError"; this.code = code; }

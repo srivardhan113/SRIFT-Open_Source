@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Srift</RootNamespace>
+    <AssemblyName>Srift</AssemblyName>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Srift</PackageId>
+    <Version>4.1.0</Version>
+    <Authors>SRIFT</Authors>
+    <Company>Sripto Corporation Private Limited</Company>
+    <Description>Zero-dependency .NET client for the local SRIFT daemon: P2P E2EE file transfer, session lifecycle, and chat.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://srift.app</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/srivardhan113/SRIFT-Open_Source</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>srift;p2p;e2ee;file-transfer;ai-agent</PackageTags>
+  </PropertyGroup>
+
+  <!-- Zero-dependency SDK: relies only on System.Net.Http / System.Text.Json (BCL). -->
+
+</Project>

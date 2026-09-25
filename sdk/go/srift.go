@@ -3,10 +3,11 @@
 // Compatible with: Go 1.21+, TinyGo, GopherJS, Wasm targets.
 // Runs on: any OS, any cloud, any container, Lambda, Cloud Run, Fargate, k8s.
 //
-//	import "srift.app/sdk/go/srift"
+//	import "github.com/srivardhan113/SRIFT-Open_Source/sdk/go"
+//	(or: curl -o srift.go https://srift.app/sdk/go/srift.go — zero-dependency, no `go get` required)
 //	c := srift.New("")
-//	r, err := c.QuickShare("/abs/path/file.zip", "")
-//	fmt.Println(r.ShareURL)
+//	r, err := c.QuickShare(context.Background(), "/abs/path/file.zip", "")
+//	fmt.Println(r.DownloadURL)
 package srift
 
 import (
@@ -24,7 +25,7 @@ import (
 const DefaultBase = "http://127.0.0.1:3822"
 
 // Version is the SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
-const Version = "3.0.0"
+const Version = "4.1.0"
 
 type Client struct {
 	BaseURL string
@@ -80,9 +81,13 @@ type QuickShareResult struct {
 	SessionID string `json:"sessionId"`
 	FileID    string `json:"fileId"`
 	ShareURL  string `json:"shareUrl"`
-	Protocol  string `json:"protocol"`
-	FileName  string `json:"fileName"`
-	FileSize  int64  `json:"fileSize"`
+	// DownloadURL is the link to give the recipient (ShareURL is the same value, kept for older daemons).
+	DownloadURL string `json:"downloadUrl"`
+	Token       string `json:"token"`
+	Encrypted   bool   `json:"encrypted"`
+	Protocol    string `json:"protocol"`
+	FileName    string `json:"fileName"`
+	FileSize    int64  `json:"fileSize"`
 }
 
 type Transfer struct {
@@ -104,6 +109,13 @@ type Session struct {
 	UserID      string `json:"userId"`
 }
 
+type Participant struct {
+	UserID   string `json:"userId"`
+	Username string `json:"username"`
+	IsHost   bool   `json:"isHost"`
+	Online   bool   `json:"online"`
+}
+
 type Status struct {
 	Session         Session    `json:"session"`
 	ActiveTransfers []Transfer `json:"activeTransfers"`
@@ -111,7 +123,9 @@ type Status struct {
 		TempUserID string `json:"tempUserId"`
 		Username   string `json:"username"`
 	} `json:"pendingJoins"`
-	LastUpdated string `json:"lastUpdated"`
+	// Participants lists session members; pass UserID to KickUser.
+	Participants []Participant `json:"participants"`
+	LastUpdated  string        `json:"lastUpdated"`
 }
 
 func (c *Client) Status(ctx context.Context) (*Status, error) {
@@ -126,6 +140,16 @@ func (c *Client) QuickShare(ctx context.Context, filePath, sessionName string) (
 
 func (c *Client) StartSession(ctx context.Context, name, roomSecret string) error {
 	return c.call(ctx, "/session/start", "POST", map[string]any{"sessionName": name, "roomSecret": roomSecret}, nil)
+}
+
+// NewSession starts a session and returns its ID and the browser join URL.
+func (c *Client) NewSession(ctx context.Context, name, roomSecret string) (sessionID, joinURL string, err error) {
+	var out struct {
+		SessionID string `json:"sessionId"`
+		JoinURL   string `json:"joinUrl"`
+	}
+	err = c.call(ctx, "/session/start", "POST", map[string]any{"sessionName": name, "roomSecret": roomSecret}, &out)
+	return out.SessionID, out.JoinURL, err
 }
 
 func (c *Client) JoinSession(ctx context.Context, sessionID, username, roomSecret string) error {

@@ -53,7 +53,8 @@ srift quick-share /abs/path/to/file
 ## Crypto
 
 AES-256-GCM + PBKDF2-SHA256 (100k iter). Keys derived locally from session ID (+ optional roomSecret).
-Server is mathematically blind to plaintext and keys.
+The server never receives the key, but it sees the session ID: without a roomSecret the key is derivable
+from it. Set a roomSecret (`--room-secret`) to make keys participant-only. Quick-share links are E2EE only with `--encrypt`.
 
 See `../AGENTS.md` for the full manual.
 

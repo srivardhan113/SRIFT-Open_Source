@@ -1,0 +1,224 @@
+name: 'SRIFT Quick Share'
+description: >-
+  Share a file or directory from your workflow and get back a
+  https://srift.app/d/<token> download link as a step output — e.g. to hand a
+  build artifact, test-failure trace, or report to a human without wiring up
+  cloud storage. Runs `srift-transfer quick-share`, which starts a background
+  daemon on the runner that streams the file through the srift.app relay on
+  demand (nothing is stored server-side). The link only works while the job
+  (and therefore the daemon) is still running, so keep the job alive until the
+  recipient has downloaded.
+author: 'SRIFT'
+branding:
+  icon: 'share-2'
+  color: 'blue'
+
+inputs:
+  path:
+    description: >-
+      File or directory to share. Directories are packed into a .tar.gz by
+      the CLI before sharing.
+    required: true
+  ttl:
+    description: 'Auto-expire the link after this duration (e.g. 30s, 15m, 2h, 1d).'
+    required: false
+    default: '24h'
+  max-downloads:
+    description: 'Invalidate the link after N successful downloads. Ignored if `once` is true.'
+    required: false
+    default: ''
+  once:
+    description: 'Shorthand for max-downloads: 1 (single-use download link).'
+    required: false
+    default: 'false'
+  encrypt:
+    description: >-
+      AES-256-GCM encrypt the file. The decryption key is embedded in the URL
+      fragment (after `#`) and never sent to or stored on the server — treat
+      the resulting `url` output as a secret. Set to 'false' only for content
+      that is already public.
+    required: false
+    default: 'true'
+  password:
+    description: 'Optional extra password required (in addition to the key) to decrypt/download.'
+    required: false
+    default: ''
+  wait-for-download:
+    description: >-
+      Keep this step running until the link has been downloaded at least once
+      (or this duration passes), so the runner's daemon is still serving when
+      the recipient clicks. Duration like 30m or 2h; '0' (default) returns
+      immediately. SRIFT stores nothing on a server, so the link stops working
+      when the job ends.
+    required: false
+    default: '0'
+  mask-url:
+    description: >-
+      Register the full `url` output with `::add-mask::` so it cannot appear
+      unredacted in step logs. Does not mask the plain `token` output (a
+      token alone cannot download an encrypted file without the URL's
+      fragment key). Recommended when `encrypt` is true.
+    required: false
+    default: 'true'
+  node-version:
+    description: 'Node.js version to set up for running `npx srift-transfer`.'
+    required: false
+    default: '20'
+  version:
+    description: >-
+      srift-transfer npm dist-tag or exact version to run via `npx -y
+      srift-transfer@<version>`. Pin an exact version for reproducible CI.
+    required: false
+    default: 'latest'
+
+outputs:
+  url:
+    description: >-
+      Full https://srift.app/d/<token> download URL. Secret-equivalent when
+      `encrypt` is true (contains the decryption key after `#`).
+    value: ${{ steps.share.outputs.url }}
+  token:
+    description: 'Opaque download token (the path segment of `url`, no key material).'
+    value: ${{ steps.share.outputs.token }}
+  expires-at:
+    description: 'ISO-8601 expiry timestamp for the link, if `ttl` produced one.'
+    value: ${{ steps.share.outputs.expires-at }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+
+    - name: Run srift-transfer quick-share
+      id: share
+      shell: bash
+      env:
+        SRIFT_PATH: ${{ inputs.path }}
+        SRIFT_TTL: ${{ inputs.ttl }}
+        SRIFT_MAX_DOWNLOADS: ${{ inputs.max-downloads }}
+        SRIFT_ONCE: ${{ inputs.once }}
+        SRIFT_ENCRYPT: ${{ inputs.encrypt }}
+        SRIFT_PASSWORD: ${{ inputs.password }}
+        SRIFT_MASK_URL: ${{ inputs.mask-url }}
+        SRIFT_CLI_VERSION: ${{ inputs.version }}
+      run: |
+        set -eo pipefail
+
+        if [ ! -e "$SRIFT_PATH" ]; then
+          echo "::error title=SRIFT Quick Share::path '$SRIFT_PATH' does not exist"
+          exit 1
+        fi
+
+        args=(quick-share "$SRIFT_PATH" --json)
+        [ -n "$SRIFT_TTL" ] && args+=(--ttl "$SRIFT_TTL")
+        if [ "$SRIFT_ONCE" = "true" ]; then
+          args+=(--once)
+        elif [ -n "$SRIFT_MAX_DOWNLOADS" ]; then
+          args+=(--max-downloads "$SRIFT_MAX_DOWNLOADS")
+        fi
+        if [ "$SRIFT_ENCRYPT" != "false" ]; then
+          args+=(--encrypt)
+        fi
+        [ -n "$SRIFT_PASSWORD" ] && args+=(--password "$SRIFT_PASSWORD")
+
+        echo "::group::srift-transfer quick-share"
+        set +e
+        raw="$(npx -y "srift-transfer@${SRIFT_CLI_VERSION}" "${args[@]}" 2>err.log)"
+        status=$?
+        set -e
+        cat err.log >&2 || true
+        echo "::endgroup::"
+
+        if [ $status -ne 0 ] || [ -z "$raw" ]; then
+          echo "::error title=SRIFT Quick Share::srift-transfer exited $status with no JSON output — see log above"
+          exit 1
+        fi
+
+        # Robust parse with Node rather than jq/grep (JSON may contain a URL
+        # fragment with special characters, and jq is not guaranteed present
+        # on every runner image).
+        node -e '
+          const fs = require("fs");
+          let out;
+          try {
+            out = JSON.parse(process.argv[1]);
+          } catch (e) {
+            console.error("::error title=SRIFT Quick Share::could not parse CLI output as JSON: " + e.message);
+            process.exit(1);
+          }
+          if (out.success !== true) {
+            console.error("::error title=SRIFT Quick Share::" + (out.error || out.message || "quick-share reported success:false"));
+            process.exit(1);
+          }
+          if (!out.downloadUrl) {
+            console.error("::error title=SRIFT Quick Share::response missing downloadUrl: " + JSON.stringify(out));
+            process.exit(1);
+          }
+          const lines = [
+            `url=${out.downloadUrl}`,
+            `token=${out.token ?? ""}`,
+            `expires-at=${out.expiresAt ?? ""}`,
+          ];
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, lines.join("\n") + "\n");
+          fs.writeFileSync("srift-share-result.json", JSON.stringify(out, null, 2));
+        ' "$raw"
+
+        if [ "$SRIFT_MASK_URL" = "true" ]; then
+          url="$(node -e 'console.log(JSON.parse(require("fs").readFileSync("srift-share-result.json","utf8")).downloadUrl)')"
+          echo "::add-mask::$url"
+        fi
+
+    - name: Wait for the download
+      if: inputs.wait-for-download != '0' && inputs.wait-for-download != '' && steps.share.outputs.token != ''
+      shell: bash
+      env:
+        SRIFT_WAIT: ${{ inputs.wait-for-download }}
+        SRIFT_TOKEN: ${{ steps.share.outputs.token }}
+      run: |
+        node -e '
+          const http = require("http");
+          const m = /^(\d+)(s|m|h|d)?$/.exec(String(process.env.SRIFT_WAIT).trim());
+          if (!m) { console.error("::error title=SRIFT Quick Share::invalid wait-for-download: " + process.env.SRIFT_WAIT); process.exit(1); }
+          const deadline = Date.now() + Number(m[1]) * ({ s: 1e3, m: 6e4, h: 36e5, d: 864e5 })[m[2] || "s"];
+          const port = process.env.SRIFT_DAEMON_PORT || "3822";
+          const list = () => new Promise((resolve) => {
+            http.get({ host: "127.0.0.1", port, path: "/pubshare/list" }, (res) => {
+              let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } });
+            }).on("error", () => resolve(null));
+          });
+          (async () => {
+            for (;;) {
+              const r = await list();
+              const it = r && (r.items || []).find((x) => x.token === process.env.SRIFT_TOKEN);
+              if (!it) { console.log("Link is gone (downloaded to its limit, expired or revoked)."); return; }
+              if ((it.downloadCount || 0) >= 1) { console.log("Downloaded " + it.downloadCount + " time(s)."); return; }
+              if (Date.now() > deadline) { console.log("::warning title=SRIFT Quick Share::not downloaded within " + process.env.SRIFT_WAIT + "; the link stops working when this job ends."); return; }
+              await new Promise((r) => setTimeout(r, 5000));
+            }
+          })();
+        '
+
+    - name: Write job summary
+      if: always() && steps.share.outputs.url != ''
+      shell: bash
+      run: |
+        {
+          echo "### SRIFT Quick Share"
+          echo ""
+          echo "| | |"
+          echo "|---|---|"
+          echo "| Path | \`${{ inputs.path }}\` |"
+          echo "| Encrypted | \`${{ inputs.encrypt }}\` |"
+          echo "| TTL | \`${{ inputs.ttl }}\` |"
+          echo "| Token | \`${{ steps.share.outputs.token }}\` |"
+          echo "| Expires | \`${{ steps.share.outputs.expires-at || 'n/a' }}\` |"
+          if [ "${{ inputs.mask-url }}" = "true" ]; then
+            echo ""
+            echo "_The download URL is masked in logs and this summary because it is secret-equivalent (it carries the decryption key). Read it from the \`url\` step output._"
+          else
+            echo "| URL | ${{ steps.share.outputs.url }} |"
+          fi
+        } >> "$GITHUB_STEP_SUMMARY"

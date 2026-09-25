@@ -1,0 +1,13 @@
+pkgbase = srift
+	pkgdesc = Zero-config, zero-token P2P E2EE file transfer, chat, and MCP server for AI agents
+	pkgver = 4.1.0
+	pkgrel = 1
+	url = https://srift.app
+	arch = any
+	license = MIT
+	makedepends = npm
+	depends = nodejs
+	source = srift-4.1.0.tgz::https://registry.npmjs.org/srift-transfer/-/srift-transfer-4.1.0.tgz
+	sha256sums = SKIP
+
+pkgname = srift

@@ -1,11 +1,12 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
   "version": "1.0",
-  "protocolVersion": "2025-06-18",
+  "protocolVersion": "2026-07-28",
+  "supportedProtocolVersions": ["2026-07-28", "2025-06-18", "2024-11-05"],
   "serverInfo": {
     "name": "SRIFT MCP Server",
     "title": "SRIFT Secure P2P File Transfer",
-    "version": "3.0.0",
+    "version": "4.1.0",
     "vendor": "Sripto Corporation",
     "homepage": "https://srift.app/ai-agents",
     "documentation": "https://srift.app/AGENTS.md",
@@ -22,7 +23,8 @@
     "tools": { "listChanged": false },
     "resources": { "listChanged": false, "subscribe": false },
     "prompts": { "listChanged": false },
-    "logging": {}
+    "logging": {},
+    "extensions": { "io.modelcontextprotocol/skills": {} }
   },
   "transport": [
     {
@@ -34,7 +36,7 @@
     {
       "type": "streamable-http",
       "url": "http://127.0.0.1:3822/mcp",
-      "description": "MCP spec 2025-06-18 Streamable HTTP transport on the local daemon."
+      "description": "MCP 2026-07-28 Streamable HTTP transport on the local daemon (also accepts 2025-06-18 / 2024-11-05 clients via the legacy initialize handshake)."
     },
     {
       "type": "sse",
@@ -50,7 +52,7 @@
   },
   "authentication": { "type": "none", "note": "Local daemon binds to 127.0.0.1; no tokens required." },
   "tools": [
-    { "name": "srift_quick_share", "description": "Zero-install file delivery: ensures a session, seeds file, and returns a public https://srift.app/d/<token> URL the recipient can fetch with any HTTP client (browser, curl, wget). Optional maxDownloads + ttlMs limits." },
+    { "name": "srift_quick_share", "description": "Zero-install file delivery: returns a public https://srift.app/d/<token> relay link the recipient can fetch with any HTTP client (browser, srift get, wget, curl). Bytes stream from this machine on demand; nothing is stored on a server. Params: filePath (file or folder) or filePaths[] (several: one .tar.gz link, or bundle:false for one link per path created in parallel), bundleName?, exclude?, sessionName?, maxDownloads?, ttlMs?, encrypt?, password?. Works in sandboxes: srift mcp runs the daemon in-process (outbound 443 only) when it cannot start." },
     { "name": "srift_start_session", "description": "Open a new E2EE room as host." },
     { "name": "srift_join_session", "description": "Join an existing room by 7-char session ID." },
     { "name": "srift_session_status", "description": "Current session, role, peers, pending joins." },
@@ -63,7 +65,8 @@
     { "name": "srift_list_transfers", "description": "List all active and recent transfers with progress." },
     { "name": "srift_send_chat", "description": "Send an E2EE chat message." },
     { "name": "srift_chat_history", "description": "Read decrypted chat history." },
-    { "name": "srift_read_state", "description": "Read raw .srift-state.json snapshot." }
+    { "name": "srift_read_state", "description": "Read raw .srift-state.json snapshot." },
+    { "name": "srift_net_diagnose", "description": "Diagnose which network transports work from this machine and how to fix what's blocked. Read-only." }
   ],
   "resources": [
     { "uri": "srift://session/status", "description": "Live session details." },
@@ -76,5 +79,11 @@
     { "name": "send_file_to_user", "description": "Multi-step plan to deliver a file." },
     { "name": "receive_file_from_user", "description": "Multi-step plan to open a room and accept incoming files." },
     { "name": "start_collab_session", "description": "Multi-step plan to open a long-lived E2EE collaboration room." }
+  ],
+  "skills": [
+    { "uri": "skill://quick-share/SKILL.md", "description": "Zero-install file delivery: seed a file and get a public download URL." },
+    { "uri": "skill://session-management/SKILL.md", "description": "Create, join, monitor, and control SRIFT E2EE sessions." },
+    { "uri": "skill://encrypted-chat/SKILL.md", "description": "Send/read E2EE chat and manage in-session file transfers." },
+    { "uri": "skill://get-company-info/SKILL.md", "description": "Overview and core metadata for SRIFT and SRIPTO Corporation." }
   ]
 }

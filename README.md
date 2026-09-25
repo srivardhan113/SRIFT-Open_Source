@@ -47,7 +47,7 @@ The user opens the link in any web browser or downloads via `srift get https://s
 > (pass-through, nothing stored). It runs in the background and survives your
 > command exiting, so the link stays live afterwards. But if the daemon stops
 > (machine sleeps or reboots, or `srift daemon stop`) the link returns
-> `503 sender is offline`. In CI or other ephemeral environments, keep the job
+> `503 sender is offline` for ~15 s, then `404` once the link is released. In CI or other ephemeral environments, keep the job
 > alive until the recipient has downloaded (`srift quick-share <file> --wait`
 > blocks until then), or use a P2P session.
 >
@@ -204,7 +204,7 @@ For web-based agents (ChatGPT, Claude.ai, Gemini, Perplexity) that cannot run lo
 | `srift_approve_join` | `tempUserId` (string) | Host control: approves a pending user join request. |
 | `srift_reject_join` | `tempUserId` (string), `reason?` (string) | Host control: rejects a pending user join request. |
 | `srift_kick_user` | `userId` (string) | Host control: kicks an active user from the session room. |
-| `srift_send_file` | `filePath` (string), `protocol?` ("webtorrent" \| "websocket") | Offers a file for direct peer-to-peer transfer to joined peers. |
+| `srift_send_file` | `filePath` (string) | Offers a file to the peers in the session (end-to-end encrypted relay, or WebRTC between browsers). |
 | `srift_accept_transfer` | `fileId` (string), `saveDir?` (string) | Accepts an inbound file offer and streams it to local disk. |
 | `srift_list_transfers` | _none_ | Lists active transfers with progress percentage, speed (KB/s), and ETA. |
 | `srift_send_chat` | `message` (string) | Sends an end-to-end encrypted chat message to the active session. |
@@ -295,8 +295,8 @@ srift quick-share ./dist.zip --qr --json      # QR code / machine-readable outpu
 srift get "https://srift.app/d/<token>" -o ./downloads/
 
 # Manage active links
-srift pubshare list                     # list all active public links and counters
-srift pubshare revoke <token>           # immediately revoke an active link
+srift links list                        # list all active public links and counters
+srift links revoke <token>              # immediately revoke an active link
 ```
 
 #### Sharing Several Files at Once
@@ -378,19 +378,19 @@ Subscribe to real-time events without polling:
 ```bash
 curl -N http://127.0.0.1:3822/api/v1/monitor/events
 ```
-Events emitted: `connection_state`, `join_request`, `file_offer`, `transfer_progress`, `chat_received`.
+Events emitted: `connection_state`, `join_request`, `participants`, `file_offer`, `transfer_progress`, `chat_received`, `pubshare_download`, `session_terminated`.
 
 ---
 
 ## 🔐 Architecture & Security
 
-- **Session Cryptography**: Data in a *session* transfer is encrypted client-side using **AES-256-GCM** with a distinct 12-byte IV per block. Keys are derived locally via **PBKDF2-SHA256 (100,000 iterations)** from the session ID plus an optional room secret, and are never sent to the server.
+- **Session Cryptography**: Data in a *session* transfer is encrypted client-side using **AES-256-GCM** with a distinct 12-byte IV per block. Keys are derived locally via **PBKDF2-SHA256 (100,000 iterations)** from the session ID plus an optional room secret, and are never sent to the server. The server does see the session ID, so without a room secret the key is derivable from it; start sessions with `--room-secret` (CLI) / `roomSecret` (SDK) to make the key participant-only. The browser UI does not set a room secret.
 - **Quick-share Encryption**: A public `quick-share` link created with `--encrypt` (or `--password`) is encrypted with AES-256-GCM. The key is placed in the URL fragment (`#k=...`), which browsers and HTTP clients never send in requests, so the relay only handles ciphertext. Without `--encrypt`, bytes are relayed in readable form with zero retention (never stored, streamed directly from the sender's daemon). Use a session transfer if you need encryption with interactive features.
 - **Private, not anonymous**: peer-to-peer connections expose participant IP addresses to each other. SRIFT is not a substitute for Tor.
 - **Adaptive Transport Stack**:
-  1. **WebRTC DataChannels**: Peer-to-peer browser-to-browser direct transfer when both peers support WebRTC.
-  2. **WebTorrent**: Swarm-assisted peer-to-peer distribution for large files.
-  3. **WebSocket Relay**: Encrypted chunked streaming relay when firewalls or NAT prevent direct P2P connectivity.
+  1. **WebRTC**: browser↔browser, files >5 MB.
+  2. **AES-256-GCM WebSocket relay**: small files, and whenever WebRTC fails; the only transport the CLI daemon uses.
+  3. **WebTorrent**: optional, browser only.
 - **Zero Retention**: nothing transferred is ever written to SRIFT storage. Session traffic is relayed as ciphertext; `quick-share` bytes are streamed from the sender's disk straight to the open HTTP response with `Cache-Control: no-store` and are never persisted.
 
 ---
@@ -404,6 +404,16 @@ Set custom configuration options via environment variables or `~/.srift/config.j
 | `SRIFT_DAEMON_PORT` | `3822` | Port for the local background daemon |
 | `SRIFT_BASE_URL` | `http://127.0.0.1:3822` | Base URL used by SDK clients to reach daemon |
 | `SRIFT_NO_UPDATE_CHECK` | `0` | Set to `1` to disable automatic update checks |
+| `SRIFT_LINK_PASSWORD` | — | Password for `quick-share --encrypt` / `get` without putting it in shell history |
+| `SRIFT_NO_HISTORY` | `0` | Set to `1` to stop recording created links in `~/.srift/history.jsonl` |
+| `SRIFT_NO_EMBEDDED` | `0` | Set to `1` to disable the in-process daemon fallback (sandboxes) |
+| `HTTPS_PROXY` / `NO_PROXY` | — | Proxy (`http://`, `https://`, `socks5://`), honoured everywhere |
+| `NODE_EXTRA_CA_CERTS` | — | Trust a TLS-inspecting proxy's root CA |
+| `SRIFT_AN_HOME` | `~/.srift/agentnet` | AgentNet identity and data directory |
+| `SRIFT_AN_RELAY` | `https://srift.app` | AgentNet relay(s), comma-separated |
+| `SRIFT_AN_EPHEMERAL` | `0` | `1` keeps AgentNet conversations in RAM only |
+| `SRIFT_AN_PASSPHRASE` | — | Encrypts the AgentNet identity file (PBKDF2-SHA256 + AES-256-GCM) |
+| `SRIFT_AN_TRANSPORT` | `ws` | `poll` forces HTTP long-poll (networks that block WebSockets) |
 
 ---
 
@@ -412,12 +422,16 @@ Set custom configuration options via environment variables or `~/.srift/config.j
 First-party, zero-dependency SDKs for accessing SRIFT from any programming language:
 
 - **Node.js**: [`sdk/node`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/node) — vendor the source; the CLI package `srift-transfer` also exposes the same REST surface
-- **Python**: [`sdk/python`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/python) (CPython 3.8+, PyPy, asyncio)
+- **Python**: `pip install srift` (includes the CLI) — [`sdk/python`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/python) (`pip install srift` needs Python 3.9+; the single-file `srift.py` works on CPython 3.8+ and PyPy)
 - **Go**: [`sdk/go`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/go) (Go 1.21+)
 - **Rust**: [`sdk/rust`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/rust) (sync/async)
 - **Java**: [`sdk/java`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/java) (Java 11+)
 - **C# / .NET**: [`sdk/dotnet`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/dotnet) (.NET 6+)
+- **PHP**: [`sdk/php`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/php) (PHP 7.4+)
+- **Ruby**: [`sdk/ruby`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/ruby) (Ruby 2.7+)
 - **Shell / Bash / PowerShell**: [`sdk/shell`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/shell)
+
+Direct download (no clone): every SDK file is also served at `https://srift.app/sdk/<lang>/…` — for example `curl -O https://srift.app/sdk/node/srift.mjs` (the Node SDK is not on npm yet).
 
 ---
 
@@ -458,7 +472,7 @@ Maintainer documentation. Condensed runbook: [`docs/DISTRIBUTION.md`](docs/DISTR
 | `cli/` | CLI source (`index.ts`) and headless daemon (`daemon.ts`) |
 | `lib/mcp/` | Shared MCP core — one tool catalogue, two backends (local daemon + in-process) |
 | `packages/cli/` | The publishable npm package (`srift-transfer`) |
-| `tests/` | 172 tests, Node's built-in runner |
+| `tests/` | ~380 tests, Node's built-in runner |
 | `scripts/sync-version.mjs` | Single source of version propagation |
 | `server.json` | MCP registry manifest |
 
@@ -477,7 +491,7 @@ npm run srift -- --help     # run the CLI from TypeScript source
 npx tsc --noEmit
 npm run lint
 npm run build               # must run BEFORE npm test — SEO tests read .next/server/app
-npm test                    # 172 tests
+npm test                    # ~380 tests
 node scripts/sync-version.mjs --check
 ```
 
@@ -599,7 +613,7 @@ v=MCPv1; k=ed25519; p=<base64 ed25519 public key>
 
 ### CI
 
-`.github/workflows/ci.yml` (in the main development repository) runs on every push and PR:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and PR:
 
 - **verify** — tsc → lint → build → test → version-drift check
 - **package** — builds the CLI, **fails if `npm publish --dry-run` emits any
@@ -642,9 +656,9 @@ to `C:\tmp` and the CLI will not find the file.
 
 | Transport | Tools | Why |
 |---|---|---|
-| `srift mcp` (stdio) | **14** | full disk + key access |
-| `127.0.0.1:3822/mcp` | **14** | same local daemon |
-| `https://srift.app/mcp` | **8** | orchestration only |
+| `srift mcp` (stdio) | **15** | full disk + key access |
+| `127.0.0.1:3822/mcp` | **15** | same local daemon |
+| `https://srift.app/mcp` | **9** | session control + diagnostics only |
 
 Hosted omits `srift_quick_share`, `srift_send_file`, `srift_accept_transfer`
 (need local disk) and `srift_send_chat`, `srift_chat_history`, `srift_read_state`

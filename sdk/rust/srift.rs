@@ -2,9 +2,9 @@
 //!
 //! Pick your features in Cargo.toml:
 //!   [dependencies]
-//!   srift = { version = "3", features = ["blocking"] }   # uses ureq
+//!   srift = { version = "4", features = ["blocking"] }   # uses ureq
 //!   # OR
-//!   srift = { version = "3", features = ["async"] }      # uses reqwest + tokio
+//!   srift = { version = "4", features = ["async"] }      # uses reqwest + tokio
 //!
 //! Runs on: any target Rust supports — Linux, macOS, Windows, BSD, Wasm32-wasi,
 //! embedded (no_std variant in `srift-no-std`), Tauri, Cloudflare Workers (with reqwest-wasm).
@@ -21,7 +21,7 @@ use std::env;
 const DEFAULT_BASE: &str = "http://127.0.0.1:3822";
 
 /// SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
-pub const VERSION: &str = "3.0.0";
+pub const VERSION: &str = "4.1.0";
 
 #[derive(Debug, thiserror::Error)]
 pub enum SriftError {
@@ -42,7 +42,18 @@ pub struct QuickShareResult {
     pub file_id: String,
     #[serde(rename = "shareUrl")]
     pub share_url: String,
-    pub protocol: String,
+    /// The link to give the recipient (`share_url` is the same value, kept for older daemons).
+    #[serde(rename = "downloadUrl", default)]
+    pub download_url: Option<String>,
+    #[serde(default)]
+    pub token: Option<String>,
+    #[serde(default)]
+    pub encrypted: bool,
+    /// Older daemons sent `protocol`; current ones send `mode` ("relay"). Neither is required.
+    #[serde(default)]
+    pub protocol: Option<String>,
+    #[serde(default)]
+    pub mode: Option<String>,
     #[serde(rename = "fileName")]
     pub file_name: String,
     #[serde(rename = "fileSize")]
@@ -70,9 +81,26 @@ pub struct Session {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct PendingJoin {
+    #[serde(rename = "tempUserId")] pub temp_user_id: String,
+    pub username: String,
+}
+
+/// A session member; pass `user_id` to `kick_user`.
+#[derive(Debug, Deserialize)]
+pub struct Participant {
+    #[serde(rename = "userId")] pub user_id: String,
+    pub username: String,
+    #[serde(rename = "isHost", default)] pub is_host: bool,
+    #[serde(default)] pub online: bool,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Status {
     pub session: Session,
     #[serde(rename = "activeTransfers", default)] pub active_transfers: Vec<Transfer>,
+    #[serde(rename = "pendingJoins", default)] pub pending_joins: Vec<PendingJoin>,
+    #[serde(default)] pub participants: Vec<Participant>,
 }
 
 #[derive(Debug, Deserialize)]

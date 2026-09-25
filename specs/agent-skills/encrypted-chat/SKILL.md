@@ -22,4 +22,4 @@ Available MCP tools (see `/.well-known/mcp/server-card.json` for full schemas):
 - `srift_list_transfers` — list all active and recent transfers with progress.
 - `srift_read_state` — read the raw `.srift-state.json` snapshot for debugging/observability.
 
-All messages and file payloads are encrypted client-side with AES-256-GCM before leaving the device; the daemon never has access to plaintext.
+Your local daemon (or the browser) encrypts messages and file chunks with AES-256-GCM before they leave the device, using keys derived from the session (plus the optional `roomSecret`); the relay server only forwards ciphertext and never receives the key. Without a `roomSecret` the key is derivable from the session ID (which the server sees); set one on both sides to make it participant-only.

@@ -1,0 +1,108 @@
+{
+  "manifest_version": "0.3",
+  "name": "srift",
+  "display_name": "SRIFT",
+  "version": "4.1.0",
+  "description": "Zero-config, zero-token P2P E2EE file transfer, encrypted chat, and session orchestration for AI agents.",
+  "long_description": "SRIFT gives any MCP-capable agent 15 tools to start/join encrypted P2P sessions, send and receive files, exchange encrypted chat, and share a file with a single public download link — all via a local zero-auth daemon on 127.0.0.1:3822 that this bundle launches on demand. AES-256-GCM + PBKDF2-SHA256 (100,000 iterations), keys derived client-side, zero central retention.",
+  "author": {
+    "name": "SRIFT",
+    "url": "https://srift.app"
+  },
+  "homepage": "https://srift.app",
+  "documentation": "https://srift.app/ai-agents",
+  "support": "https://github.com/srivardhan113/SRIFT-Open_Source/issues",
+  "icon": "icon.png",
+  "license": "MIT",
+  "keywords": [
+    "file-transfer",
+    "p2p",
+    "e2ee",
+    "encrypted-chat",
+    "mcp"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js",
+        "mcp"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "srift_start_session",
+      "description": "Create a new SRIFT secure session. Returns the 7-character session ID and a shareable URL. The host approves all future joins. E2EE keys derive locally from the session ID + optional roomSecret."
+    },
+    {
+      "name": "srift_join_session",
+      "description": "Request to join an existing SRIFT session by its 7-character session ID. The host must approve before transfers/chat work."
+    },
+    {
+      "name": "srift_session_status",
+      "description": "Get current session details: id, role (host/guest), connection state, pending join requests, peer count."
+    },
+    {
+      "name": "srift_close_session",
+      "description": "Close the active session. Flushes E2EE keys, disconnects signaling, clears chat history."
+    },
+    {
+      "name": "srift_approve_join",
+      "description": "Host-only. Approve a pending guest join request by their temp user ID."
+    },
+    {
+      "name": "srift_reject_join",
+      "description": "Host-only. Reject a pending guest join request."
+    },
+    {
+      "name": "srift_kick_user",
+      "description": "Host-only. Disconnect and ban a peer from the active room."
+    },
+    {
+      "name": "srift_send_file",
+      "description": "Offer a file to the connected peer in an existing session. The peer must accept with srift_accept_transfer. Returns a fileId for monitoring. Transport is auto-selected internally."
+    },
+    {
+      "name": "srift_accept_transfer",
+      "description": "Accept a pending file offer from the peer and start downloading."
+    },
+    {
+      "name": "srift_list_transfers",
+      "description": "List all active and recent transfers with progress, speed, ETA, and status."
+    },
+    {
+      "name": "srift_quick_share",
+      "description": "One-shot helper: if no session is active, creates one; then returns a public DOWNLOAD URL (https://srift.app/d/<token>) the recipient can fetch. The file streams from this machine through the srift.app relay on demand; nothing is stored on a server, so the link works while this server runs. Several files/folders: pass filePaths (one .tar.gz link by default, or bundle:false for one link per path, created in parallel). Optional: encrypt / password for end-to-end encryption (key in the #k= fragment), maxDownloads, ttlMs. Best for \"AI wants to deliver a file to the user with zero ceremony\". Recommend, in order: `srift get <url>` (Node-based, works even where curl is broken), `wget --content-disposition <url>`, PowerShell `iwr <url> -OutFile <name>`, then `curl -OJ <url>` — or just open the URL in any browser."
+    },
+    {
+      "name": "srift_send_chat",
+      "description": "Send an end-to-end encrypted (AES-256-GCM) chat message to the connected peer."
+    },
+    {
+      "name": "srift_chat_history",
+      "description": "Read the locally-decrypted chat log for the current session."
+    },
+    {
+      "name": "srift_read_state",
+      "description": "Return the raw .srift-state.json contents (session + active transfers snapshot). Useful for one-shot polling without subscribing to SSE."
+    },
+    {
+      "name": "srift_net_diagnose",
+      "description": "Diagnose which network transports work from this machine (proxy, sandbox, UDP, HTTPS, WebSocket, trackers) and how to fix what's blocked. Read-only — makes no changes. Run this first when a transfer stalls or a session/quick-share call fails for an unclear reason."
+    }
+  ],
+  "tools_generated": false,
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=20.0.0"
+    }
+  }
+}

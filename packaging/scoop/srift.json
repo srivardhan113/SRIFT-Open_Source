@@ -1,0 +1,28 @@
+{
+  "version": "4.1.0",
+  "description": "Zero-config, zero-token P2P E2EE file transfer, chat, and MCP server for AI agents",
+  "homepage": "https://srift.app",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://srift.app/dl/4.1.0/win-x64/srift.exe#/srift.exe",
+      "hash": "PLACEHOLDER_SHA256_FROM_https://srift.app/dl/4.1.0/win-x64/SHA256SUMS"
+    }
+  },
+  "bin": "srift.exe",
+  "checkver": {
+    "url": "https://srift.app/cli/version.json",
+    "jsonpath": "$.latest"
+  },
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://srift.app/dl/$version/win-x64/srift.exe#/srift.exe"
+      }
+    },
+    "hash": {
+      "url": "https://srift.app/dl/$version/win-x64/SHA256SUMS",
+      "regex": "^([a-fA-F0-9]{64})\\s+\\*?srift\\.exe$"
+    }
+  }
+}

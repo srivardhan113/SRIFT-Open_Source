@@ -1,49 +1,45 @@
-# GitHub Actions composite step that starts SRIFT and uses quick-share to deliver build artifacts.
+# Deliver a CI build artifact with a SRIFT download link.
 # Drop this in .github/workflows/build.yml.
+#
+# The link streams the file from THIS runner (nothing is stored on a server),
+# so the job keeps running until the file is downloaded or --wait-timeout ends.
 
 name: Build + SRIFT delivery
-on: [push]
+on: [push, pull_request]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: "24" }
 
-      - name: Install deps
-        run: npm ci
-
       - name: Build
-        run: npm run build
-
-      - name: Start SRIFT daemon
-        run: nohup node --experimental-strip-types cli/daemon.ts &
-        env: { SRIFT_DAEMON_PORT: "3822" }
-
-      - name: Wait for daemon
         run: |
-          for i in {1..30}; do
-            curl -fsS http://127.0.0.1:3822/status && break
-            sleep 1
-          done
+          npm ci
+          npm run build
+          tar -czf build.tar.gz dist        # whatever your build produces
 
-      - name: Deliver build artifact via SRIFT
-        id: srift
+      - name: Share the artifact (link printed at once, then served until downloaded)
         run: |
-          R=$(curl -s -X POST http://127.0.0.1:3822/quick-share \
-                -H 'Content-Type: application/json' \
-                -d '{"filePath":"'$PWD'/build.zip","sessionName":"ci-${{ github.run_id }}"}')
-          echo "$R"
-          echo "share_url=$(echo $R | jq -r .shareUrl)" >> $GITHUB_OUTPUT
+          npx -y srift-transfer quick-share build.tar.gz --encrypt --once \
+            --json --wait --wait-timeout 30m > srift.json &
+          echo $! > srift.pid
+          for i in $(seq 1 60); do [ -s srift.json ] && break; sleep 1; done
+          echo "SRIFT_URL=$(jq -r .downloadUrl srift.json)" >> "$GITHUB_ENV"
 
-      - name: Comment on PR
+      - name: Post the link on the PR
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
             github.rest.issues.createComment({
               issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo,
-              body: `Build artifact ready via SRIFT: ${{ steps.srift.outputs.share_url }}`
+              body: `Build artifact (single-use, end-to-end encrypted): ${process.env.SRIFT_URL}\nDownload within 30 minutes: open it in a browser or run \`npx -y srift-transfer get "<link>"\`.`
             })
+
+      - name: Keep serving until downloaded
+        run: wait "$(cat srift.pid)" || true

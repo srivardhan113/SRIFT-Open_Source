@@ -1,29 +1,25 @@
 # Replit integration
 
-## Repl Agent
-The Replit Agent can run SRIFT directly. Add to `.replit`:
-```toml
-[deployment]
-run = ["npm", "run", "start:unified"]
+## Share a file from a Repl
 
-[[ports]]
-localPort = 3822
-externalPort = 80
-```
+In the Replit shell (or from the Replit Agent):
 
-Then any agent inside the Repl can call `http://127.0.0.1:3822/quick-share`.
-
-## Ghostwriter / AI
-
-Ghostwriter respects `AGENTS.md` and `.cursorrules` automatically — both files are already in the
-SRIFT repo root.
-
-## Sharing files **from** a Repl
-
-Inside the Replit shell:
 ```bash
-npm run srift -- quick-share ./build.zip
-# → https://srift.app/join-session?id=ABC1234
+npm install -g srift-transfer        # or: pip install srift
+srift quick-share ./build.zip        # → https://srift.app/d/<token>
 ```
 
-User opens the URL in any browser; transfer streams P2P.
+The recipient opens the link in any browser. The file streams from the Repl while it runs; nothing
+is stored on a server. Add `--encrypt` for end-to-end encryption, `--wait` to keep serving until
+the download finishes.
+
+## Replit Agent / MCP
+
+Give the agent the SRIFT MCP server (`srift mcp`, or `npx -y srift-transfer mcp` without a global
+install). The daemon listens on `127.0.0.1:3822` inside the Repl; it has no authentication, so
+don't map port 3822 to the internet.
+
+## Agent docs
+
+Agents that read `AGENTS.md` or `.cursorrules` can bootstrap them into a project with
+`srift bootstrap`.

@@ -7,18 +7,44 @@
     "url": "https://github.com/srivardhan113/SRIFT-Open_Source",
     "source": "github"
   },
-  "version": "3.0.0",
+  "version": "4.1.0",
   "websiteUrl": "https://srift.app",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "srift-transfer",
-      "version": "3.0.0",
+      "version": "4.1.0",
       "transport": {
         "type": "stdio"
       },
-      "runtimeArguments": [
+      "environmentVariables": [
+        {
+          "name": "SRIFT_DAEMON_PORT",
+          "description": "Port for the local SRIFT daemon",
+          "isRequired": false,
+          "default": "3822"
+        }
+      ],
+      "runtimeHint": "npx",
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp",
+          "valueHint": "mcp"
+        }
+      ]
+    },
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "srift",
+      "version": "4.1.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
         {
           "type": "positional",
           "value": "mcp",

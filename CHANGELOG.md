@@ -12,6 +12,56 @@ Machine-readable version: [`/changelog.json`](https://srift.app/changelog.json)
 
 ---
 
+## [4.1.0] — 2026-09-26
+
+Release from a full production audit (srift.app, npm, PyPI, MCP registry, every CLI command, MCP tool, SDK and browser flow). New: session `participants`, `joinUrl`, Go `NewSession`, the Python SDK inside `pip install srift`, structured MCP outputs, `npm run e2e:matrix`. No breaking changes.
+
+### Fixed
+- **Download links over 32 MiB failed on srift.app** (HTTP 500). Cloud Run rejects HTTP/1 responses that declare more than 32 MiB; large bodies are now streamed chunked there, and the size travels in HEAD's `Content-Length` and a new `X-SRIFT-Size` header (`SRIFT_MAX_SIZED_BODY` overrides the limit).
+- **A deleted or changed shared file made `srift get` retry for ~50 s, then print Cloudflare's HTML error page.** The server now answers `424` with an `X-SRIFT-Error: sender-file` header (Cloudflare replaced the old `502` body), and `srift get` fails at once with the real reason. `srift get` never echoes proxy HTML pages.
+- **Files between the CLI/MCP daemon and browsers in a session never arrived.** The daemon sent base64 chunks the web app ignores, so agent → human transfers hung. The daemon now negotiates the web app's end-to-end encrypted relay format (`relayEnc: 'sgcm1'`, AES-256-GCM per chunk) in both directions and keeps the old format for older daemons; the web app also accepts chunks from 4.0.0 CLIs. Session files relayed between daemons are now sealed too.
+- **Chat and file offers sent right after a join was approved were silently dropped** while `success: true` was returned. The daemon now waits (up to 8 s) until its session connection is authenticated, and reports "waiting for host approval" for an unapproved guest.
+- **Invite links from agents opened an empty join form.** `/join-session` now reads `?id=` (used by the CLI, daemon, MCP tools and SDKs) as well as `?sessionId=`.
+- **AgentNet: a known contact could not be reached by `@handle` or `@handle~tag`** unless they were publicly discoverable. Contacts are now resolved first; the `~tag` is checked against the contact's key-derived address.
+- **`/.windsurfrules` returned 500** (listed in the sitemap). It now has an explicit route.
+- Python SDK sends a `srift-python-sdk/<version>` User-Agent; Python's default `urllib` agent is refused by srift.app's CDN.
+- **Session daemon reconnected every 3 seconds forever** after its socket was replaced (e.g. `srift session start` after a quick-share): the old socket's close handler scheduled a reconnect that closed the new socket. Each reconnect killed in-flight transfers. Events from replaced sockets are now ignored (daemon and AgentNet relay client).
+- **Quick-share links broke when the same daemon started a session.** Links now carry a server-issued claim, so the daemon keeps the same URLs across sessions.
+- **A kicked guest's daemon kept reconnecting**; `kicked_from_session` now ends the session locally, and chat/send report why (410).
+- **Hosts could not kick anyone in practice**: user ids were only visible on the guest. `/status`, `srift session status` and `srift_session_status` now list `participants` with `userId`; `/session/approve` returns once the guest is in the room (`joined`, `userId`).
+- **Queued AgentNet messages waited up to 60 s** when the recipient came online just after the message was queued by another CLI process; targets that are already online are flushed at once.
+- `srift monitor <fileId>` hung forever for finished or unknown transfers; `srift history --json` ignored `--limit`.
+- `srift_start_session` and `srift session start` returned a hard-coded srift.app join link on self-hosted servers; they now return the real `joinUrl`.
+- MCP tools return structured output matching their declared `outputSchema` (the `srift_session_status` schema is corrected; `srift_list_transfers`, `srift_chat_history`, `srift_send_file`, `srift_start_session` and the hosted tools gained structured results).
+- SDKs: Rust `quick_share` failed to deserialize (required a `protocol` field the daemon doesn't send); Go gained `NewSession` (returns the session id and join URL) and `Participants`; the Bash SDK built invalid JSON for Windows paths and quotes and its `srift_alive` broke on Windows curl.
+- Web app: approve / reject / remove buttons had no accessible names (screen readers and AI browser agents couldn't use them).
+- In-memory test store: `DELETE` statements were ignored and guests were stored as hosts.
+
+### Packaging
+- `server.json`: `mcp` moved from `runtimeArguments` to `packageArguments`; the PyPI package is listed (its README carries the `mcp-name` marker the registry requires).
+- `integrations/`: the Docker, Kubernetes, Cloud Run, Lambda, Workers, Replit and GitHub Actions recipes could not work (the daemon is loopback-only) and two exposed the unauthenticated daemon publicly; they now use a shared-localhost sidecar or the CLI in the agent's container.
+
+### SEO and AI readability
+- Removed a fabricated `aggregateRating`, 20 hreflang tags pointing at the same English page, conflicting hand-written OpenGraph tags, superlative "better than …" meta tags and fake response headers; the FAQ/HowTo JSON-LD is on the homepage only; entity `@id`s are shared across pages; `dateModified` is the release date.
+- Hidden (`sr-only`) crawler-only content is now visible (collapsed sections) or removed.
+- Real 1200×630 `og-image.png` and a 512×512 logo; robots.txt rules now apply to every crawler; sitemap uses real dates and lists pages plus the AI reference files; RSS is built from the changelog; the 404 page is `noindex`.
+- `llms.txt` rewritten in the llmstxt.org format with quick answers first; AGENTS.md, ai-instructions.md, llms-full.txt and the /ai-agents page now document the real error codes (no JSON-RPC -32001…-32004, no `GET /events`), the 4.1.0 API fields, the real CLI help and AgentNet.
+- OpenAPI: every daemon endpoint, response schemas and `operationId`s (for GPT Actions and tool generators).
+
+### Docs
+- **Python: one package.** `pip install srift` now includes the Python SDK (`from srift import Srift`) next to the `srift` command; the never-published `srift-sdk` package definition is retired. Removed the install command for the unpublished Node SDK (`npm install srift`).
+- `.cursorrules` pointed at binaries under `/dl/2.2.0/` (404); SDK package manifests said `3.0.0`. Both are now kept current by `scripts/sync-version.mjs`.
+- `llms-full.txt` referenced a nonexistent `srift tunnel` command; added `424` to the HTTP status tables; `docs/DISTRIBUTION.md` refreshed to the live state.
+- **Accurate security wording everywhere.** Session keys derive from the session ID plus an optional room secret, so pages no longer say the server "cannot decrypt" default browser sessions; they point to `--room-secret` for participant-only keys. Plain quick-share links are described as TLS in transit (E2EE with `--encrypt`). Removed forward-secrecy, "no message storage", HIPAA/SOC 2 "compliant", RSA-4096 and nonexistent-feature claims (video calls, recordings, fraud detection, ghost messaging); audio is LiveKit (DTLS-SRTP); WebTorrent is opt-in; retention is host close or 7 days of inactivity. `security.txt` is now a plain RFC 9116 file and `humans.txt` lists real facts instead of keywords.
+- Landing pages, `/ai-agents`, READMEs, `.cursorrules`/`.windsurfrules`/`GEMINI.md`: `srift links` (not `pubshare`), full `doctor` and `quick-share` flags, full `srift_quick_share` parameters, the real SSE event list, `503` then `404` for offline senders, Python 3.9+ for pip, loopback-only SDK runtimes, and the hosted MCP's 9-tool limit.
+
+### Tests
+- New e2e group `session`: host and guest daemons join, approve, chat both ways and send files in both directions (SHA-256 checked); it also fails if an idle host keeps reconnecting.
+- New `npm run e2e:matrix`: every CLI command/flag, every AgentNet command and MCP tool (two federated relays), and all local + hosted MCP tools with output-schema validation.
+- Regression tests for each fix above.
+
+---
+
 ## [4.0.0] — 2026-09-25
 
 Major release: adds AgentNet (agent-to-agent communication) and removes all server-side storage (see Removed).

@@ -1,33 +1,60 @@
 # AWS Lambda integration
 
-Lambda can't host the SRIFT daemon (15-min timeout, no persistent ports). Two patterns:
+A SRIFT link streams the file from the process that created it; nothing is stored on a server.
+So a Lambda can hand out a file only while the invocation is still running (max 15 minutes).
 
-## Pattern A — Lambda calls user's daemon via API Gateway + tunnel
+## Pattern A — share from inside the invocation (recommended)
+
+Add Node.js 20+ to the function (or use a Node.js runtime) and run the CLI in-process. It needs only
+outbound HTTPS/WSS on port 443 and no local server:
 
 ```python
-# handler.py
-import json, urllib.request
+# handler.py  (Python runtime with a Node.js layer, or `pip install srift`, which bundles Node.js)
+import json, subprocess
 
 def lambda_handler(event, context):
-    body = json.loads(event["body"])
+    path = "/tmp/report.pdf"                      # e.g. downloaded from S3 first
+    # --foreground: serve from this process; --wait: return only after the download
+    p = subprocess.Popen(
+        ["srift", "quick-share", path, "--once", "--foreground", "--wait", "--wait-timeout", "12m", "--json"],
+        stdout=subprocess.PIPE, text=True,
+    )
+    link = json.loads(p.stdout.readline())["downloadUrl"]
+    notify_user(link)                              # send it via email / Slack / your API
+    p.wait()                                       # keep serving until downloaded or timed out
+    return {"statusCode": 200, "body": json.dumps({"downloadUrl": link})}
+```
+
+The link stops working when the invocation ends, so the recipient has to download it within the
+time you keep the function running.
+
+## Pattern B — call a daemon on another machine through a tunnel (advanced)
+
+The SRIFT daemon has no authentication: anyone who can reach it can share any file it can read.
+Only expose it through a tunnel that you protect (Cloudflare Access, Tailscale, an IP allowlist),
+never publicly. It also accepts only loopback `Host` headers, so the tunnel must rewrite it:
+
+```bash
+cloudflared tunnel --url http://127.0.0.1:3822 --http-host-header 127.0.0.1:3822
+# or: ngrok http 3822 --host-header=rewrite
+```
+
+```python
+import json, os, urllib.request
+
+def lambda_handler(event, context):
     req = urllib.request.Request(
         f"{os.environ['SRIFT_TUNNEL_URL']}/quick-share",
-        data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"},
+        data=json.dumps({"filePath": event["filePath"]}).encode(),
+        headers={"Content-Type": "application/json", "User-Agent": "srift-lambda"},
         method="POST",
     )
     with urllib.request.urlopen(req) as r:
         return {"statusCode": 200, "body": r.read().decode()}
 ```
 
-Set `SRIFT_TUNNEL_URL` to user's `cloudflared`/`ngrok`/`tailscale funnel` URL.
+## Python SDK
 
-## Pattern B — Lambda for one-shot operations only
-
-Use `/quick-share` as a one-shot: each Lambda invocation creates a session, seeds a file already
-in S3 (download to /tmp first), returns the share URL. The session dies with the Lambda but the
-share URL stays valid until the user opens it.
-
-## Lambda Layers
-
-Drop `sdk/python/srift.py` into a Lambda layer for instant `import srift` across all your functions.
+`pip install srift` gives the `srift` command and `from srift import Srift` (the SDK talks to a
+daemon at `SRIFT_BASE_URL`, default `http://127.0.0.1:3822`). As a single file:
+`curl -O https://srift.app/sdk/python/srift.py`.

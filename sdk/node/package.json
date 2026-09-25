@@ -1,6 +1,6 @@
 {
   "name": "srift",
-  "version": "3.0.0",
+  "version": "4.1.0",
   "description": "Zero-config, zero-token P2P E2EE file transfer + chat for any AI / agent / automation runtime. Node SDK.",
   "type": "module",
   "main": "./srift.mjs",

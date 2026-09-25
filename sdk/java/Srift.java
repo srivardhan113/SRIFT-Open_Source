@@ -13,12 +13,15 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Srift {
     /** SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs. */
-    public static final String VERSION = "3.0.0";
+    public static final String VERSION = "4.1.0";
 
     public final String baseUrl;
     private final HttpClient http;
@@ -31,7 +34,7 @@ public class Srift {
         this.http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 
-    public static class SriftException extends RuntimeException { public SriftException(String m) { super(m); } }
+    public static class SriftException extends RuntimeException { private static final long serialVersionUID = 1L; public SriftException(String m) { super(m); } }
 
     private static String esc(String s) { return s == null ? "null" : "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\""; }
 
@@ -89,6 +92,146 @@ public class Srift {
         return out;
     }
 
+    /**
+     * Minimal recursive-descent JSON parser (stdlib-only, no external deps) for values the flat
+     * {@link #parseJson(String)} can't represent: nested arrays/objects such as {@code activeTransfers}
+     * and the {@code /chat/history} response, both of which are JSON arrays of objects.
+     */
+    private static final class JsonParser {
+        private final String s;
+        private int i = 0;
+
+        JsonParser(String s) { this.s = s; }
+
+        Object parse() { skipWs(); return parseValue(); }
+
+        private void skipWs() { while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++; }
+
+        private Object parseValue() {
+            skipWs();
+            if (i >= s.length()) return null;
+            char c = s.charAt(i);
+            if (c == '{') return parseObject();
+            if (c == '[') return parseArray();
+            if (c == '"') return parseString();
+            if (c == 't' || c == 'f') return parseBoolean();
+            if (c == 'n') { i += 4; return null; }
+            return parseNumber();
+        }
+
+        private Map<String, Object> parseObject() {
+            Map<String, Object> out = new LinkedHashMap<>();
+            i++; // consume '{'
+            skipWs();
+            if (i < s.length() && s.charAt(i) == '}') { i++; return out; }
+            while (i < s.length()) {
+                skipWs();
+                String key = parseString();
+                skipWs();
+                if (i < s.length() && s.charAt(i) == ':') i++;
+                Object val = parseValue();
+                out.put(key, val);
+                skipWs();
+                if (i < s.length() && s.charAt(i) == ',') { i++; continue; }
+                if (i < s.length() && s.charAt(i) == '}') { i++; }
+                break;
+            }
+            return out;
+        }
+
+        private List<Object> parseArray() {
+            List<Object> out = new ArrayList<>();
+            i++; // consume '['
+            skipWs();
+            if (i < s.length() && s.charAt(i) == ']') { i++; return out; }
+            while (i < s.length()) {
+                out.add(parseValue());
+                skipWs();
+                if (i < s.length() && s.charAt(i) == ',') { i++; continue; }
+                if (i < s.length() && s.charAt(i) == ']') { i++; }
+                break;
+            }
+            return out;
+        }
+
+        private String parseString() {
+            skipWs();
+            if (i >= s.length() || s.charAt(i) != '"') return "";
+            i++; // consume opening quote
+            StringBuilder sb = new StringBuilder();
+            while (i < s.length() && s.charAt(i) != '"') {
+                char c = s.charAt(i);
+                if (c == '\\' && i + 1 < s.length()) {
+                    char next = s.charAt(i + 1);
+                    switch (next) {
+                        case '"': sb.append('"'); break;
+                        case '\\': sb.append('\\'); break;
+                        case '/': sb.append('/'); break;
+                        case 'n': sb.append('\n'); break;
+                        case 't': sb.append('\t'); break;
+                        case 'r': sb.append('\r'); break;
+                        case 'b': sb.append('\b'); break;
+                        case 'f': sb.append('\f'); break;
+                        case 'u':
+                            if (i + 6 <= s.length()) {
+                                sb.append((char) Integer.parseInt(s.substring(i + 2, i + 6), 16));
+                                i += 4;
+                            }
+                            break;
+                        default: sb.append(next);
+                    }
+                    i += 2;
+                } else {
+                    sb.append(c);
+                    i++;
+                }
+            }
+            if (i < s.length()) i++; // consume closing quote
+            return sb.toString();
+        }
+
+        private Boolean parseBoolean() {
+            if (s.startsWith("true", i)) { i += 4; return Boolean.TRUE; }
+            i += 5;
+            return Boolean.FALSE;
+        }
+
+        private Object parseNumber() {
+            int start = i;
+            while (i < s.length() && "+-0123456789.eE".indexOf(s.charAt(i)) >= 0) i++;
+            String num = s.substring(start, i);
+            if (num.isEmpty()) return null;
+            try {
+                if (num.contains(".") || num.contains("e") || num.contains("E")) return Double.parseDouble(num);
+                return Long.parseLong(num);
+            } catch (NumberFormatException e) {
+                return num;
+            }
+        }
+    }
+
+    /**
+     * Parses a top-level JSON array of objects (e.g. {@code activeTransfers} or {@code /chat/history})
+     * into a list of maps. Non-object array elements are skipped; malformed/empty input yields an empty list.
+     */
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> parseJsonObjectArray(String json) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (json == null || json.trim().isEmpty()) return out;
+        Object parsed;
+        try {
+            parsed = new JsonParser(json.trim()).parse();
+        } catch (RuntimeException e) {
+            return out;
+        }
+        if (parsed instanceof List) {
+            for (Object item : (List<?>) parsed) {
+                if (item instanceof Map) out.add((Map<String, Object>) item);
+            }
+        }
+        return out;
+    }
+
     private String callRaw(String path, String method, Map<String, Object> body) {
         try {
             var b = HttpRequest.newBuilder(URI.create(baseUrl + path))
@@ -142,6 +285,12 @@ public class Srift {
         return call("/receive", "POST", Map.of("fileId", fileId, "saveDir", saveDir == null ? "" : saveDir));
     }
     public Map<String, String> sendChat(String message) { return call("/chat/send", "POST", Map.of("message", message)); }
-    public String chatHistory() { return callRaw("/chat/history", "GET", null); }
-    public String listTransfers() { return status().getOrDefault("activeTransfers", "[]"); }
+
+    /** Chat history as a list of message maps (e.g. {@code sender}, {@code message}, {@code timestamp}). */
+    public List<Map<String, Object>> chatHistory() { return parseJsonObjectArray(callRaw("/chat/history", "GET", null)); }
+
+    /** Active transfers as a list of transfer maps (e.g. {@code fileId}, {@code progress}, {@code speed}). */
+    public List<Map<String, Object>> listTransfers() {
+        return parseJsonObjectArray(status().getOrDefault("activeTransfers", "[]"));
+    }
 }

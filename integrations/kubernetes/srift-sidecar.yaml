@@ -1,56 +1,59 @@
-# Kubernetes Deployment + Service for the SRIFT daemon as a cluster-internal sidecar.
-# Any pod in the namespace can hit http://srift:3822/.
+# SRIFT daemon as a sidecar in the SAME pod as your agent.
+#
+# The daemon listens on 127.0.0.1:3822 only (no auth, so it must never be
+# exposed) and rejects non-loopback Host headers. Containers in one pod share
+# localhost, so the agent calls http://127.0.0.1:3822. Do not put a Service in
+# front of it: other pods cannot and should not reach it.
+#
+# Image: docker build -t srift-daemon:4.1.0 integrations/docker
 
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: srift
-  labels: { app: srift }
+  name: my-agent
+  labels: { app: my-agent }
 spec:
   replicas: 1
-  selector: { matchLabels: { app: srift } }
+  selector: { matchLabels: { app: my-agent } }
   template:
     metadata:
-      labels: { app: srift }
+      labels: { app: my-agent }
     spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
+      volumes:
+        - name: shared
+          emptyDir: {}
       containers:
+        - name: agent
+          image: your-agent-image:latest
+          env:
+            - { name: SRIFT_BASE_URL, value: "http://127.0.0.1:3822" }
+          volumeMounts:
+            - { name: shared, mountPath: /work }   # files to share live here
+
         - name: srift
-          image: ghcr.io/sripto/srift-daemon:2.2.5    # build from integrations/docker/Dockerfile
+          image: srift-daemon:4.1.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
-            capabilities:
-              drop: ["ALL"]
-          ports: [ { containerPort: 3822, name: http } ]
-          env:
-            - { name: SRIFT_DAEMON_PORT, value: "3822" }
-            - { name: SRIFT_PUBLIC_BASE, value: "https://srift.app" }
-            - { name: NODE_ENV, value: "production" }
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - { name: shared, mountPath: /work }   # same paths as the agent
+          # httpGet probes go to the pod IP, which the loopback-only daemon does not
+          # listen on; probe from inside the container instead.
           readinessProbe:
-            httpGet: { path: /status, port: http }
-            initialDelaySeconds: 2
-            periodSeconds: 5
-            timeoutSeconds: 2
-            failureThreshold: 3
-          livenessProbe:
-            httpGet: { path: /health, port: http }
-            initialDelaySeconds: 5
+            exec:
+              command: ["node", "-e", "require('http').get('http://127.0.0.1:3822/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+            initialDelaySeconds: 3
             periodSeconds: 10
-            timeoutSeconds: 3
-            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["node", "-e", "require('http').get('http://127.0.0.1:3822/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+            initialDelaySeconds: 10
+            periodSeconds: 20
           resources:
             requests: { cpu: "50m", memory: "128Mi" }
             limits:   { cpu: "500m", memory: "512Mi" }
----
-apiVersion: v1
-kind: Service
-metadata: { name: srift }
-spec:
-  type: ClusterIP
-  selector: { app: srift }
-  ports: [ { name: http, port: 3822, targetPort: http } ]

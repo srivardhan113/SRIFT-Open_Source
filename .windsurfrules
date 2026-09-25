@@ -43,6 +43,7 @@ Or via hosted MCP:
   }
 }
 ```
+(hosted = 9 session tools; `srift_quick_share` needs the local `srift mcp`)
 
 ---
 
@@ -50,5 +51,5 @@ Or via hosted MCP:
 
 - Never introduce banned claims: `military-grade`, `#1`, `files never touch any server`.
 - npm package git repository reference: `https://github.com/srivardhan113/SRIFT-Open_Source`.
-- Tests must pass: `npm test` (169+ tests).
+- Tests must pass: `npm test` (~380 tests, all must pass).
 - SEO audit must pass: `node scripts/verify-seo.mjs`.

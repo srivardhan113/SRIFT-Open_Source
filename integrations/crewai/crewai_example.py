@@ -16,7 +16,7 @@ srift = Srift()
 def quick_share(file_path: str) -> str:
     """Deliver a local file to the user via E2EE P2P transfer. Returns share URL."""
     r = srift.quick_share(file_path)
-    return f"Share URL: {r['shareUrl']}  (session {r['sessionId']}, file {r['fileId']})"
+    return f"Download link: {r['downloadUrl']}"
 
 courier = Agent(
     role="File Courier",

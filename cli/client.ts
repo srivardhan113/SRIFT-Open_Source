@@ -1,4 +1,6 @@
 import http from 'http';
+import { recordHistory, type HistoryEntry } from './history.ts';
+import { embeddedCall, isEmbeddedDaemon, withRealConsole } from './embedded.ts';
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
@@ -9,7 +11,13 @@ const DAEMON_PORT = parseInt(process.env.SRIFT_DAEMON_PORT || '3822', 10);
 const DAEMON_URL = `http://127.0.0.1:${DAEMON_PORT}`;
 
 // Helper for HTTP requests to daemon
-function callDaemon(endpoint: string, method: 'GET' | 'POST', body?: any): Promise<any> {
+/** Daemon REST call (in-process when the daemon is embedded). */
+export function callDaemon(endpoint: string, method: 'GET' | 'POST', body?: any): Promise<any> {
+  const emb = embeddedCall(method, endpoint, body);
+  if (emb) return emb.then((r) => {
+    if (r.status >= 200 && r.status < 300) return r.data ?? { success: true };
+    throw new Error((r.data && r.data.error) || ('HTTP ' + r.status));
+  });
   return new Promise((resolve, reject) => {
     const url = `${DAEMON_URL}${endpoint}`;
     const options: http.RequestOptions = {
@@ -74,7 +82,7 @@ export async function handleSessionStart(name?: string, roomSecret?: string, isJ
     } else {
       console.log(`[SRIFT] Session created successfully!`);
       console.log(`Session ID:   ${res.sessionId}`);
-      console.log(`Access Link:  https://srift.app/join-session?id=${res.sessionId}`);
+      console.log(`Access Link:  ${res.joinUrl || `https://srift.app/join-session?id=${res.sessionId}`}`);
       if (roomSecret) {
         console.log(`Room Secret:  ${roomSecret} (derived locally, never sent to server)`);
       }
@@ -120,6 +128,13 @@ export async function handleSessionStatus(isJson?: boolean) {
         console.log(`\nPending Join Requests (${res.pendingJoins.length}):`);
         res.pendingJoins.forEach((j: any) => {
           console.log(`  - ${j.username} (${j.tempUserId}) [Run 'srift approve ${j.tempUserId}' to let them in]`);
+        });
+      }
+      if (res.participants && res.participants.length > 0) {
+        console.log(`\nMembers (${res.participants.length}):`);
+        res.participants.forEach((p: any) => {
+          const kick = s.role === 'host' && !p.isHost ? ` [remove: 'srift kick ${p.userId}']` : '';
+          console.log(`  - ${p.username}${p.isHost ? ' (host)' : ''} ${p.online ? 'online' : 'offline'} (${p.userId})${kick}`);
         });
       }
     }
@@ -274,7 +289,19 @@ export async function handleChatHistory(isJson?: boolean) {
 
 export async function handleDaemonStop(isJson?: boolean) {
   try {
-    const res = await callDaemon('/daemon/stop', 'POST');
+    await callDaemon('/daemon/stop', 'POST');
+    // Wait (≤ 5 s) until the process has really exited and released the port,
+    // so an immediately following command starts a fresh daemon instead of
+    // talking to one that is shutting down.
+    for (let i = 0; i < 50; i++) {
+      const alive = await new Promise<boolean>((resolve) => {
+        const r = http.get(`${DAEMON_URL}/health`, (res) => { res.resume(); resolve(true); });
+        r.on('error', () => resolve(false));
+        r.setTimeout(300, () => { r.destroy(); resolve(false); });
+      });
+      if (!alive) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
     if (isJson) {
       console.log(JSON.stringify({ success: true }));
     } else {
@@ -306,67 +333,152 @@ function _formatExpiry(expiresAt: number | null | undefined): string {
   return `${Math.floor(s / 86400)}d`;
 }
 
-type QuickShareOpts = { maxDownloads?: number; ttlMs?: number };
+export type QuickShareOpts = {
+  maxDownloads?: number;
+  ttlMs?: number;
+  encrypt?: boolean;
+  password?: string;
+  name?: string;
+  qr?: boolean;
+};
+
+/** How a recipient can download `url`, best option first. */
+export function downloadInstructions(url: string, encrypted: boolean): string[] {
+  const lines = [
+    `  srift get "${url}"`,
+    `  npx -y srift-transfer get "${url}"   (no install needed; works where curl is blocked${encrypted ? '; decrypts' : ''})`,
+  ];
+  if (!encrypted) {
+    const bare = url.split('#')[0];
+    lines.push(`  wget --content-disposition "${bare}"`);
+    lines.push(`  iwr "${bare}" -OutFile download.bin      # PowerShell`);
+    lines.push(`  curl -fLOJ "${bare}"`);
+  }
+  return lines;
+}
+
+async function printQr(url: string): Promise<void> {
+  try {
+    // Bundled by esbuild; no runtime dependency for installs.
+    // @ts-ignore — package ships no types
+    const mod: any = await import('qrcode-terminal');
+    const q = mod.default || mod;
+    await new Promise<void>((resolve) => q.generate(url, { small: true }, (s: string) => { console.log(s); resolve(); }));
+  } catch (e: any) {
+    console.log(`(QR code unavailable: ${e?.message || e})`);
+  }
+}
+
+/** Human-readable summary of a created link. */
+export async function printShareResult(res: any, opts: QuickShareOpts = {}): Promise<void> {
+  const url: string = res.downloadUrl;
+  const limitLine = res.maxDownloads
+    ? `${res.maxDownloads} download${res.maxDownloads === 1 ? '' : 's'}`
+    : 'unlimited downloads';
+  const ttlLine = `expires ${_formatExpiry(res.expiresAt)}`;
+  const modeLine = 'relay — streamed from this machine on demand; nothing stored on the server';
+  const encLine = res.encrypted
+    ? `end-to-end encrypted (key is after # in the link; the server never sees it)${res.passwordProtected ? ' + password' : ''}`
+    : 'not end-to-end encrypted (TLS in transit only) — add --encrypt for sensitive files';
+
+  console.log('[SRIFT] Link ready.');
+  console.log('');
+  console.log(`  File:          ${res.fileName} (${_formatSize(res.fileSize)})`);
+  console.log(`  Download URL:  ${url}`);
+  console.log(`  Limits:        ${limitLine}, ${ttlLine}`);
+  console.log(`  Mode:          ${modeLine}`);
+  console.log(`  Encryption:    ${encLine}`);
+  console.log('');
+  console.log(res.encrypted
+    ? 'Recipient: open the link in a browser (decrypts locally), or from a terminal:'
+    : 'Recipient: open the link in a browser, or from a terminal:');
+  for (const l of downloadInstructions(url, !!res.encrypted)) console.log(l);
+  if (res.passwordProtected) console.log('  (add --password <password> to srift get; share the password separately)');
+  console.log('');
+  if (opts.qr) { await printQr(url); console.log(''); }
+  console.log(isEmbeddedDaemon()
+    ? 'This process is serving the link (no background daemon here): keep it running until they download.'
+    : 'Keep the SRIFT daemon running while they download (it stays up after this command exits).');
+  console.log(`Revoke any time with:  srift links revoke ${res.token}`);
+}
+
+function toHistory(res: any): HistoryEntry {
+  return {
+    at: new Date().toISOString(),
+    mode: 'relay',
+    fileName: res.fileName,
+    fileSize: res.fileSize,
+    downloadUrl: res.downloadUrl,
+    token: res.token,
+    encrypted: !!res.encrypted,
+    expiresAt: res.expiresAt ?? null,
+    maxDownloads: res.maxDownloads || 0,
+  };
+}
+
+/** Output + bookkeeping for a created link. */
+export async function reportShare(res: any, isJson: boolean | undefined, opts: QuickShareOpts = {}): Promise<void> {
+  if (res?.success && res.downloadUrl) recordHistory(toHistory(res));
+  // stdout directly: an embedded daemon redirects console.* to its log file.
+  if (isJson) { process.stdout.write(`${JSON.stringify(res)}\n`); return; }
+  if (res?.downloadUrl) { await withRealConsole(() => printShareResult(res, opts)); return; }
+  if (res?.shareUrl) {
+    console.log('[SRIFT] Quick share ready (legacy session-join mode).');
+    console.log(`  Share URL:     ${res.shareUrl}`);
+    console.log('NOTE: direct download links are unavailable from this server; the recipient must join in a browser.');
+    return;
+  }
+  console.error(`[SRIFT] Quick share failed — ${res?.error || 'no link returned'}.`);
+  console.error('  Diagnose with: srift doctor');
+  process.exit(1);
+}
 
 export async function handleQuickShare(
   filePath: string,
   sessionName?: string,
   isJson?: boolean,
   opts: QuickShareOpts = {},
-) {
+): Promise<any> {
   try {
     const body: any = { filePath, sessionName };
     if (opts.maxDownloads) body.maxDownloads = opts.maxDownloads;
     if (opts.ttlMs)        body.ttlMs        = opts.ttlMs;
+    if (typeof opts.encrypt === 'boolean') body.encrypt = opts.encrypt;
+    if (opts.password)     body.password     = opts.password;
+    if (opts.name)         body.name         = opts.name;
     const res = await callDaemon('/quick-share', 'POST', body);
-    if (isJson) {
-      console.log(JSON.stringify(res));
-      return;
-    }
-
-    // Two possible modes:
-    //   (a) Direct download — recipient hits /d/<token>, no install, no
-    //       session-join UI. This is the preferred path.
-    //   (b) Legacy fallback — signaler hasn't been upgraded yet, recipient
-    //       has to open the browser join-session UI and the host approves.
-    const directUrl = res.downloadUrl as string | null;
-    const fallbackUrl = res.shareUrl as string | null;
-
-    if (directUrl) {
-      const limitLine = res.maxDownloads
-        ? `${res.maxDownloads} download${res.maxDownloads === 1 ? '' : 's'}`
-        : 'unlimited downloads';
-      const ttlLine = `expires ${_formatExpiry(res.expiresAt)}`;
-
-      console.log('[SRIFT] Quick share ready.');
-      console.log('');
-      console.log(`  File:          ${res.fileName} (${_formatSize(res.fileSize)})`);
-      console.log(`  Download URL:  ${directUrl}`);
-      console.log(`  Limits:        ${limitLine}, ${ttlLine}`);
-      console.log('');
-      console.log('Recipient can open it in any browser, or download from the terminal:');
-      console.log(`  curl -OJ "${directUrl}"`);
-      console.log(`  wget --content-disposition "${directUrl}"`);
-      console.log('');
-      console.log('Keep this terminal running while they download.');
-      console.log('Revoke any time with:  srift pubshare revoke <token>');
-    } else if (fallbackUrl) {
-      console.log('[SRIFT] Quick share ready (legacy session-join mode).');
-      console.log('');
-      console.log(`  File:          ${res.fileName} (${_formatSize(res.fileSize)})`);
-      console.log(`  Share URL:     ${fallbackUrl}`);
-      console.log('');
-      console.log('NOTE: the signaler is running an older build and direct download links');
-      console.log('      are unavailable. Recipient must open the URL in a browser, enter a');
-      console.log('      username, and you will need to approve their join from this terminal.');
-      console.log('      Try `srift self-update` and ask srift.app to redeploy if this persists.');
-    } else {
-      console.error('[SRIFT] Quick share failed — no link returned.');
-      process.exit(1);
-    }
+    if (res && res.success === false) throw new Error(res.error || 'quick-share failed');
+    await reportShare(res, isJson, opts);
+    return res;
   } catch (err: any) {
-    console.error(`Error: ${err.message}`);
+    if (isJson) process.stdout.write(`${JSON.stringify({ success: false, error: err.message })}\n`);
+    else await withRealConsole(() => {
+      console.error(`Error: ${err.message}`);
+      console.error('  Diagnose with: srift doctor');
+    });
     process.exit(1);
+  }
+}
+
+/**
+ * Block until the link has been fully downloaded (every allowed download for
+ * --once/--max-downloads, otherwise the first one), expires, or is revoked.
+ * With keepAlive, serve until expiry/revocation. Never exits mid-stream.
+ */
+export async function waitForDownloads(token: string, opts: { keepAlive?: boolean; timeoutMs?: number; onDone?: (why: string) => void } = {}): Promise<string> {
+  const deadline = opts.timeoutMs ? Date.now() + opts.timeoutMs : Infinity;
+  for (;;) {
+    let it: any = null;
+    try { it = ((await callDaemon('/pubshare/list', 'GET'))?.items || []).find((x: any) => x.token === token); } catch { /* transient */ }
+    const busy = !!it && (it.activeDownloads || 0) > 0;
+    const done = (it?.completedDownloads || 0);
+    let why = '';
+    if (!it) why = 'link expired or was revoked';
+    else if (!busy && it.maxDownloads && done >= it.maxDownloads) why = `downloaded ${done}/${it.maxDownloads}`;
+    else if (!busy && !it.maxDownloads && !opts.keepAlive && done >= 1) why = 'downloaded';
+    else if (!busy && Date.now() > deadline) why = 'wait timed out';
+    if (why) { opts.onDone?.(why); return why; }
+    await new Promise((r) => setTimeout(r, 1000));
   }
 }
 
@@ -386,7 +498,8 @@ export async function handlePubshareList(isJson?: boolean) {
       console.log('');
       console.log(`  ${i + 1}. ${it.fileName} (${_formatSize(it.fileSize)})`);
       console.log(`     URL:        ${it.downloadUrl}`);
-      console.log(`     Downloads:  ${limit}`);
+      console.log(`     Mode:       ${it.mode || 'relay'}${it.encrypted ? ', end-to-end encrypted' : ''}`);
+      console.log(`     Downloads:  ${it.downloadCount === null || it.downloadCount === undefined ? '(tracked by server)' : limit}`);
       console.log(`     Expires:    ${_formatExpiry(it.expiresAt)}`);
       console.log(`     Token:      ${it.token}`);
     });
@@ -412,25 +525,41 @@ export async function handlePubshareAdd(filePath: string, isJson?: boolean, opts
     const body: any = { filePath };
     if (opts.maxDownloads) body.maxDownloads = opts.maxDownloads;
     if (opts.ttlMs)        body.ttlMs        = opts.ttlMs;
+    if (typeof opts.encrypt === 'boolean') body.encrypt = opts.encrypt;
+    if (opts.password)     body.password     = opts.password;
     const res = await callDaemon('/pubshare', 'POST', body);
-    if (isJson) { console.log(JSON.stringify(res)); return; }
-    const limitLine = res.maxDownloads
-      ? `${res.maxDownloads} download${res.maxDownloads === 1 ? '' : 's'}`
-      : 'unlimited downloads';
-    console.log('[SRIFT] Public download link added.');
-    console.log('');
-    console.log(`  File:          ${res.fileName} (${_formatSize(res.fileSize)})`);
-    console.log(`  Download URL:  ${res.downloadUrl}`);
-    console.log(`  Limits:        ${limitLine}, expires ${_formatExpiry(res.expiresAt)}`);
+    if (res && res.success === false) throw new Error(res.error || 'pubshare failed');
+    await reportShare(res, isJson, opts);
   } catch (err: any) {
     console.error(`Error: ${err.message}`);
     process.exit(1);
   }
 }
 
-export function handleMonitorTransfer(fileId: string, jsonStream?: boolean) {
+const TERMINAL_STATUSES = ['completed', 'error', 'cancelled'];
+
+export async function handleMonitorTransfer(fileId: string, jsonStream?: boolean) {
   const url = `${DAEMON_URL}/api/v1/monitor/events`;
-  
+
+  // Start from the current state: an unknown id or a finished transfer never
+  // emits another progress event, so waiting for one would hang forever.
+  try {
+    const tx = ((await callDaemon('/status', 'GET')).activeTransfers || []).find((t: any) => t.fileId === fileId);
+    if (!tx) {
+      console.error(`[SRIFT] No transfer with id ${fileId}. See: srift list`);
+      process.exit(1);
+    }
+    if (jsonStream) console.log(JSON.stringify({ fileId, fileName: tx.name, size: tx.size, progress: tx.progress, status: tx.status }));
+    else renderProgressBar(tx.progress || 0, tx.speedKBps || 0, tx.etaSeconds || 0, tx.status);
+    if (TERMINAL_STATUSES.includes(tx.status)) {
+      if (!jsonStream) console.log('\nTransfer reached terminal state:', tx.status);
+      process.exit(0);
+    }
+  } catch (err: any) {
+    console.error(`[SRIFT] Monitor error: ${err.message}`);
+    process.exit(1);
+  }
+
   const req = http.request(url, (res) => {
     res.on('data', (chunk) => {
       const lines = chunk.toString().split('\n');
@@ -445,6 +574,7 @@ export function handleMonitorTransfer(fileId: string, jsonStream?: boolean) {
             if (currentEvent === 'transfer_progress' && dataJson.fileId === fileId) {
               if (jsonStream) {
                 console.log(JSON.stringify(dataJson));
+                if (TERMINAL_STATUSES.includes(dataJson.status)) process.exit(0);
               } else {
                 renderProgressBar(
                   dataJson.progress,
@@ -452,7 +582,7 @@ export function handleMonitorTransfer(fileId: string, jsonStream?: boolean) {
                   dataJson.timeRemainingSeconds,
                   dataJson.status
                 );
-                if (dataJson.status === 'completed' || dataJson.status === 'error' || dataJson.status === 'cancelled') {
+                if (TERMINAL_STATUSES.includes(dataJson.status)) {
                   console.log('\nTransfer reached terminal state:', dataJson.status);
                   process.exit(0);
                 }
@@ -503,9 +633,19 @@ irm https://srift.app/install.ps1 | iex
 \`\`\`bash
 srift quick-share /abs/path/to/file
 # → prints a https://srift.app/d/<token> URL.
-#   Recipient downloads with ANY HTTP client — browser, curl, wget, mobile Safari.
-#   They do NOT need SRIFT installed.
+#   Recipient opens it in a browser, or runs: srift get <url>
+#   (Node-based; works where curl is blocked, handles proxies and encrypted links).
+#   Plain links also work with wget --content-disposition, PowerShell iwr, or curl -OJ.
+#   They do NOT need SRIFT installed (npx -y srift-transfer get <url>).
 \`\`\`
+
+## Sandboxes, CI and ephemeral agents
+- Links are served by the local daemon (nothing is stored on a server), so keep the
+  environment alive until the recipient has downloaded (\`--wait\` blocks until then).
+- No local servers or background processes allowed? quick-share and \`srift mcp\` then
+  serve from their own process (no port; outbound 443 only). Run quick-share in the
+  background; it exits after the download. Force with \`--foreground\`.
+- Network trouble? Run \`srift doctor\` — it names the blocked transport and the fix.
 
 ## Limits
 - Single use link: \`srift quick-share <file> --once\`
@@ -645,4 +785,59 @@ export async function handleBootstrap(targetDirArg?: string, opts: { cursorrules
     console.error(`Error: ${err.message}`);
     process.exit(1);
   }
+}
+
+export type QuickShareManyOpts = QuickShareOpts & { bundle?: boolean; bundleName?: string; exclude?: string[]; sessionName?: string };
+
+/**
+ * Share several files/folders in one call. Bundle (default): one .tar.gz link.
+ * Separate: one link per path, created in parallel by the daemon. Returns the
+ * daemon response; exits non-zero only if nothing could be shared.
+ */
+export async function handleQuickShareMany(filePaths: string[], isJson?: boolean, opts: QuickShareManyOpts = {}): Promise<any> {
+  const body: any = { filePaths, bundle: opts.bundle !== false };
+  if (opts.bundleName) body.bundleName = opts.bundleName;
+  if (opts.exclude?.length) body.exclude = opts.exclude;
+  if (opts.sessionName) body.sessionName = opts.sessionName;
+  if (opts.maxDownloads) body.maxDownloads = opts.maxDownloads;
+  if (opts.ttlMs) body.ttlMs = opts.ttlMs;
+  if (typeof opts.encrypt === 'boolean') body.encrypt = opts.encrypt;
+  if (opts.password) body.password = opts.password;
+  let res: any;
+  try {
+    res = await callDaemon('/quick-share', 'POST', body);
+    if (res && res.success === false && !Array.isArray(res.links)) throw new Error(res.error || 'quick-share failed');
+  } catch (err: any) {
+    if (isJson) process.stdout.write(`${JSON.stringify({ success: false, error: err.message })}\n`);
+    else await withRealConsole(() => { console.error(`Error: ${err.message}`); console.error('  Diagnose with: srift doctor'); });
+    process.exit(1);
+  }
+  if (res.bundle !== false) {
+    if (!isJson) await withRealConsole(() => {
+      console.error(`[srift] Bundled ${res.files} file(s) from ${res.paths} path(s), ${_formatSize(res.bytes || 0)} → ${res.fileName}`);
+      for (const x of res.skipped || []) console.error(`[srift] Skipped ${x.path} (${x.reason})`);
+    });
+    await reportShare(res, isJson, opts);
+    return res;
+  }
+  for (const l of res.links || []) if (l?.downloadUrl) recordHistory(toHistory(l));
+  if (isJson) { process.stdout.write(`${JSON.stringify(res)}\n`); }
+  else await withRealConsole(() => {
+    console.log(`[SRIFT] ${res.links.length} link(s) ready${res.errors?.length ? `, ${res.errors.length} failed` : ''}.`);
+    console.log('');
+    for (const l of res.links) {
+      console.log(`  ${l.fileName} (${_formatSize(l.fileSize)})${l.encrypted ? '  [e2ee]' : ''}`);
+      console.log(`    ${l.downloadUrl}`);
+    }
+    for (const e of res.errors || []) console.log(`  FAILED  ${e.filePath}: ${e.error}`);
+    console.log('');
+    console.log('Recipient: open each link in a browser, or download them all at once:');
+    console.log(`  srift get ${res.links.map((l: any) => `"${l.downloadUrl}"`).join(' ')}`);
+    console.log('');
+    console.log(isEmbeddedDaemon()
+      ? 'This process is serving the links (no background daemon here): keep it running until they download.'
+      : 'Keep the SRIFT daemon running while they download (it stays up after this command exits).');
+  });
+  if (!res.links?.length) process.exit(1);
+  return res;
 }

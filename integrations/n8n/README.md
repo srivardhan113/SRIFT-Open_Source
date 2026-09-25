@@ -8,7 +8,7 @@
    ```json
    { "filePath": "{{ $json.filePath }}", "sessionName": "n8n-{{ $workflow.name }}" }
    ```
-4. The response includes `shareUrl`, `sessionId`, `fileId`. Map to downstream nodes.
+4. The response includes `downloadUrl` (the link to send), `fileName`, `fileSize`. Map to downstream nodes.
 
 ## Option 2 — Pre-built workflow JSON
 

@@ -22,6 +22,7 @@
 - **Run SEO / GEO / Agent audit**: `node scripts/verify-seo.mjs`
 - **Run end-to-end suite** (real CLI/daemon/MCP/relay against a local server; needs `npm run build`): `npm run e2e` — `-- --server-url <url>` tests a deployed server, `-- --foreground-only` forces embedded mode
 - **Run Linux sandbox E2E** (network namespace, proxy-only egress): `npm run e2e:sandbox`
+- **Run exhaustive matrices** (every CLI command/flag, every AgentNet command + 24 MCP tools on two federated relays, all 15 local + 9 hosted MCP tools with output-schema checks; needs `npm run build:cli`): `npm run e2e:matrix` — each script also runs alone, e.g. `node scripts/e2e/agentnet-matrix.mjs https://srift.app`
 - **Hermetic local server**: `SRIFT_DB=memory` makes `server.mjs` use the in-memory store instead of the database in `.env.local`
 - **Typecheck**: `npx tsc --noEmit`
 - **Lint**: `npm run lint`
@@ -70,6 +71,7 @@ No global install yet? Use `npx -y srift-transfer mcp` in place of `"command": "
 5. `srift_send_file` / `srift_accept_transfer`: Interactive direct P2P transfer.
 6. `srift_send_chat` / `srift_chat_history`: E2EE encrypted chat between peers.
 7. `srift_list_transfers` / `srift_read_state`: Transfer progress, speeds, and state snapshot.
+8. `srift_net_diagnose`: Which transports work on this machine, with exact fixes (`deep` runs an end-to-end self-test).
 
 Full authoritative tool/resource/prompt catalogue lives in `AGENTS.md` and `lib/mcp/core.mjs`.
 

@@ -1,33 +1,34 @@
 {
   "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "$comment": "This /.well-known/agent-skills/ HTTP discovery path is a SRIFT convention (proposed), NOT part of the published Agent Skills specification (agentskills.io defines only a directory format, with no standardized HTTP discovery mechanism). The Skills-over-MCP Working Group lists a well-known discovery URI as an open, in-scope design question; SRIFT also serves these same 4 skills over MCP itself via skills/list + skills/get + resources/read (skill:// URIs, SEP-2640 'Skills Extension', io.modelcontextprotocol/skills), which IS a ratified extension of the Model Context Protocol.",
   "skills": [
     {
       "name": "get-company-info",
       "type": "skill-md",
       "description": "Retrieve overview and core metadata for SRIFT and SRIPTO Corporation",
       "url": "https://srift.app/.well-known/agent-skills/get-company-info/SKILL.md",
-      "digest": "sha256:e8b2ac9eafb0d380b2457d05edd96aedd8e9ab66ada262785c319b908b577050"
+      "digest": "sha256:b6e0151a95a00671de28afa5a6dd8adc37107feeb83259d767d749b6e3b538b0"
     },
     {
       "name": "quick-share",
       "type": "skill-md",
       "description": "Zero-install file delivery: seed a file and get a public download URL, no session setup required on the recipient's end",
       "url": "https://srift.app/.well-known/agent-skills/quick-share/SKILL.md",
-      "digest": "sha256:a563e346d24f0a7d2db6ff4ac2e3719c83b7eb0d73e7b502cf1842b395755744"
+      "digest": "sha256:21360420e560430b7dc571f32544170b76f3130352384fa3999221dc53198fcd"
     },
     {
       "name": "session-management",
       "type": "skill-md",
       "description": "Create, join, monitor, and control SRIFT end-to-end encrypted P2P sessions via the local MCP daemon",
       "url": "https://srift.app/.well-known/agent-skills/session-management/SKILL.md",
-      "digest": "sha256:6d0f5e26adc89434d82b414e506fe46a8b7eccb36322817cb4a9b4bd18f1a027"
+      "digest": "sha256:2cf16dd5471af9a6b194ff60167ec425dc8e9375a346b4c85c88cb539d86de19"
     },
     {
       "name": "encrypted-chat",
       "type": "skill-md",
       "description": "Send and read end-to-end encrypted chat messages and manage in-session file transfers within an active SRIFT session",
       "url": "https://srift.app/.well-known/agent-skills/encrypted-chat/SKILL.md",
-      "digest": "sha256:b39bd5febf62073a89ebf9e872a108fd731bd2c0fea0502b48035da9f81a9fa2"
+      "digest": "sha256:c3ea6b9bcbed93174a75b512211e11b6546b56a32c8e0b4babd10e85eab9bf6c"
     }
   ]
 }

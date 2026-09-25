@@ -13,9 +13,9 @@ export function activate(ctx: vscode.ExtensionContext) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ filePath: uri.fsPath }),
     });
-    const { shareUrl } = await r.json();
-    await vscode.env.clipboard.writeText(shareUrl);
-    vscode.window.showInformationMessage(`SRIFT share URL copied: ${shareUrl}`);
+    const { downloadUrl } = await r.json();
+    await vscode.env.clipboard.writeText(downloadUrl);
+    vscode.window.showInformationMessage(`SRIFT download link copied: ${downloadUrl}`);
   }));
 }
 ```

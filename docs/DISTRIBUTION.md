@@ -4,7 +4,15 @@ Everything needed to publish, list, and verify SRIFT across npm, the MCP
 registry, and the agent directories. Written so a cold session can pick this up
 with no prior context.
 
-**Last verified:** 2026-09-08 · npm `2.2.15` · MCP registry `app.srift/srift`
+**Last verified:** 2026-09-25 · npm `4.0.0` · PyPI `srift` `4.0.0.post1` · MCP registry `app.srift/srift` `4.0.0`
+
+**4.1.0 is prepared in the repo, not yet published.** Publish in this order:
+1. Deploy the server (srift.app) — the 424 / large-download / relay-format / `?id=` fixes are server-side.
+2. npm `srift-transfer@4.1.0` (packages/cli) and the `/dl/4.1.0/` binaries.
+3. PyPI `srift==4.1.0` (`python packages/pypi/build.py`) — its README now carries the
+   `mcp-name: app.srift/srift` marker, and the wheel includes the Python SDK.
+4. MCP registry (`mcp-publisher publish`) — `server.json` now lists the PyPI package too, which the
+   registry only accepts after step 3; `mcp` moved from `runtimeArguments` to `packageArguments`.
 
 ---
 
@@ -12,14 +20,17 @@ with no prior context.
 
 | Surface | Value | Status |
 |---|---|---|
-| npm package | [**`srift-transfer`**](https://www.npmjs.com/package/srift-transfer) | ✅ published `2.2.15` |
+| npm package | [**`srift-transfer`**](https://www.npmjs.com/package/srift-transfer) | ✅ published `4.0.0` |
 | CLI command | **`srift`** (bin name ≠ package name) | ✅ |
-| Website / API | https://srift.app | ✅ `2.2.15` |
-| Hosted MCP | `POST https://srift.app/mcp` | ✅ 8 tools |
+| Website / API | https://srift.app | ✅ `4.0.0` |
+| Hosted MCP | `POST https://srift.app/mcp` | ✅ 9 tools |
 | Local MCP | `srift mcp` (stdio) | ✅ 15 tools |
 | GitHub | `SRIPTO-Tech/srift-website` (private) | ✅ |
 | Open-source mirror | `srivardhan113/SRIFT-Open_Source` | referenced in npm metadata |
-| MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ **published 2.2.15** (isLatest) |
+| MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ **published 4.0.0** (isLatest) |
+| PyPI | [`srift`](https://pypi.org/project/srift/) (CLI + MCP via bundled Node.js) | ✅ `4.0.0.post1` |
+| Python SDK | included in PyPI `srift` from 4.1.0 (`from srift import Srift`) | ✅ with the next PyPI release |
+| Other library SDKs | npm `srift`, crates, Maven, NuGet, Packagist, RubyGems | ❌ not published — direct download from `srift.app/sdk/` |
 | Smithery | `srift/srift` | ✅ live ([page](https://smithery.ai/servers/srift/srift)) |
 | GitHub topics | 18 topics on the public mirror | ✅ |
 | Glama | [connector](https://glama.ai/mcp/connectors/app.srift/srift) · [server](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source) | ✅ live |
@@ -299,8 +310,8 @@ curl -OJ "https://srift.app/d/<token>"
 
 ## 8. Remaining work
 
-1. ~~Publish npm~~ ✅ `2.2.15`
-2. ~~MCP registry~~ ✅ `app.srift/srift` (`2.2.15`)
+1. ~~Publish npm~~ ✅ `4.0.0`
+2. ~~MCP registry~~ ✅ `app.srift/srift` (`4.0.0`)
 3. **Smithery / Glama / awesome-mcp-servers / GitHub topics**
 4. Google Search Console — no verification code set; `app/layout.tsx` only emits
    one if `GOOGLE_VERIFICATION_CODE` is in the environment

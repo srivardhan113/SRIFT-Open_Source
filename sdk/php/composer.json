@@ -1,0 +1,27 @@
+{
+  "name": "srift/srift",
+  "version": "4.1.0",
+  "type": "library",
+  "description": "Zero-dependency PHP client for the local SRIFT daemon: P2P E2EE file transfer, session lifecycle, and chat.",
+  "license": "MIT",
+  "homepage": "https://srift.app",
+  "keywords": ["srift", "p2p", "e2ee", "file-transfer", "ai-agent"],
+  "authors": [
+    {
+      "name": "SRIFT",
+      "homepage": "https://srift.app"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/srivardhan113/SRIFT-Open_Source/issues",
+    "source": "https://github.com/srivardhan113/SRIFT-Open_Source"
+  },
+  "require": {
+    "php": ">=7.4",
+    "ext-curl": "*",
+    "ext-json": "*"
+  },
+  "autoload": {
+    "classmap": ["srift.php"]
+  }
+}

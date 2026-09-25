@@ -2,43 +2,480 @@
   "openapi": "3.1.0",
   "info": {
     "title": "SRIFT API",
-    "version": "3.0.0",
+    "version": "4.1.0",
     "summary": "Zero-config, zero-token P2P E2EE file transfer + chat for any AI agent or automation. Includes a public download tunnel at https://srift.app/d/<token> so recipients need nothing installed.",
     "description": "Two API surfaces:\n\n  1. **Local daemon** at `http://127.0.0.1:3822` (recommended for AI agents — fully token-less).\n  2. **Public signaling** at `https://srift.app` (used by browser clients).\n\nFor AI agents, use the local daemon endpoints (everything under /quick-share, /session/*, /send, /receive, /chat/*, /mcp). Documentation: https://srift.app/AGENTS.md",
-    "contact": { "email": "support@sripto.tech" },
-    "license": { "name": "MIT" }
+    "contact": {
+      "email": "support@sripto.tech"
+    },
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
   },
   "servers": [
-    { "url": "http://127.0.0.1:3822", "description": "Local daemon (zero-auth, recommended for AI agents)" },
-    { "url": "https://srift.app", "description": "Public signaling server (browser clients)" }
+    {
+      "url": "http://127.0.0.1:3822",
+      "description": "Local daemon (zero-auth, recommended for AI agents)"
+    },
+    {
+      "url": "https://srift.app",
+      "description": "Public signaling server (browser clients)"
+    }
   ],
   "tags": [
-    { "name": "agent", "description": "Zero-config endpoints designed for AI agents" },
-    { "name": "session", "description": "Session lifecycle" },
-    { "name": "transfer", "description": "File transfer (P2P with fallback)" },
-    { "name": "chat", "description": "E2EE chat" },
-    { "name": "mcp", "description": "Model Context Protocol transport" },
-    { "name": "monitor", "description": "Progress + state monitoring" },
-    { "name": "discovery", "description": "Discovery / health" }
+    {
+      "name": "agent",
+      "description": "Zero-config endpoints designed for AI agents"
+    },
+    {
+      "name": "session",
+      "description": "Session lifecycle"
+    },
+    {
+      "name": "transfer",
+      "description": "File transfer (P2P with fallback)"
+    },
+    {
+      "name": "chat",
+      "description": "E2EE chat"
+    },
+    {
+      "name": "mcp",
+      "description": "Model Context Protocol transport"
+    },
+    {
+      "name": "monitor",
+      "description": "Progress + state monitoring"
+    },
+    {
+      "name": "discovery",
+      "description": "Discovery / health"
+    },
+    {
+      "name": "agentnet",
+      "description": "Agent-to-agent relay (https://srift.app or self-hosted). WebSocket transport at /an. RAM only: no message storage, no database."
+    }
   ],
   "paths": {
     "/quick-share": {
       "post": {
-        "tags": ["agent", "transfer"],
-        "summary": "ZERO-INSTALL delivery: ensure session + seed file + return a public download URL",
-        "description": "Primary entry point for AI agents. If no session is active, creates one. Seeds the file and registers it for public HTTP download. Returns a `downloadUrl` like `https://srift.app/d/<token>` the recipient can fetch with any HTTP client (browser, curl, wget) — SRIFT install on the recipient side is NOT required. Optional `maxDownloads` and `ttlMs` enforce sharing limits server-side; failed/cancelled downloads do not count against the cap. Tokens survive transient signaler reconnects.",
+        "tags": [
+          "agent",
+          "transfer"
+        ],
+        "summary": "ZERO-INSTALL delivery: ensure session + register file + return a public relay download URL",
+        "description": "Primary entry point for AI agents. If no session is active, creates one, then registers the file for public HTTP download. Returns a `downloadUrl` like `https://srift.app/d/<token>` the recipient can fetch with any HTTP client (browser, `srift get`, wget, curl) — SRIFT install on the recipient side is NOT required. This is a relay link: when it is opened, this daemon streams the bytes on demand through the srift.app relay (pass-through, `Cache-Control: no-store`). Nothing is stored on any server, so the link works only while this daemon (or the process hosting it) runs. `encrypt: true` (or a `password`) makes it end-to-end encrypted with AES-256-GCM; the key is returned in the URL's `#k=` fragment, which is never sent to a server. Without it the link is protected by TLS in transit only. Optional `maxDownloads` and `ttlMs` enforce sharing limits; failed/cancelled downloads do not count against the cap. Tokens survive transient signaler reconnects. Note: requires the local SRIFT daemon (http://127.0.0.1:3822) — filesystem access to `filePath` is not available on the public https://srift.app host. Several files: pass filePaths for one .tar.gz bundle link (default) or bundle:false for one link per path, created in parallel; the response then has links[] and errors[].",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["filePath"],
                 "properties": {
-                  "filePath":     { "type": "string", "description": "Absolute path to the file on the seeder's machine" },
-                  "sessionName":  { "type": "string", "description": "Optional label" },
-                  "maxDownloads": { "type": "integer", "minimum": 0, "description": "Cap after N completed downloads. 0 = unlimited." },
-                  "ttlMs":        { "type": "integer", "minimum": 0, "description": "Auto-expire the link after N milliseconds. 0 = never." }
+                  "filePath": {
+                    "type": "string",
+                    "description": "Absolute path to a file or folder (folders are sent as .tar.gz). Use this OR filePaths."
+                  },
+                  "sessionName": {
+                    "type": "string",
+                    "description": "Optional label"
+                  },
+                  "maxDownloads": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Cap after N completed downloads. 0 = unlimited."
+                  },
+                  "ttlMs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Auto-expire the link after N milliseconds. 0 = never."
+                  },
+                  "encrypt": {
+                    "type": "boolean",
+                    "description": "End-to-end encrypt (AES-256-GCM). The key is carried in the returned URL's #k= fragment and never sent to a server. Default false (TLS in transit only)."
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Optional password the recipient must supply (PBKDF2-SHA256, 100,000 iterations). Implies encrypt."
+                  },
+                  "filePaths": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1,
+                    "maxItems": 500,
+                    "description": "Several absolute file/folder paths in one call. Use this OR filePath."
+                  },
+                  "bundle": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "With filePaths: true = one .tar.gz link containing everything; false = one link per path, created in parallel."
+                  },
+                  "bundleName": {
+                    "type": "string",
+                    "description": "With filePaths + bundle: archive name (.tar.gz is added)."
+                  },
+                  "exclude": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Extra glob patterns skipped when packing folders (.git and node_modules always skipped)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuickShareResult"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postQuickShare"
+      }
+    },
+    "/pubshare": {
+      "post": {
+        "tags": [
+          "agent",
+          "transfer"
+        ],
+        "summary": "Register an additional file for public download in the current session",
+        "description": "Like /quick-share, but requires an already-active session. Use this to mint multiple download links from one daemon session. Note: requires the local SRIFT daemon (http://127.0.0.1:3822) — filesystem access to `filePath` is not available on the public https://srift.app host.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "filePath"
+                ],
+                "properties": {
+                  "filePath": {
+                    "type": "string"
+                  },
+                  "maxDownloads": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "ttlMs": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "409": {
+            "description": "No active session"
+          }
+        },
+        "operationId": "postPubshare"
+      }
+    },
+    "/pubshare/list": {
+      "get": {
+        "tags": [
+          "agent",
+          "transfer"
+        ],
+        "summary": "List every active public download link with usage counters",
+        "description": "Note: requires the local SRIFT daemon (http://127.0.0.1:3822) — lists shares registered in that daemon's in-process session state, which is not available on the public https://srift.app host.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getPubshareList"
+      }
+    },
+    "/pubshare/revoke": {
+      "post": {
+        "tags": [
+          "agent",
+          "transfer"
+        ],
+        "summary": "Invalidate a download token immediately",
+        "description": "Note: requires the local SRIFT daemon (http://127.0.0.1:3822) — revokes a token registered in that daemon's in-process session state, which is not available on the public https://srift.app host.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Unknown token"
+          }
+        },
+        "operationId": "postPubshareRevoke"
+      }
+    },
+    "/d/{token}": {
+      "parameters": [
+        {
+          "name": "token",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "Issued by POST /quick-share or /pubshare"
+        }
+      ],
+      "get": {
+        "tags": [
+          "transfer",
+          "discovery"
+        ],
+        "summary": "Public download tunnel — recipient downloads the file via standard HTTP",
+        "description": "Streams the file as a standard HTTP response from the seeder's daemon via the signaler. `Content-Disposition: attachment; filename=\"…\"` so browsers and `curl -OJ` / `wget --content-disposition` auto-name the file. Supports HTTP Range (`Accept-Ranges: bytes`) for resume. Honours `maxDownloads` and `ttlMs` set at registration time. Concurrent recipients each get an independent parallel stream.",
+        "responses": {
+          "200": {
+            "description": "Full file",
+            "headers": {
+              "X-SRIFT-Size": {
+                "description": "Total file size in bytes (the body may be streamed without Content-Length)",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-SRIFT-Encrypted": {
+                "description": "SRE1 = end-to-end encrypted payload (decrypt with the #k= key), none = plain",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "SRE1",
+                    "none"
+                  ]
+                }
+              },
+              "X-SRIFT-Mode": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "relay"
+                  ]
+                }
+              }
+            }
+          },
+          "206": {
+            "description": "Partial content (Range)"
+          },
+          "404": {
+            "description": "Token unknown / expired / sender offline"
+          },
+          "410": {
+            "description": "Token expired or exhausted (max-downloads reached)"
+          },
+          "416": {
+            "description": "Range not satisfiable"
+          },
+          "424": {
+            "description": "The sender's file was deleted or changed after the link was created (permanent)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "headers": {
+              "X-SRIFT-Error": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "sender-file"
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "The sender dropped mid-stream; retry",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Sender offline"
+          },
+          "504": {
+            "description": "Timed out waiting for first byte from sender"
+          }
+        },
+        "servers": [
+          {
+            "url": "https://srift.app"
+          }
+        ],
+        "operationId": "getDByToken"
+      },
+      "head": {
+        "tags": [
+          "transfer",
+          "discovery"
+        ],
+        "summary": "Metadata probe (size, filename, mime, X-SRIFT-Downloads, X-SRIFT-Expires)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "headers": {
+              "X-SRIFT-Size": {
+                "description": "Total file size in bytes (the body may be streamed without Content-Length)",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "X-SRIFT-Encrypted": {
+                "description": "SRE1 = end-to-end encrypted payload (decrypt with the #k= key), none = plain",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "SRE1",
+                    "none"
+                  ]
+                }
+              },
+              "X-SRIFT-Mode": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "relay"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Token unknown"
+          },
+          "410": {
+            "description": "Expired or exhausted"
+          },
+          "424": {
+            "description": "The sender's file was deleted or changed after the link was created (permanent)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "headers": {
+              "X-SRIFT-Error": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "sender-file"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Sender offline"
+          }
+        },
+        "servers": [
+          {
+            "url": "https://srift.app"
+          }
+        ],
+        "operationId": "headDByToken"
+      }
+    },
+    "/status": {
+      "get": {
+        "tags": [
+          "session",
+          "monitor"
+        ],
+        "summary": "Session, transfers, pending join requests and members",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DaemonStatus"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getStatus"
+      }
+    },
+    "/state": {
+      "get": {
+        "tags": [
+          "monitor"
+        ],
+        "summary": "Raw .srift-state.json snapshot",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getState"
+      }
+    },
+    "/session/start": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Create a new session (you become host)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "sessionName": {
+                    "type": "string"
+                  },
+                  "roomSecret": {
+                    "type": "string",
+                    "description": "Optional shared secret mixed into key derivation — never sent to server. Without it the key is derivable from the session ID (which the server sees); set it to make the key participant-only."
+                  }
                 }
               }
             }
@@ -52,188 +489,1470 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success":      { "type": "boolean" },
-                    "sessionId":    { "type": "string" },
-                    "fileId":       { "type": "string" },
-                    "downloadUrl":  { "type": "string", "format": "uri", "description": "https://srift.app/d/<token> — give this to the recipient" },
-                    "shareUrl":     { "type": "string", "format": "uri", "description": "Back-compat alias of downloadUrl (or the legacy session-join URL if the signaler doesn't support pubshare yet)" },
-                    "fileName":     { "type": "string" },
-                    "fileSize":     { "type": "integer" },
-                    "maxDownloads": { "type": "integer", "description": "0 = unlimited" },
-                    "expiresAt":    { "type": ["integer", "null"], "description": "Epoch ms, or null = never" }
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "sessionId": {
+                      "type": "string"
+                    },
+                    "joinUrl": {
+                      "type": "string",
+                      "description": "Browser join page for this session on the server the daemon uses"
+                    }
                   }
                 }
               }
             }
           }
-        }
+        },
+        "operationId": "postSessionStart"
       }
     },
-    "/pubshare": {
+    "/session/join": {
       "post": {
-        "tags": ["agent", "transfer"],
-        "summary": "Register an additional file for public download in the current session",
-        "description": "Like /quick-share, but requires an already-active session. Use this to mint multiple download links from one daemon session.",
+        "tags": [
+          "session"
+        ],
+        "summary": "Request to join an existing session",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["filePath"],
+                "required": [
+                  "sessionId"
+                ],
                 "properties": {
-                  "filePath":     { "type": "string" },
-                  "maxDownloads": { "type": "integer", "minimum": 0 },
-                  "ttlMs":        { "type": "integer", "minimum": 0 }
+                  "sessionId": {
+                    "type": "string",
+                    "description": "7-character session ID"
+                  },
+                  "username": {
+                    "type": "string"
+                  },
+                  "roomSecret": {
+                    "type": "string"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "OK" },
-          "409": { "description": "No active session" }
-        }
-      }
-    },
-    "/pubshare/list": {
-      "get": {
-        "tags": ["agent", "transfer"],
-        "summary": "List every active public download link with usage counters",
-        "responses": { "200": { "description": "OK" } }
-      }
-    },
-    "/pubshare/revoke": {
-      "post": {
-        "tags": ["agent", "transfer"],
-        "summary": "Invalidate a download token immediately",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["token"], "properties": { "token": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" }, "404": { "description": "Unknown token" } }
-      }
-    },
-    "/d/{token}": {
-      "parameters": [
-        { "name": "token", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Issued by POST /quick-share or /pubshare" }
-      ],
-      "get": {
-        "tags": ["transfer", "discovery"],
-        "summary": "Public download tunnel — recipient downloads the file via standard HTTP",
-        "description": "Streams the file as a standard HTTP response from the seeder's daemon via the signaler. `Content-Disposition: attachment; filename=\"…\"` so browsers and `curl -OJ` / `wget --content-disposition` auto-name the file. Supports HTTP Range (`Accept-Ranges: bytes`) for resume. Honours `maxDownloads` and `ttlMs` set at registration time. Concurrent recipients each get an independent parallel stream.",
-        "responses": {
-          "200": { "description": "Full file" },
-          "206": { "description": "Partial content (Range)" },
-          "404": { "description": "Token unknown / expired / sender offline" },
-          "410": { "description": "Token expired or exhausted (max-downloads reached)" },
-          "416": { "description": "Range not satisfiable" },
-          "503": { "description": "Sender offline" },
-          "504": { "description": "Timed out waiting for first byte from sender" }
+          "200": {
+            "description": "OK"
+          }
         },
-        "servers": [{ "url": "https://srift.app" }]
-      },
-      "head": {
-        "tags": ["transfer", "discovery"],
-        "summary": "Metadata probe (size, filename, mime, X-SRIFT-Downloads, X-SRIFT-Expires)",
-        "responses": { "200": { "description": "OK" }, "404": { "description": "Token unknown" }, "410": { "description": "Expired or exhausted" }, "503": { "description": "Sender offline" } },
-        "servers": [{ "url": "https://srift.app" }]
-      }
-    },
-    "/status": { "get": { "tags": ["session", "monitor"], "summary": "Get session + transfers + pending join requests", "responses": { "200": { "description": "OK" } } } },
-    "/state": { "get": { "tags": ["monitor"], "summary": "Raw .srift-state.json snapshot", "responses": { "200": { "description": "OK" } } } },
-    "/session/start": {
-      "post": {
-        "tags": ["session"],
-        "summary": "Create a new session (you become host)",
-        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "sessionName": { "type": "string" }, "roomSecret": { "type": "string", "description": "Optional shared secret for stronger E2EE — never sent to server" } } } } } },
-        "responses": { "200": { "description": "OK" } }
-      }
-    },
-    "/session/join": {
-      "post": {
-        "tags": ["session"],
-        "summary": "Request to join an existing session",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["sessionId"], "properties": { "sessionId": { "type": "string", "description": "7-character session ID" }, "username": { "type": "string" }, "roomSecret": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" } }
+        "operationId": "postSessionJoin"
       }
     },
     "/session/approve": {
       "post": {
-        "tags": ["session"], "summary": "Host-only: approve a pending guest",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["tempUserId"], "properties": { "tempUserId": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" } }
+        "tags": [
+          "session"
+        ],
+        "summary": "Host-only: approve a pending guest",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tempUserId"
+                ],
+                "properties": {
+                  "tempUserId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "joined": {
+                      "type": "boolean"
+                    },
+                    "userId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "username": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such pending request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "description": "Returns once the guest is in the room (or after 8 s), so a chat sent next reaches them.",
+        "operationId": "postSessionApprove"
       }
     },
     "/session/reject": {
       "post": {
-        "tags": ["session"], "summary": "Host-only: reject a pending guest",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["tempUserId"], "properties": { "tempUserId": { "type": "string" }, "reason": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" } }
+        "tags": [
+          "session"
+        ],
+        "summary": "Host-only: reject a pending guest",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tempUserId"
+                ],
+                "properties": {
+                  "tempUserId": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postSessionReject"
       }
     },
     "/session/kick": {
       "post": {
-        "tags": ["session"], "summary": "Host-only: disconnect a peer",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["userId"], "properties": { "userId": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" } }
+        "tags": [
+          "session"
+        ],
+        "summary": "Host-only: disconnect a peer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "userId"
+                ],
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postSessionKick"
       }
     },
-    "/session/close": { "post": { "tags": ["session"], "summary": "Close active session and flush keys", "responses": { "200": { "description": "OK" } } } },
+    "/session/close": {
+      "post": {
+        "tags": [
+          "session"
+        ],
+        "summary": "Close active session and flush keys",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postSessionClose"
+      }
+    },
     "/send": {
       "post": {
-        "tags": ["transfer"], "summary": "Offer a file to joined peers (in-session transfer; for public download links use /quick-share or /pubshare)",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["filePath"], "properties": { "filePath": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" } }
+        "tags": [
+          "transfer"
+        ],
+        "summary": "Offer a file to joined peers (in-session transfer; for public download links use /quick-share or /pubshare)",
+        "description": "Note: requires the local SRIFT daemon (http://127.0.0.1:3822) — filesystem access to `filePath` is not available on the public https://srift.app host.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "filePath"
+                ],
+                "properties": {
+                  "filePath": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "fileId": {
+                      "type": "string"
+                    },
+                    "protocol": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No session / waiting for host approval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Session connection not ready — retry after retryAfterMs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postSend"
       }
     },
     "/receive": {
       "post": {
-        "tags": ["transfer"], "summary": "Accept an inbound file offer",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["fileId"], "properties": { "fileId": { "type": "string" }, "saveDir": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" } }
+        "tags": [
+          "transfer"
+        ],
+        "summary": "Accept an inbound file offer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "fileId"
+                ],
+                "properties": {
+                  "fileId": {
+                    "type": "string"
+                  },
+                  "saveDir": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postReceive"
       }
     },
     "/chat/send": {
       "post": {
-        "tags": ["chat"], "summary": "Send an E2EE chat message",
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["message"], "properties": { "message": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" } }
+        "tags": [
+          "chat"
+        ],
+        "summary": "Send an E2EE chat message",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "message"
+                ],
+                "properties": {
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "No session / waiting for host approval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Removed from the session or the session ended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Session connection not ready — retry after retryAfterMs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postChatSend"
       }
     },
-    "/chat/history": { "get": { "tags": ["chat"], "summary": "Read decrypted chat log", "responses": { "200": { "description": "OK" } } } },
+    "/chat/history": {
+      "get": {
+        "tags": [
+          "chat"
+        ],
+        "summary": "Read decrypted chat log",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "messageId": {
+                        "type": "string"
+                      },
+                      "sender": {
+                        "type": "string",
+                        "description": "\"Me\" for your own messages"
+                      },
+                      "content": {
+                        "type": "string"
+                      },
+                      "timestamp": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getChatHistory"
+      }
+    },
     "/api/v1/monitor/events": {
       "get": {
-        "tags": ["monitor"], "summary": "SSE event stream",
+        "tags": [
+          "monitor"
+        ],
+        "summary": "SSE event stream",
         "description": "Server-sent events. Event types: `connection_state`, `join_request`, `file_offer`, `transfer_progress`, `chat_received`.",
-        "responses": { "200": { "description": "text/event-stream" } }
+        "responses": {
+          "200": {
+            "description": "text/event-stream"
+          }
+        },
+        "operationId": "getApiV1MonitorEvents"
       }
     },
     "/mcp": {
-      "post": { "tags": ["mcp"], "summary": "MCP JSON-RPC over Streamable HTTP (spec 2025-06-18)", "responses": { "200": { "description": "JSON-RPC response" } } },
-      "get": { "tags": ["mcp"], "summary": "MCP SSE event stream (server→client notifications)", "responses": { "200": { "description": "text/event-stream" } } }
+      "post": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "MCP JSON-RPC over Streamable HTTP (spec 2025-06-18)",
+        "responses": {
+          "200": {
+            "description": "JSON-RPC response"
+          }
+        },
+        "operationId": "postMcp"
+      },
+      "get": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "MCP SSE event stream (server→client notifications)",
+        "responses": {
+          "200": {
+            "description": "text/event-stream"
+          }
+        },
+        "operationId": "getMcp"
+      }
     },
-    "/mcp/sse": { "get": { "tags": ["mcp"], "summary": "Legacy MCP SSE transport (open stream, then POST /mcp/messages)", "responses": { "200": { "description": "text/event-stream" } } } },
-    "/mcp/messages": { "post": { "tags": ["mcp"], "summary": "Legacy MCP transport — POST JSON-RPC messages", "responses": { "200": { "description": "JSON-RPC response" } } } },
+    "/mcp/sse": {
+      "get": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Legacy MCP SSE transport (open stream, then POST /mcp/messages)",
+        "responses": {
+          "200": {
+            "description": "text/event-stream"
+          }
+        },
+        "operationId": "getMcpSse"
+      }
+    },
+    "/mcp/messages": {
+      "post": {
+        "tags": [
+          "mcp"
+        ],
+        "summary": "Legacy MCP transport — POST JSON-RPC messages",
+        "responses": {
+          "200": {
+            "description": "JSON-RPC response"
+          }
+        },
+        "operationId": "postMcpMessages"
+      }
+    },
     "/create-session": {
       "post": {
-        "tags": ["session"], "summary": "Public signaling: create session (used by browser clients)",
-        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "properties": { "username": { "type": "string" }, "name": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" } }
+        "tags": [
+          "session"
+        ],
+        "summary": "Public signaling: create session (used by browser clients)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "username": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postCreateSession"
       }
     },
     "/join-session": {
       "post": {
-        "tags": ["session"], "summary": "Public signaling: request join (used by browser clients)",
-        "requestBody": { "content": { "application/json": { "schema": { "type": "object", "required": ["sessionId"], "properties": { "sessionId": { "type": "string" }, "username": { "type": "string" } } } } } },
-        "responses": { "200": { "description": "OK" } }
+        "tags": [
+          "session"
+        ],
+        "summary": "Public signaling: request join (used by browser clients)",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sessionId"
+                ],
+                "properties": {
+                  "sessionId": {
+                    "type": "string"
+                  },
+                  "username": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postJoinSession"
       }
     },
-    "/healthz": { "get": { "tags": ["discovery"], "summary": "Liveness probe", "responses": { "200": { "description": "OK" } } } },
-    "/readyz": { "get": { "tags": ["discovery"], "summary": "Readiness probe (includes DB check)", "responses": { "200": { "description": "OK" } } } },
-    "/.well-known/mcp/server-card.json": { "get": { "tags": ["discovery", "mcp"], "summary": "MCP server card", "responses": { "200": { "description": "OK" } } } },
-    "/.well-known/ai-plugin.json": { "get": { "tags": ["discovery"], "summary": "OpenAI plugin manifest", "responses": { "200": { "description": "OK" } } } },
-    "/.well-known/agent.json": { "get": { "tags": ["discovery"], "summary": "Google A2A agent card", "responses": { "200": { "description": "OK" } } } },
-    "/.well-known/agent-skills/index.json": { "get": { "tags": ["discovery"], "summary": "AGNTCY skills registry", "responses": { "200": { "description": "OK" } } } }
+    "/healthz": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "Liveness probe",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getHealthz"
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "Readiness probe (includes DB check)",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getReadyz"
+      }
+    },
+    "/.well-known/mcp/server-card.json": {
+      "get": {
+        "tags": [
+          "discovery",
+          "mcp"
+        ],
+        "summary": "MCP server card",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getWellKnownMcpServerCardJson"
+      }
+    },
+    "/.well-known/ai-plugin.json": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "OpenAI plugin manifest",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getWellKnownAiPluginJson"
+      }
+    },
+    "/.well-known/agent.json": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "Google A2A agent card",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getWellKnownAgentJson"
+      }
+    },
+    "/.well-known/agent-skills/index.json": {
+      "get": {
+        "tags": [
+          "discovery"
+        ],
+        "summary": "SRIFT Agent Skills index (SRIFT convention, proposed)",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getWellKnownAgentSkillsIndexJson"
+      }
+    },
+    "/api/an": {
+      "get": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "AgentNet relay info",
+        "description": "Relay capabilities, peers and live counts. States that nothing is stored.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getApiAn"
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/live/search": {
+      "get": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Live search of online agents",
+        "description": "Ranked results of discoverable agents online right now (and on peer relays). Each result has the agent's signed card, its self-written one-liner and status.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Free-text need"
+          },
+          {
+            "name": "handle",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "name or name~suffix"
+          },
+          {
+            "name": "owner",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Owner handle or address"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Max results (1-50)"
+          }
+        ],
+        "operationId": "getApiAnLiveSearch"
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/live/card/{address}": {
+      "get": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Live card of an online agent",
+        "description": "Public keys and profile of an agent that is online now; 404 when offline or hidden.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "getApiAnLiveCardByAddress"
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/send": {
+      "post": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Route an encrypted envelope",
+        "description": "Forwarded only if the recipient is online; result is delivered | offline | unconfirmed | rate_limited | invalid. Nothing is stored. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "postApiAnSend"
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/poll": {
+      "get": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Long-poll receive",
+        "description": "HTTP fallback for networks that block WebSockets. An open poll counts as online. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Client id"
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Seconds to wait (max 25)"
+          }
+        ],
+        "operationId": "getApiAnPoll"
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/announce": {
+      "post": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Announce live card and beacon",
+        "description": "Registers the agent's signed card and optional beacon (one-line description) in relay RAM while connected. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "postApiAnAnnounce"
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/seek": {
+      "post": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Standing search",
+        "description": "Returns current matches and pushes discovery events when matching agents come online. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "operationId": "postApiAnSeek"
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/health": {
+      "get": {
+        "servers": [
+          {
+            "url": "http://127.0.0.1:3822",
+            "description": "Local daemon"
+          }
+        ],
+        "tags": [
+          "monitor"
+        ],
+        "summary": "Daemon liveness (version, uptime)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getHealth"
+      }
+    },
+    "/v1/diag": {
+      "get": {
+        "servers": [
+          {
+            "url": "http://127.0.0.1:3822",
+            "description": "Local daemon"
+          }
+        ],
+        "tags": [
+          "monitor"
+        ],
+        "summary": "Network diagnosis: which transports work on this machine, with fixes (same as `srift doctor --json`)",
+        "parameters": [
+          {
+            "name": "fresh",
+            "in": "query",
+            "description": "Re-probe instead of using the cached result",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "true"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "verdict": {
+                      "type": "string",
+                      "enum": [
+                        "ok",
+                        "degraded",
+                        "blocked"
+                      ]
+                    },
+                    "rungs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    "plan": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getV1Diag"
+      }
+    },
+    "/transfers": {
+      "get": {
+        "servers": [
+          {
+            "url": "http://127.0.0.1:3822",
+            "description": "Local daemon"
+          }
+        ],
+        "tags": [
+          "transfer"
+        ],
+        "summary": "All transfers in this session",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Transfer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getTransfers"
+      }
+    },
+    "/transfers/{fileId}": {
+      "get": {
+        "servers": [
+          {
+            "url": "http://127.0.0.1:3822",
+            "description": "Local daemon"
+          }
+        ],
+        "tags": [
+          "transfer"
+        ],
+        "summary": "One transfer by id",
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Transfer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown fileId",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getTransfersByFileId"
+      }
+    },
+    "/peers": {
+      "get": {
+        "servers": [
+          {
+            "url": "http://127.0.0.1:3822",
+            "description": "Local daemon"
+          }
+        ],
+        "tags": [
+          "session"
+        ],
+        "summary": "Peers known in the current session",
+        "responses": {
+          "200": {
+            "description": "This daemon's session connection (empty when there is no session)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "sessionId": {
+                        "type": "string"
+                      },
+                      "userId": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "role": {
+                        "type": "string"
+                      },
+                      "connectionState": {
+                        "type": "string",
+                        "enum": [
+                          "CONNECTING",
+                          "OPEN",
+                          "CLOSING",
+                          "CLOSED"
+                        ]
+                      },
+                      "transport": {
+                        "type": "string"
+                      },
+                      "isConnected": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getPeers"
+      }
+    },
+    "/metrics": {
+      "get": {
+        "servers": [
+          {
+            "url": "http://127.0.0.1:3822",
+            "description": "Local daemon"
+          }
+        ],
+        "tags": [
+          "monitor"
+        ],
+        "summary": "Prometheus metrics (text/plain)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getMetrics"
+      }
+    },
+    "/logs": {
+      "get": {
+        "servers": [
+          {
+            "url": "http://127.0.0.1:3822",
+            "description": "Local daemon"
+          }
+        ],
+        "tags": [
+          "monitor"
+        ],
+        "summary": "Recent daemon log lines (one JSON object per line)",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "operationId": "getLogs"
+      }
+    },
+    "/reset": {
+      "post": {
+        "servers": [
+          {
+            "url": "http://127.0.0.1:3822",
+            "description": "Local daemon"
+          }
+        ],
+        "tags": [
+          "session"
+        ],
+        "summary": "Leave any session and flush keys and state (same as `srift reset`)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postReset"
+      }
+    },
+    "/daemon/stop": {
+      "post": {
+        "servers": [
+          {
+            "url": "http://127.0.0.1:3822",
+            "description": "Local daemon"
+          }
+        ],
+        "tags": [
+          "monitor"
+        ],
+        "summary": "Stop the daemon (same as `srift daemon stop`)",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "operationId": "postDaemonStop"
+      }
+    }
   },
-  "components": { "securitySchemes": {} },
+  "components": {
+    "securitySchemes": {},
+    "schemas": {
+      "Transfer": {
+        "type": "object",
+        "properties": {
+          "fileId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "size": {
+            "type": "number"
+          },
+          "progress": {
+            "type": "number",
+            "description": "0-100"
+          },
+          "speedKBps": {
+            "type": "number"
+          },
+          "etaSeconds": {
+            "type": "number"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "websocket",
+              "webtorrent"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "uploading",
+              "downloading",
+              "completed",
+              "cancelled",
+              "error"
+            ]
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "upload",
+              "download"
+            ]
+          },
+          "bytesTransferred": {
+            "type": "number"
+          }
+        }
+      },
+      "Participant": {
+        "type": "object",
+        "description": "A session member. Pass userId to /session/kick.",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "isHost": {
+            "type": "boolean"
+          },
+          "online": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PendingJoin": {
+        "type": "object",
+        "properties": {
+          "tempUserId": {
+            "type": "string",
+            "description": "Pass to /session/approve or /session/reject"
+          },
+          "username": {
+            "type": "string"
+          }
+        }
+      },
+      "DaemonStatus": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "role": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "host",
+                  "guest",
+                  null
+                ]
+              },
+              "isConnected": {
+                "type": "boolean"
+              },
+              "userId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "activeTransfers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Transfer"
+            }
+          },
+          "pendingJoins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PendingJoin"
+            }
+          },
+          "participants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Participant"
+            }
+          },
+          "lastUpdated": {
+            "type": "string"
+          }
+        }
+      },
+      "QuickShareResult": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "relay"
+            ]
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "fileId": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          },
+          "downloadUrl": {
+            "type": "string",
+            "description": "Give this to the recipient. Encrypted links include the key after #k="
+          },
+          "shareUrl": {
+            "type": "string",
+            "description": "Same as downloadUrl (kept for older clients)"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "fileSize": {
+            "type": "number"
+          },
+          "maxDownloads": {
+            "type": "number"
+          },
+          "expiresAt": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "encrypted": {
+            "type": "boolean"
+          },
+          "passwordProtected": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "const": false
+          },
+          "error": {
+            "type": "string"
+          },
+          "retryAfterMs": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
   "security": [],
-  "externalDocs": { "description": "Full agent manual", "url": "https://srift.app/AGENTS.md" }
+  "externalDocs": {
+    "description": "Full agent manual",
+    "url": "https://srift.app/AGENTS.md"
+  }
 }

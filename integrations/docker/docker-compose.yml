@@ -1,40 +1,28 @@
-version: "3.9"
+# Run the SRIFT daemon next to your agent, sharing the agent's network namespace.
+# The daemon only listens on 127.0.0.1 and only accepts loopback Host headers,
+# so it is NOT reachable as http://srift:3822 from another container; with
+# network_mode "service:agent" both containers share one localhost and the
+# agent calls http://127.0.0.1:3822.
+#
+# Simpler alternative: install the CLI in the agent image itself
+# (`npm install -g srift-transfer` or `pip install srift`) and run `srift quick-share …`.
 
 services:
+  agent:
+    image: your-agent-image:latest          # your AI agent / app
+    environment:
+      SRIFT_BASE_URL: http://127.0.0.1:3822 # read by the SRIFT SDKs
+    volumes:
+      - shared:/work                        # files the agent wants to share
+
   srift:
     build:
-      context: ../..
-      dockerfile: integrations/docker/Dockerfile
-    container_name: srift-daemon
-    ports:
-      - "127.0.0.1:3822:3822"
-    environment:
-      SRIFT_DAEMON_PORT: 3822
-      SRIFT_PUBLIC_BASE: https://srift.app
-      NODE_ENV: production
-    deploy:
-      resources:
-        limits:
-          cpus: "1.0"
-          memory: 512M
-        reservations:
-          cpus: "0.1"
-          memory: 128M
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:3822/status', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
+      context: .
+      dockerfile: Dockerfile
+    network_mode: "service:agent"           # share the agent's localhost
+    volumes:
+      - shared:/work                        # the daemon reads files from the same paths
     restart: unless-stopped
-    networks:
-      - srift-net
 
-networks:
-  srift-net:
-    driver: bridge
+volumes:
+  shared:

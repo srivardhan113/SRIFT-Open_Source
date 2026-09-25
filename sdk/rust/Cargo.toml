@@ -1,6 +1,6 @@
 [package]
 name = "srift"
-version = "3.0.0"
+version = "4.1.0"
 edition = "2021"
 description = "Zero-config, zero-token P2P E2EE file transfer + chat — Rust client for the SRIFT daemon"
 license = "MIT"

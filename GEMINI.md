@@ -43,6 +43,7 @@ Or via hosted streamable HTTP endpoint:
   }
 }
 ```
+(hosted = 9 session tools; `srift_quick_share` needs the local `srift mcp`)
 
 ---
 

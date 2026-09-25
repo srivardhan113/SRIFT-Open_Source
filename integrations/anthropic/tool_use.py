@@ -15,7 +15,7 @@ srift = Srift()
 TOOLS = [
     {
         "name": "srift_quick_share",
-        "description": "Deliver any local file to the user via end-to-end-encrypted P2P transfer. Returns a share URL the user opens in any browser.",
+        "description": "Share a local file with the user. Returns a download link (https://srift.app/d/<token>) that opens in any browser; the file streams from this machine and is not stored on a server.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -48,7 +48,7 @@ def run_tool(name, args):
 def main(prompt):
     messages = [{"role": "user", "content": prompt}]
     while True:
-        r = client.messages.create(model="claude-3-5-sonnet-latest", max_tokens=2048, tools=TOOLS, messages=messages)
+        r = client.messages.create(model="claude-sonnet-5", max_tokens=2048, tools=TOOLS, messages=messages)
         messages.append({"role": "assistant", "content": r.content})
         if r.stop_reason != "tool_use":
             for blk in r.content:

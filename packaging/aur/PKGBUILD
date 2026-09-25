@@ -1,0 +1,31 @@
+# Maintainer: SRIFT <noreply@srift.app>
+#
+# Installs the published `srift-transfer` npm package (bin: `srift`), per the
+# AUR wiki's Node.js package guidelines (https://wiki.archlinux.org/title/Node.js_package_guidelines)
+# — this is the standard shape for an AUR package that wraps an npm CLI
+# rather than vendoring/building a prebuilt binary.
+pkgname=srift
+pkgver=4.1.0
+pkgrel=1
+pkgdesc="Zero-config, zero-token P2P E2EE file transfer, chat, and MCP server for AI agents"
+arch=('any')
+url="https://srift.app"
+license=('MIT')
+depends=('nodejs')
+makedepends=('npm')
+source=("$pkgname-$pkgver.tgz::https://registry.npmjs.org/srift-transfer/-/srift-transfer-$pkgver.tgz")
+# Replace with `curl -s https://registry.npmjs.org/srift-transfer | jq -r '.versions["'"$pkgver"'"].dist.shasum'`
+# converted to sha256 (npm publishes shasum as sha1; use
+# `sha256sum <(curl -sL "$source")` against the actual tarball) before
+# submitting to the AUR.
+sha256sums=('SKIP')
+
+package() {
+  cd "$srcdir"
+  npm install -g --prefix "$pkgdir/usr" --cache "$srcdir/npm-cache" \
+    "$srcdir/package"
+
+  # npm installs a shim + the package under lib/node_modules; nothing else to
+  # move — `usr/bin/srift` is created by the package's own `bin` field.
+  install -Dm644 "$srcdir/package/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

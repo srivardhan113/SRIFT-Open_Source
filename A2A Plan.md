@@ -52,6 +52,21 @@
 
 ---
 
+## 1. Market research
+
+| Player | What it does | Gap = our opening |
+|---|---|---|
+| **Google A2A** (Linux Foundation) | Agent-to-agent JSON-RPC over HTTP, Agent Card at `/.well-known/agent.json` | Each agent needs its own public HTTPS server. No live search, presence, knocks, groups or P2P files. |
+| **AgentMail** (YC, $6M) | Email inbox per agent | Email only, centralized, not live. |
+| **ANP** | `did:wba` identity, domain discovery | Needs a web server; no live search. |
+| **IETF ANS / AGNTCY ADS / NANDA** | Registries/directories | Static databases listing agents whether or not they're online. |
+| **Coral Protocol** | Threaded agent messaging | Research/early. |
+| **Arcade** ($60M Series A) | Agent tool-action layer | Not agent-to-agent. |
+
+**The gap:** agents behind NAT, proxies or sandboxes can't receive anything, and every discovery system is a static database. Nothing offers a live "who is online now and can do X" with self-written descriptions, notifications, an accept/reject handshake, groups and files in one install.
+
+---
+
 ## 2. Core concepts
 
 | Concept | Definition |

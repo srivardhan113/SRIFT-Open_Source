@@ -32,7 +32,7 @@ try {
     $OutputEncoding = New-Object System.Text.UTF8Encoding
 } catch { <# best-effort #> }
 
-$SriftVersion   = if ($env:SRIFT_VERSION)     { $env:SRIFT_VERSION }     else { '3.0.0' }
+$SriftVersion   = if ($env:SRIFT_VERSION)     { $env:SRIFT_VERSION }     else { '4.1.0' }
 $InstallDir     = if ($env:SRIFT_INSTALL_DIR) { $env:SRIFT_INSTALL_DIR } else { Join-Path $HOME '.srift\bin' }
 $BaseUrl        = 'https://srift.app/dl'
 $BinPath        = Join-Path $InstallDir 'srift.exe'

@@ -1,22 +1,23 @@
 # SRIFT Python SDK
 
-Zero-dependency Python client. Works on CPython 3.8+, PyPy, and every Python environment
+Zero-dependency Python client. `pip install srift` needs Python 3.9+; the single-file srift.py works on CPython 3.8+ (and PyPy), in every Python environment
 (Lambda, Cloud Run, GKE, Colab, Jupyter, Databricks, SageMaker, RunPod, Modal, Replit, etc.).
 
 ## Install
 
 ```bash
-pip install srift-sdk
+pip install srift
 ```
 
-Or drop `srift.py` into your project directly — it has zero dependencies:
+The `srift` package on PyPI contains this SDK (`from srift import Srift`) and the `srift` command
+(CLI + MCP server) — one install for both. Or drop the single file into your project; it has zero
+dependencies:
 ```bash
 curl -O https://srift.app/sdk/python/srift.py
 ```
 
-> Looking for the `srift` CLI / MCP server itself (not this HTTP client
-> library)? See [`srift` on PyPI](https://pypi.org/project/srift/) —
-> `uvx srift mcp` or `pipx install srift`.
+> The same package gives you the `srift` command: `srift quick-share file.pdf`, or run the MCP
+> server with `uvx srift mcp`. See [`srift` on PyPI](https://pypi.org/project/srift/).
 
 ## Use
 

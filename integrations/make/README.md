@@ -9,6 +9,6 @@
    ```json
    { "filePath": "{{1.filePath}}", "sessionName": "make-scenario" }
    ```
-7. Parse response and reference `shareUrl`, `sessionId`, `fileId` downstream.
+7. Parse the response and use `downloadUrl` (the link to send), `fileName`, `fileSize` downstream.
 
 Cloud scenarios need a tunnel (`ngrok`, `cloudflared`, `tailscale funnel`) to reach a local daemon.

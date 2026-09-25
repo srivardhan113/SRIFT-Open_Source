@@ -10,7 +10,7 @@
     "displayName": "SRIFT — Secure P2P File Transfer + E2EE Chat",
     "tagline": "Zero-config, zero-token peer-to-peer file transfer and encrypted chat for humans AND AI agents.",
     "shortDescription": "Send files and chat securely, peer-to-peer, with AES-256-GCM encryption. No accounts, no cloud storage, no API keys. Local MCP server + CLI for AI agents; web app for humans.",
-    "longDescription": "SRIFT is a zero-config, zero-token, peer-to-peer file transfer and end-to-end-encrypted chat platform built for both humans (https://srift.app) and AI agents (local daemon on 127.0.0.1:3822). It exposes a Model Context Protocol server (stdio + Streamable HTTP + SSE), an OpenAPI 3.1 REST surface, and a native CLI. Any LLM — Claude, GPT-4/5, Gemini, Grok, Perplexity, Cursor, Continue, Cline, Aider, Goose, Zed, Codex — can call `srift_quick_share` and hand back a public https://srift.app/d/<token> URL that the human recipient downloads with any HTTP client (browser, curl, wget) with nothing installed on their side. AES-256-GCM, PBKDF2 100k, WebRTC/WebTorrent/WebSocket transport, zero server-side plaintext, zero telemetry.",
+    "longDescription": "SRIFT is a zero-config, zero-token, peer-to-peer file transfer and end-to-end-encrypted chat platform built for both humans (https://srift.app) and AI agents (local daemon on 127.0.0.1:3822). It exposes a Model Context Protocol server (stdio + Streamable HTTP + SSE), an OpenAPI 3.1 REST surface, and a native CLI. Any LLM — Claude, GPT-4/5, Gemini, Grok, Perplexity, Cursor, Continue, Cline, Aider, Goose, Zed, Codex — can call `srift_quick_share` (one file, a folder, or many files at once) and hand back a public https://srift.app/d/<token> URL that the human recipient downloads with any HTTP client (browser, curl, wget) with nothing installed on their side. Quick-share links are relay links streamed from the sender's machine on demand: nothing is stored on any server, and --encrypt makes them end-to-end encrypted. Works in sandboxed and datacenter agents (the daemon runs in-process, outbound 443 only). AES-256-GCM, PBKDF2 100k, WebRTC/WebTorrent/WebSocket transport, zero retention, zero telemetry.",
     "homepage": "https://srift.app",
     "documentation": "https://srift.app/AGENTS.md",
     "aiAgentHub": "https://srift.app/ai-agents",
@@ -21,7 +21,7 @@
     "glamaConnector": "https://glama.ai/mcp/connectors/app.srift/srift",
     "glamaServer": "https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source",
     "mcpRegistry": "https://registry.modelcontextprotocol.io/v0/servers?search=srift",
-    "license": "Proprietary — free forever, no premium tier",
+    "license": "MIT",
     "logo": "https://srift.app/Favicon/android-chrome-512x512.png",
     "logoSquare": "https://srift.app/Favicon/apple-touch-icon.png",
     "screenshot": "https://srift.app/opengraph-image",
@@ -77,20 +77,20 @@
       {
         "type": "streamable-http",
         "url": "https://srift.app/mcp",
-        "description": "Zero-install hosted endpoint. Session/peer orchestration only (8 of 14 tools).",
+        "description": "Zero-install hosted endpoint. Session/peer orchestration only (9 of 15 tools).",
         "recommendedFor": ["claude-web", "chatgpt", "perplexity", "gemini", "cloud-agents"]
       },
       {
         "type": "stdio",
         "command": "srift",
         "args": ["mcp"],
-        "description": "Local daemon. Full tool set (14 tools).",
+        "description": "Local daemon. Full tool set (15 tools).",
         "recommendedFor": ["claude-desktop", "cursor", "continue-dev", "zed", "cline", "goose", "aider", "codex", "roo", "openhands", "devin"]
       },
       {
         "type": "streamable-http",
         "url": "http://127.0.0.1:3822/mcp",
-        "description": "Local daemon HTTP. Full tool set (14 tools). Requires `srift daemon start`."
+        "description": "Local daemon HTTP. Full tool set (15 tools). Requires `srift daemon start`."
       },
       {
         "type": "sse",
@@ -104,7 +104,7 @@
       "srift_session_status", "srift_close_session", "srift_approve_join",
       "srift_reject_join", "srift_kick_user", "srift_send_file",
       "srift_accept_transfer", "srift_list_transfers", "srift_send_chat",
-      "srift_chat_history", "srift_read_state"
+      "srift_chat_history", "srift_read_state", "srift_net_diagnose"
     ],
     "auth": "none"
   },

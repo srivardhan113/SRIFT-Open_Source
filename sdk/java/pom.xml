@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>app.srift</groupId>
+  <artifactId>srift</artifactId>
+  <version>4.1.0</version>
+  <packaging>jar</packaging>
+
+  <name>SRIFT Java SDK</name>
+  <description>Zero-dependency Java client for the local SRIFT daemon: P2P E2EE file transfer, session lifecycle, and chat.</description>
+  <url>https://srift.app</url>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://github.com/srivardhan113/SRIFT-Open_Source/blob/main/LICENSE</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <url>https://github.com/srivardhan113/SRIFT-Open_Source</url>
+    <connection>scm:git:https://github.com/srivardhan113/SRIFT-Open_Source.git</connection>
+    <developerConnection>scm:git:https://github.com/srivardhan113/SRIFT-Open_Source.git</developerConnection>
+    <tag>v3.0.0</tag>
+  </scm>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+  </properties>
+
+  <!-- Zero-dependency SDK: relies only on java.net.http (JDK 11+ stdlib). -->
+
+  <build>
+    <finalName>srift-${project.version}</finalName>
+    <sourceDirectory>.</sourceDirectory>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.13.0</version>
+        <configuration>
+          <source>11</source>
+          <target>11</target>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

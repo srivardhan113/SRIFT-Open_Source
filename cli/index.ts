@@ -6,6 +6,8 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
+import net from 'net';
+import { pipeline } from 'stream/promises';
 import { fileURLToPath } from 'url';
 
 import {
@@ -24,21 +26,33 @@ import {
   handleDaemonStop,
   handleMonitorTransfer,
   handleQuickShare,
+  handleQuickShareMany,
+  waitForDownloads,
   handlePubshareList,
   handlePubshareRevoke,
   handlePubshareAdd,
   handleAutoInstallMcp,
   handleBootstrap,
+  reportShare,
+  callDaemon as callDaemonApi,
+  type QuickShareOpts,
 } from './client.ts';
 
 import { startMcpServer } from './mcp.ts';
+import { startEmbeddedDaemon, isEmbeddedDaemon, realConsole } from './embedded.ts';
+import { agentFor, formatNetError, proxyEnvPresent } from './net.ts';
+import { runDiagnostics, formatDiagnostics, diagExitCode } from './probe.ts';
+import { relaySelfTest } from './selftest.ts';
+import { getLink } from './get.ts';
+import { packDirectory, DEFAULT_EXCLUDES, mapLimit } from './pack.ts';
+import { readHistory, clearHistory, HISTORY_FILE } from './history.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DAEMON_PORT = parseInt(process.env.SRIFT_DAEMON_PORT || '3822', 10);
 const DAEMON_URL = `http://127.0.0.1:${DAEMON_PORT}`;
-const CLI_VERSION = '3.0.0';
+const CLI_VERSION = '4.1.0';
 
 // Parse "30s", "15m", "2h", "1d" → milliseconds. Returns 0 on invalid input.
 function parseDuration(s: string | undefined): number {
@@ -51,6 +65,70 @@ function parseDuration(s: string | undefined): number {
   return Math.floor(n * (mult[unit] || 0));
 }
 const VERSION_CHECK_URL = 'https://srift.app/cli/version.json';
+
+function nodeAtLeast(major: number, minor: number): boolean {
+  const [a, b] = process.versions.node.split('.').map((n) => parseInt(n, 10));
+  return a > major || (a === major && b >= minor);
+}
+
+function flagValue(args: string[], ...names: string[]): string | undefined {
+  for (const n of names) {
+    const i = args.indexOf(n);
+    if (i !== -1 && args[i + 1] !== undefined && !args[i + 1].startsWith('--')) return args[i + 1];
+    const eq = args.find((a) => a.startsWith(`${n}=`));
+    if (eq) return eq.slice(n.length + 1);
+  }
+  return undefined;
+}
+
+/** Positional arguments after the subcommand (skips --flags and their values). */
+const VALUE_FLAGS = new Set(['--password', '--ttl', '--max-downloads', '--filename', '--name', '--session-name', '--exclude',
+  '--wait-timeout', '--bundle-name', '--mode', '-o', '--out', '--output', '--concurrency', '--limit']);
+function positionals(args: string[], from = 1): string[] {
+  const out: string[] = [];
+  for (let i = from; i < args.length; i++) {
+    const a = args[i];
+    if (a === '-') { out.push(a); continue; }
+    if (a.startsWith('-')) { if (VALUE_FLAGS.has(a)) i++; continue; }
+    out.push(a);
+  }
+  return out;
+}
+
+function flagValues(args: string[], name: string): string[] {
+  const out: string[] = [];
+  args.forEach((a, i) => {
+    if (a === name && args[i + 1] !== undefined) out.push(args[i + 1]);
+    else if (a.startsWith(`${name}=`)) out.push(a.slice(name.length + 1));
+  });
+  return out;
+}
+
+const OUTBOX_DIR = path.join(os.homedir(), '.srift', 'outbox');
+
+/** Files shared by path must outlive this process (relay links read them later). */
+function outboxPath(name: string): string {
+  fs.mkdirSync(OUTBOX_DIR, { recursive: true, mode: 0o700 });
+  // Staged copies of folders/stdin must outlive relay links (which may have no
+  // TTL). Sweep after 30 days.
+  try {
+    const cutoff = Date.now() - 30 * 86_400_000;
+    for (const f of fs.readdirSync(OUTBOX_DIR)) {
+      const p = path.join(OUTBOX_DIR, f);
+      try { if (fs.statSync(p).mtimeMs < cutoff) fs.rmSync(p, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+  const dir = path.join(OUTBOX_DIR, `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`);
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  return path.join(dir, name);
+}
+
+async function stdinToFile(dest: string): Promise<number> {
+  if (process.stdin.isTTY) throw new Error('Nothing on stdin. Pipe data in, e.g.:  tar cz dir | srift quick-share - --filename dir.tgz');
+  // pipeline(): backpressure + propagates write errors (e.g. ENOSPC) as a rejection.
+  await pipeline(process.stdin, fs.createWriteStream(dest, { mode: 0o600 }));
+  return fs.statSync(dest).size;
+}
 const SRIFT_BASE_DL_URL = 'https://srift.app/dl';
 
 // ─────────────────────────────────────────────────────────────────
@@ -86,7 +164,7 @@ function writeConfig(config: SriftConfig): void {
 // ─────────────────────────────────────────────────────────────────
 function fetchJson(url: string): Promise<any> {
   return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': `srift-cli/${CLI_VERSION}` } }, (res) => {
+    https.get(url, { headers: { 'User-Agent': `srift-cli/${CLI_VERSION}` }, agent: agentFor(url) }, (res) => {
       let data = '';
       res.on('data', (c) => (data += c));
       res.on('end', () => {
@@ -425,7 +503,7 @@ function _downloadAttempt(
     };
     if (resumeFrom > 0) headers['Range'] = `bytes=${resumeFrom}-`;
 
-    const req = https.get(url, { headers }, (res) => {
+    const req = https.get(url, { headers, agent: agentFor(url) }, (res) => {
       // Redirect (single hop — recurse via outer retry loop if needed)
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         res.resume();
@@ -600,7 +678,7 @@ async function downloadFile(url: string, dest: string): Promise<void> {
 
 function fetchRaw(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': `srift-cli/${CLI_VERSION}` } }, (res) => {
+    const req = https.get(url, { headers: { 'User-Agent': `srift-cli/${CLI_VERSION}` }, agent: agentFor(url) }, (res) => {
       // Single-hop redirect support so SHA256SUMS works through any future CDN
       // redirect without hanging.
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -626,68 +704,40 @@ function fetchRaw(url: string): Promise<string> {
 // ─────────────────────────────────────────────────────────────────
 // srift doctor
 // ─────────────────────────────────────────────────────────────────
-async function handleDoctor(isJson: boolean): Promise<void> {
-  const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
-
-  // 1. Daemon running?
-  try {
-    const r = await new Promise<any>((resolve, reject) => {
-      const req = http.get(`${DAEMON_URL}/health`, (res) => {
-        let d = '';
-        res.on('data', (c) => (d += c));
-        res.on('end', () => { try { resolve(JSON.parse(d)); } catch { reject(new Error('Invalid JSON')); } });
-      });
-      req.on('error', reject);
-      req.setTimeout(2000, () => req.destroy(new Error('timeout')));
-    });
-    checks.push({ name: 'Daemon running', ok: r.ok ?? true, detail: `v${r.version} uptime=${r.uptime_ms}ms mcp=${r.mcp} webtorrent=${r.webtorrent}` });
-  } catch (e) {
-    checks.push({ name: 'Daemon running', ok: false, detail: `ECONNREFUSED — run: srift daemon start` });
-  }
-
-  // 2. srift.app reachable?
-  try {
-    await fetchJson('https://srift.app/compat.json');
-    checks.push({ name: 'srift.app reachable', ok: true, detail: 'HTTP 200' });
-  } catch (e) {
-    checks.push({ name: 'srift.app reachable', ok: false, detail: `Cannot reach srift.app: ${e}` });
-  }
-
-  // 3. Latest version?
+async function handleDoctor(isJson: boolean, fresh: boolean, deep = false): Promise<void> {
+  // stdout directly: an embedded daemon (started by --deep) redirects console.* to its log.
+  const out = (s: string) => process.stdout.write(`${s}\n`);
+  // Connectivity, local runtime and environment checks, each with the reason
+  // and the fix, plus a concrete plan. --deep adds a real end-to-end self-test.
+  let where: 'daemon' | 'embedded' | null = null;
+  const report = await runDiagnostics({
+    fresh, daemonPort: DAEMON_PORT, clientVersion: CLI_VERSION,
+    ...(deep ? {
+      selfTest: async () => {
+        where = await ensureDaemonOrEmbedded({ quiet: true });
+        return relaySelfTest(callDaemonApi, { via: where === 'embedded' ? 'embedded daemon' : 'background daemon', userAgent: `srift-cli/${CLI_VERSION}` });
+      },
+    } : {}),
+  });
+  let update: { latest: string; hasUpdate: boolean } | null = null;
   try {
     const data = await fetchJson(VERSION_CHECK_URL);
-    const hasUpdate = compareVersions(data.latest, CLI_VERSION) > 0;
-    checks.push({ name: 'CLI up to date', ok: !hasUpdate, detail: hasUpdate ? `Update available: ${data.latest}` : `${CLI_VERSION} is latest` });
-  } catch {
-    checks.push({ name: 'CLI up to date', ok: true, detail: 'Could not check (offline?)' });
-  }
-
-  // 4. Node version compatible?
-  const nodeVer = parseInt(process.version.slice(1));
-  checks.push({ name: 'Node.js version', ok: nodeVer >= 18, detail: `${process.version} (requires ≥18)` });
-
-  // 5. Config file readable?
-  try {
-    readConfig();
-    checks.push({ name: 'Config file', ok: true, detail: CONFIG_FILE });
-  } catch (e) {
-    checks.push({ name: 'Config file', ok: false, detail: `Cannot read config: ${e}` });
-  }
-
+    update = { latest: data.latest, hasUpdate: compareVersions(data.latest, CLI_VERSION) > 0 };
+  } catch { /* offline: covered by the HTTPS rung */ }
   if (isJson) {
-    console.log(JSON.stringify({ checks, allOk: checks.every((c) => c.ok) }, null, 2));
-    return;
+    out(JSON.stringify({
+      ...report,
+      cli: { version: CLI_VERSION, latest: update?.latest ?? null, updateAvailable: update?.hasUpdate ?? null },
+      config: CONFIG_FILE,
+    }, null, 2));
+  } else {
+    out(formatDiagnostics(report));
+    if (update?.hasUpdate) out(`  Update available: ${CLI_VERSION} → ${update.latest}  (srift self-update)\n`);
+    if (report.verdict !== 'ok') out('  Docs: https://srift.app/ai-agents#troubleshooting\n');
   }
-
-  const allOk = checks.every((c) => c.ok);
-  console.log(`\nsrift doctor — ${allOk ? '✅ All checks passed' : '⚠️  Issues found'}\n`);
-  for (const c of checks) {
-    console.log(`  ${c.ok ? '✓' : '✗'} ${c.name.padEnd(24)} ${c.detail}`);
-  }
-  if (!allOk) {
-    console.log(`\nDocs: https://srift.app/ai-agents#troubleshooting`);
-  }
-  console.log('');
+  process.exitCode = diagExitCode(report);
+  // An embedded daemon started for the self-test would keep this process alive.
+  if (where === 'embedded') process.exit(process.exitCode);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -780,14 +830,33 @@ function daemonRequest(method: string, urlPath: string, body?: any): Promise<any
 }
 
 // Helper to check if daemon is running
-function isDaemonRunning(): Promise<boolean> {
+function isDaemonRunning(timeoutMs = 1500): Promise<boolean> {
   return new Promise((resolve) => {
-    const req = http.get(`${DAEMON_URL}/status`, (res) => {
+    // Bounded: something else on the port (or a black-holing firewall) may
+    // accept the connection and never answer.
+    const req = http.get(`${DAEMON_URL}/status`, { timeout: timeoutMs }, (res) => {
+      res.resume();
       resolve(res.statusCode === 200);
     });
+    req.on('timeout', () => { req.destroy(); resolve(false); });
     req.on('error', () => resolve(false));
     req.end();
   });
+}
+
+/**
+ * Background daemon if possible; otherwise host it in this process (no port).
+ * Returns 'embedded' when this process now serves links itself.
+ */
+async function ensureDaemonOrEmbedded(opts: { force?: boolean; quiet?: boolean } = {}): Promise<'daemon' | 'embedded'> {
+  if (!opts.force) {
+    try { await ensureDaemon(); return 'daemon'; } catch (e: any) {
+      if (process.env.SRIFT_NO_EMBEDDED === '1') throw e;
+      if (!opts.quiet) console.error(`[srift] Background daemon unavailable (${String(e?.message || e).split('\n')[0]}) — serving from this process instead.`);
+    }
+  }
+  await startEmbeddedDaemon();
+  return 'embedded';
 }
 
 // Helper to start daemon in background
@@ -795,8 +864,21 @@ async function ensureDaemon(): Promise<void> {
   const running = await isDaemonRunning();
   if (running) return;
 
+  // Sandboxes that forbid local servers fail the bind immediately: skip the
+  // spawn + 5 s wait and let callers fall back to the embedded daemon.
+  const preBind = await new Promise<string | null>((resolve) => {
+    const srv = net.createServer();
+    srv.once('error', (e: any) => resolve(e?.code || 'EUNKNOWN'));
+    srv.listen(DAEMON_PORT, '127.0.0.1', () => srv.close(() => resolve(null)));
+  });
+  if (preBind === 'EPERM' || preBind === 'EACCES') {
+    throw Object.assign(new Error(`This environment does not allow local servers (${preBind} binding 127.0.0.1:${DAEMON_PORT}).`), { code: preBind });
+  }
+
   const isMcp = process.argv.includes('mcp');
-  const logFn = isMcp ? console.error : console.log;
+  // Status chatter goes to stderr: stdout carries command output (--json, MCP stdio).
+  const logFn = console.error;
+  void isMcp;
 
   logFn('[SRIFT] Starting background transfer daemon...');
 
@@ -836,36 +918,56 @@ async function ensureDaemon(): Promise<void> {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
-      env: { ...process.env, SRIFT_DAEMON_PORT: DAEMON_PORT.toString() },
+      env: {
+        ...process.env,
+        SRIFT_DAEMON_PORT: DAEMON_PORT.toString(),
+        // Node >= 24.5 can route its built-in HTTP clients through HTTP(S)_PROXY.
+        // SRIFT's own requests already use explicit tunnelling agents.
+        ...(proxyEnvPresent() && nodeAtLeast(24, 5) ? { NODE_USE_ENV_PROXY: '1' } : {}),
+      },
     }
   );
 
+  // A refused spawn (EPERM/EACCES/ENOENT in locked-down containers) emits
+  // 'error' asynchronously; unhandled, it would crash the CLI before the
+  // embedded fallback can run.
+  let spawnError: string | null = null;
+  child.on('error', (e: any) => { spawnError = e?.code || e?.message || 'spawn failed'; });
   child.unref();
 
-  // Wait for daemon to respond (up to 5 seconds, 50 × 100ms)
-  for (let i = 0; i < 50; i++) {
+  // Wait for daemon to respond: a hard 6 s deadline (each probe is bounded too,
+  // so a port that accepts but never answers cannot stretch this).
+  const readyBy = Date.now() + 6000;
+  while (Date.now() < readyBy) {
+    if (spawnError) throw Object.assign(new Error(`Could not start the background daemon process (${spawnError}).`), { code: 'ESPAWN' });
     await new Promise((r) => setTimeout(r, 100));
-    if (await isDaemonRunning()) {
+    if (await isDaemonRunning(Math.max(200, Math.min(1500, readyBy - Date.now())))) {
       logFn('[SRIFT] Daemon started successfully.');
       return;
     }
   }
 
-  // Check if the port is already in use by something else
-  const portInUse = await new Promise<boolean>((resolve) => {
-    const req = http.get(`http://127.0.0.1:${DAEMON_PORT}/health`, (res) => {
-      resolve(res.statusCode !== undefined);
-    });
-    req.on('error', () => resolve(false));
-    req.setTimeout(500, () => { req.destroy(); resolve(false); });
+  // Why did it not come up? Try the bind ourselves: EADDRINUSE is a real port
+  // conflict, EPERM/EACCES means a sandbox forbids local servers.
+  const bindCode = await new Promise<string | null>((resolve) => {
+    const srv = net.createServer();
+    srv.once('error', (e: any) => resolve(e?.code || 'EUNKNOWN'));
+    srv.listen(DAEMON_PORT, '127.0.0.1', () => srv.close(() => resolve(null)));
   });
 
-  if (portInUse) {
-    throw new Error(
+  if (bindCode === 'EADDRINUSE') {
+    throw Object.assign(new Error(
       `Port ${DAEMON_PORT} is already in use by another process.\n` +
       `  Try: SRIFT_DAEMON_PORT=3823 srift daemon start\n` +
       `  Or stop whatever is using port ${DAEMON_PORT}.`
-    );
+    ), { code: 'EADDRINUSE' });
+  }
+  if (bindCode === 'EPERM' || bindCode === 'EACCES') {
+    throw Object.assign(new Error(
+      `This environment does not allow local servers (${bindCode} binding 127.0.0.1:${DAEMON_PORT}) — likely a sandbox.\n` +
+      `  quick-share and mcp serve from their own process instead (no port needed).\n` +
+      `  Details:  srift doctor`
+    ), { code: bindCode });
   }
 
   throw new Error(
@@ -1257,7 +1359,7 @@ async function handleUninstall(purge: boolean): Promise<void> {
   // 3. Remove every one (deferred on Windows for any that are file-locked)
   let removedNow = 0;
   let deferred = 0;
-  let failed: string[] = [];
+  const failed: string[] = [];
   for (const b of binaries) {
     const r = removeBinary(b);
     if (r.ok && !r.deferred) {
@@ -1270,7 +1372,10 @@ async function handleUninstall(purge: boolean): Promise<void> {
   }
   if (removedNow > 0) console.log(`[srift] Removed ${removedNow} binar${removedNow === 1 ? 'y' : 'ies'} immediately.`);
   if (deferred > 0)   console.log(`[srift] Scheduled ${deferred} locked binar${deferred === 1 ? 'y' : 'ies'} for deletion ~2-3s after this command exits.`);
-  if (failed.length)  console.error(`[srift] Could not remove ${failed.length}:`), failed.forEach((f) => console.error(`           ${f}`));
+  if (failed.length) {
+    console.error(`[srift] Could not remove ${failed.length}:`);
+    failed.forEach((f) => console.error(`           ${f}`));
+  }
 
   // 4. Also empty stale install dirs (e.g. ~/.srift/bin/ may contain .new/.bak residue)
   const standardInstallDir = path.join(os.homedir(), '.srift', 'bin');
@@ -1350,9 +1455,10 @@ async function handleUninstall(purge: boolean): Promise<void> {
 const ALL_COMMANDS = [
   'daemon', 'session', 'send', 'receive', 'list', 'monitor',
   'approve', 'reject', 'kick', 'chat', 'mcp', 'quick-share', 'share',
-  'pubshare', 'links',
+  'pubshare', 'links', 'get', 'download', 'history', 'completion',
   'install-mcp', 'install', 'info', 'version', 'self-update', 'update',
   'doctor', 'config', 'status', 'reset', 'logs', 'uninstall',
+  'agentnet', 'an', 'bootstrap',
 ];
 
 function suggestCommand(input: string): string | null {
@@ -1503,7 +1609,7 @@ async function main() {
       }
       const jsonStream = args.includes('--json-stream');
       await ensureDaemon();
-      handleMonitorTransfer(fileId, jsonStream);
+      await handleMonitorTransfer(fileId, jsonStream);
       break;
     }
 
@@ -1563,32 +1669,236 @@ async function main() {
     }
 
     case 'mcp': {
-      await ensureDaemon();
+      try {
+        // Sandboxes may forbid local servers: the MCP process then hosts the
+        // daemon itself (no port), so every tool keeps working while it runs.
+        await ensureDaemonOrEmbedded({ force: args.includes('--foreground') });
+      } catch (e: any) {
+        console.error(`[SRIFT] Daemon unavailable: ${String(e?.message || e).split('\n')[0]} — tools will retry on first use.`);
+      }
       startMcpServer();
       break;
     }
 
     case 'quick-share':
     case 'share': {
-      const filePath = args[1];
-      if (!filePath) {
-        console.error('Usage: srift quick-share <filepath> [--name <s>] [--max-downloads <N>] [--ttl <dur>] [--once] [--json]');
-        console.error('  --ttl examples: 30s, 15m, 2h, 1d');
+      const targets = positionals(args, 1);
+      const target = targets[0];
+      if (!target) {
+        console.error('Usage: srift quick-share <file|folder|-> [more files/folders…] [--encrypt]');
+        console.error('         several paths → one .tar.gz link (default) or one link each with --separate [--bundle-name <n>]');
+        console.error('         [--password <pw>] [--ttl 30s|15m|2h|1d] [--once|--max-downloads N]');
+        console.error('         [--filename <name>] [--exclude <glob>]... [--qr] [--json]');
         process.exit(1);
       }
-      const nameIdx = args.indexOf('--name');
-      const sessionName = nameIdx !== -1 ? args[nameIdx + 1] : undefined;
-      const maxIdx = args.indexOf('--max-downloads');
-      let maxDownloads = maxIdx !== -1 ? parseInt(args[maxIdx + 1], 10) : 0;
+      const maxRaw = flagValue(args, '--max-downloads');
+      let maxDownloads = maxRaw !== undefined ? parseInt(maxRaw, 10) : 0;
+      if (maxRaw !== undefined && (!Number.isFinite(maxDownloads) || maxDownloads < 0)) {
+        console.error(`Invalid --max-downloads: "${maxRaw}"`); process.exit(1);
+      }
       if (args.includes('--once')) maxDownloads = 1;
-      const ttlIdx = args.indexOf('--ttl');
-      const ttlMs = ttlIdx !== -1 ? parseDuration(args[ttlIdx + 1]) : 0;
-      if (ttlIdx !== -1 && ttlMs <= 0) {
-        console.error(`Invalid --ttl: "${args[ttlIdx + 1]}". Use 30s, 15m, 2h, 1d.`);
+      const ttlRaw = flagValue(args, '--ttl');
+      const ttlMs = ttlRaw !== undefined ? parseDuration(ttlRaw) : 0;
+      if (ttlRaw !== undefined && ttlMs <= 0) {
+        console.error(`Invalid --ttl: "${ttlRaw}". Use 30s, 15m, 2h, 1d.`);
         process.exit(1);
       }
-      await ensureDaemon();
-      await handleQuickShare(filePath, sessionName, isJson, { maxDownloads, ttlMs });
+      const modeRaw = flagValue(args, '--mode');
+      if (modeRaw !== undefined && !['auto', 'relay'].includes(modeRaw.toLowerCase())) {
+        console.error(`Unsupported --mode "${modeRaw}": SRIFT does not store files on a server; links are served by your local daemon.`); process.exit(1);
+      }
+      const password = flagValue(args, '--password') ?? process.env.SRIFT_LINK_PASSWORD;
+      if (password && args.includes('--no-encrypt')) {
+        console.error('--password needs encryption; drop --no-encrypt.'); process.exit(1);
+      }
+      const encrypt = !!password || args.includes('--encrypt');
+      const qr = args.includes('--qr');
+      // --filename sets the recipient-visible name; --name keeps its original
+      // meaning (session name) so existing scripts don't silently rename files.
+      let displayName = flagValue(args, '--filename');
+      const sessionName = flagValue(args, '--name') ?? flagValue(args, '--session-name');
+
+      // Resolve what to share: file, folder (packed to .tar.gz) or stdin.
+      let filePath: string;
+      try {
+        if (target === '-') {
+          displayName = displayName || 'stdin.bin';
+          filePath = outboxPath(displayName.replace(/[\\/]/g, '_'));
+          const n = await stdinToFile(filePath);
+          if (!isJson) console.error(`[srift] Read ${n} bytes from stdin.`);
+        } else {
+          const abs = path.resolve(target);
+          if (!fs.existsSync(abs)) throw new Error(`File not found: ${abs}`);
+          if (fs.statSync(abs).isDirectory()) {
+            const base = path.basename(abs) || 'folder';
+            displayName = displayName || `${base}.tar.gz`;
+            filePath = outboxPath(displayName.replace(/[\\/]/g, '_'));
+            const excludes = [...DEFAULT_EXCLUDES, ...flagValues(args, '--exclude')];
+            const r = await packDirectory(abs, filePath, excludes);
+            if (!isJson) console.error(`[srift] Packed ${r.files} file(s), ${r.bytes} bytes → ${path.basename(filePath)} (excluded: ${excludes.join(', ')})`);
+          } else {
+            filePath = abs;
+          }
+        }
+      } catch (e: any) {
+        if (isJson) console.log(JSON.stringify({ success: false, error: e.message }));
+        else console.error(`Error: ${e.message}`);
+        process.exit(1);
+      }
+
+      const opts: QuickShareOpts = { maxDownloads, ttlMs, encrypt, password, name: displayName, qr };
+      const waitRaw = flagValue(args, '--wait-timeout');
+      const waitTimeoutMs = waitRaw !== undefined ? parseDuration(waitRaw) : 0;
+      if (waitRaw !== undefined && waitTimeoutMs <= 0) { console.error(`Invalid --wait-timeout: "${waitRaw}". Use 30s, 15m, 2h, 1d.`); process.exit(1); }
+
+      // Embedded: this process IS the server, so it must stay up until every
+      // recipient has the file(s). --wait does the same with a background daemon.
+      const waitIfNeeded = async (where: 'daemon' | 'embedded', tokens: string[]) => {
+        if (!tokens.length || !(where === 'embedded' || args.includes('--wait') || args.includes('--keep-alive'))) return;
+        const err = realConsole().error;
+        const keepAlive = args.includes('--keep-alive');
+        const what = tokens.length > 1 ? `all ${tokens.length} links are downloaded` : 'the download';
+        if (!isJson) err(where === 'embedded'
+          ? `[srift] Serving from this process (no background daemon here). Keep it running until ${what} — ${keepAlive ? 'Ctrl-C stops the links' : 'it exits by itself afterwards'}.`
+          : `[srift] Waiting until ${what}…`);
+        const whys = await Promise.all(tokens.map((t) => waitForDownloads(t, { keepAlive, timeoutMs: waitTimeoutMs || undefined })));
+        if (!isJson) err(`[srift] Done: ${tokens.length > 1 ? whys.map((w, i) => `#${i + 1} ${w}`).join(', ') : whys[0]}.`);
+        process.exit(whys.includes('wait timed out') ? 3 : 0);
+      };
+
+      // Several paths: one bundle link (default) or one link each (--separate).
+      if (targets.length > 1) {
+        if (targets.includes('-')) { console.error('stdin (-) cannot be combined with other paths.'); process.exit(1); }
+        // Missing paths don't sink the rest: the daemon skips and reports them
+        // (bundle) or returns them in errors[] (--separate).
+        const missing = targets.filter((t) => !fs.existsSync(path.resolve(t)));
+        if (missing.length === targets.length) {
+          const msg = `File not found: ${missing.map((m) => path.resolve(m)).join(', ')}`;
+          if (isJson) console.log(JSON.stringify({ success: false, error: msg })); else console.error(`Error: ${msg}`);
+          process.exit(1);
+        }
+        if (missing.length && !isJson) console.error(`[srift] Warning: not found, will be skipped: ${missing.map((m) => path.resolve(m)).join(', ')}`);
+        try {
+          const where = await ensureDaemonOrEmbedded({ force: args.includes('--foreground') });
+          const res = await handleQuickShareMany(targets.map((t) => path.resolve(t)), isJson, {
+            maxDownloads, ttlMs, encrypt, password, qr, sessionName,
+            bundle: !args.includes('--separate'),
+            bundleName: flagValue(args, '--bundle-name') ?? flagValue(args, '--filename'),
+            exclude: flagValues(args, '--exclude'),
+          });
+          await waitIfNeeded(where, res?.bundle === false ? (res.links || []).map((l: any) => l.token).filter(Boolean) : [res?.token].filter(Boolean));
+        } catch (e: any) {
+          if (isJson) console.log(JSON.stringify({ success: false, error: e.message }));
+          else { console.error(`Error: ${e.message}`); console.error('  Diagnose with: srift doctor'); }
+          process.exit(1);
+        }
+        break;
+      }
+
+      try {
+        const where = await ensureDaemonOrEmbedded({ force: args.includes('--foreground') });
+        const res = await handleQuickShare(filePath, sessionName, isJson, opts);
+        // Embedded: this process IS the server, so it must stay up until the
+        // recipient has the file. --wait does the same with a background daemon.
+        await waitIfNeeded(where, [res?.token].filter(Boolean));
+      } catch (e: any) {
+        if (isJson) console.log(JSON.stringify({ success: false, error: e.message }));
+        else {
+          console.error(`Error: ${e.message}`);
+          console.error('  Diagnose with: srift doctor');
+        }
+        process.exit(1);
+      }
+      break;
+    }
+
+    case 'get':
+    case 'download': {
+      const links = positionals(args, 1);
+      const link = links[0];
+      if (links.length > 1) {
+        // Several links: download in parallel into a directory (default: cwd).
+        const outDir = flagValue(args, '-o', '--out', '--output') || process.cwd();
+        if (outDir === '-') { console.error('Several links cannot all go to stdout; use -o <dir>.'); process.exit(64); }
+        fs.mkdirSync(outDir, { recursive: true });
+        const conc = Math.min(16, Math.max(1, parseInt(flagValue(args, '--concurrency') || '4', 10) || 4));
+        const results = await mapLimit(links, conc, async (l) => {
+          try {
+            const r = await getLink(l, {
+              out: outDir,
+              password: flagValue(args, '--password') ?? process.env.SRIFT_LINK_PASSWORD,
+              force: args.includes('--force'), json: true, quiet: true, userAgent: `srift-cli/${CLI_VERSION}`,
+            });
+            if (!isJson) console.error(`[srift] Saved ${r.fileName} (${r.bytes} bytes${r.encrypted ? ', decrypted' : ''}) → ${r.path}`);
+            return { link: l.split('#')[0], ...r, ok: true };
+          } catch (e: any) {
+            if (!isJson) console.error(`[srift] FAILED ${l.split('#')[0]}: ${e.message}`);
+            return { ok: false, link: l.split('#')[0], error: e.message, code: e.code || null };
+          }
+        });
+        const failed = results.filter((r) => !r.ok).length;
+        if (isJson) console.log(JSON.stringify({ ok: failed === 0, downloaded: results.length - failed, failed, results }));
+        else console.error(`[srift] ${results.length - failed}/${results.length} downloaded.`);
+        process.exit(failed ? 1 : 0);
+      }
+      if (!link) {
+        console.error('Usage: srift get <link|token> [more links…] [-o <file|dir|->] [--password <pw>] [--force] [--concurrency N] [--json]');
+        console.error('  Downloads a srift.app/d/<token> link (decrypts #k= links locally). Works where curl is blocked.');
+        process.exit(1);
+      }
+      try {
+        const r = await getLink(link, {
+          out: flagValue(args, '-o', '--out', '--output'),
+          password: flagValue(args, '--password') ?? process.env.SRIFT_LINK_PASSWORD,
+          force: args.includes('--force'),
+          json: isJson,
+          quiet: args.includes('--quiet') || args.includes('-q'),
+          userAgent: `srift-cli/${CLI_VERSION}`,
+        });
+        if (isJson) console.log(JSON.stringify(r));
+        else if (r.path) console.error(`[srift] Saved ${r.fileName} (${r.bytes} bytes${r.encrypted ? ', decrypted' : ''}) → ${r.path}`);
+      } catch (e: any) {
+        if (isJson) console.log(JSON.stringify({ ok: false, error: e.message, code: e.code || null }));
+        else console.error(`Error: ${e.message}`);
+        process.exit(e.code === 'EUSAGE' ? 64 : 1);
+      }
+      break;
+    }
+
+    case 'history': {
+      if (args.includes('--clear')) {
+        clearHistory();
+        console.log(isJson ? JSON.stringify({ ok: true }) : `[srift] Cleared ${HISTORY_FILE}`);
+        break;
+      }
+      const items = readHistory().reverse();
+      const limitArg = parseInt(flagValue(args, '--limit') || '', 10);
+      const limit = Number.isFinite(limitArg) && limitArg > 0 ? limitArg : null;
+      // --json returns everything unless --limit is given; the text view shows 20 by default.
+      if (isJson) { console.log(JSON.stringify({ items: limit ? items.slice(0, limit) : items })); break; }
+      if (!items.length) { console.log('[srift] No links created yet.'); break; }
+      const now = Date.now();
+      for (const it of items.slice(0, limit || 20)) {
+        const state = it.expiresAt && it.expiresAt <= now ? 'expired' : it.expiresAt ? `expires ${new Date(it.expiresAt).toLocaleString()}` : 'no expiry';
+        console.log(`${it.at.slice(0, 19).replace('T', ' ')}  ${it.mode.padEnd(5)} ${it.encrypted ? 'e2ee ' : 'plain'}  ${it.fileName}  (${state})`);
+        console.log(`    ${it.downloadUrl}`);
+      }
+      console.log(`\n(${HISTORY_FILE} — links include their keys; clear with: srift history --clear)`);
+      break;
+    }
+
+    case 'completion': {
+      const shell = (args[1] || '').toLowerCase();
+      const script = completionScript(shell);
+      if (!script) {
+        console.error('Usage: srift completion <bash|zsh|fish|powershell>');
+        console.error('  bash:        srift completion bash >> ~/.bashrc');
+        console.error('  zsh:         srift completion zsh > "${fpath[1]}/_srift"');
+        console.error('  fish:        srift completion fish > ~/.config/fish/completions/srift.fish');
+        console.error('  PowerShell:  srift completion powershell >> $PROFILE');
+        process.exit(1);
+      }
+      process.stdout.write(script);
       break;
     }
 
@@ -1600,7 +1910,7 @@ async function main() {
         await handlePubshareList(isJson);
       } else if (sub === 'revoke') {
         const token = args[2];
-        if (!token) { console.error('Usage: srift pubshare revoke <token> [--json]'); process.exit(1); }
+        if (!token) { console.error('Usage: srift links revoke <token> [--json]'); process.exit(1); }
         await handlePubshareRevoke(token, isJson);
       } else if (sub === 'add') {
         const fp = args[2];
@@ -1610,7 +1920,9 @@ async function main() {
         if (args.includes('--once')) maxDownloads = 1;
         const ttlIdx = args.indexOf('--ttl');
         const ttlMs = ttlIdx !== -1 ? parseDuration(args[ttlIdx + 1]) : 0;
-        await handlePubshareAdd(fp, isJson, { maxDownloads, ttlMs });
+        const password = flagValue(args, '--password');
+        const encrypt = !!password || args.includes('--encrypt');
+        await handlePubshareAdd(fp, isJson, { maxDownloads, ttlMs, encrypt, password, qr: args.includes('--qr') });
       } else {
         console.error('Usage: srift pubshare [list|add <file>|revoke <token>]');
         process.exit(1);
@@ -1661,12 +1973,20 @@ async function main() {
     }
 
     case 'doctor': {
-      await handleDoctor(isJson);
+      await handleDoctor(isJson, args.includes('--fresh') || args.includes('--deep'), args.includes('--deep'));
       break;
     }
 
     case 'config': {
       await handleConfig(args.slice(1), isJson);
+      break;
+    }
+
+    case 'agentnet':
+    case 'an': {
+      // AgentNet: agent-to-agent addresses, presence, messaging, calls (isolated module — see "A2A Plan.md").
+      const { run } = await import('./agentnet/cli.ts');
+      await run(args, { ensureDaemon: () => ensureDaemonOrEmbedded({ quiet: true }), callDaemon: callDaemonApi });
       break;
     }
 
@@ -1702,7 +2022,10 @@ Docs:     https://srift.app/ai-agents
 
 ─── Status & Diagnostics ──────────────────────────────────────────
   srift status [--json]                           Unified: daemon + session + transfers
-  srift doctor [--json]                           Full health check (daemon, network, version)
+  srift doctor [--deep] [--json] [--fresh]        Connectivity, local runtime + environment
+                                                checks with exact fixes and a plan for this
+                                                machine; --deep adds an end-to-end self-test
+                                                  (exit 0 ok, 1 degraded, 2 blocked)
   srift logs [--tail <n>] [--json-stream]         View daemon logs (default: last 50 lines)
 
 ─── Sessions ──────────────────────────────────────────────────────
@@ -1712,17 +2035,33 @@ Docs:     https://srift.app/ai-agents
   srift session close [--json]
 
 ─── Transfers ─────────────────────────────────────────────────────
-  srift quick-share <filepath>                  Public download link — open in
-        [--name <session>]                      any browser / curl / wget.
-        [--max-downloads <N>]                   Cap after N successful downloads
+  srift quick-share <file|folder|->            Download link for a file, a folder
+                                                (sent as .tar.gz) or stdin (-)
+                                                Streamed from this machine on demand;
+                                                nothing is stored on a server.
+        [--encrypt]                             End-to-end encrypt. Key stays in the
+                                                link's #part (never sent to a server).
+        [--password <pw>]                       Also require a password (implies --encrypt)
+        [--max-downloads <N>] [--once]          Cap downloads
         [--ttl <30s|15m|2h|1d>]                 Auto-expire link after duration
-        [--once]                                Shorthand for --max-downloads 1
-        [--json]
-  srift pubshare list [--json]                  Active public download links
-  srift pubshare add <filepath> [--max-downloads N] [--ttl dur] [--once]
-                                                Add another public link in the
-                                                current session
-  srift pubshare revoke <token> [--json]        Invalidate a link immediately
+        [--filename <name>]                     Recipient-visible name (stdin/folder)
+        [--name <session>]                      Session name
+        [--exclude <glob>]                      Folder only; repeatable (.git and
+                                                node_modules are always excluded)
+  srift quick-share <path> <path> …             Several files/folders: one .tar.gz link
+        [--separate] [--bundle-name <name>]     …or one link per path (created in parallel)
+        [--wait] [--wait-timeout <dur>]         Block until downloaded (exit 3 on timeout)
+        [--keep-alive]                          Serve until expiry/Ctrl-C (implies --wait)
+        [--foreground]                          Serve from this process, no background
+                                                daemon (automatic in sandboxes that
+                                                forbid local servers)
+        [--qr] [--json]
+  srift get <link|token>… [-o <path|dir|->]     Download link(s), several in parallel (works where curl is
+        [--password <pw>] [--force] [--json]    blocked; decrypts #k= links; resumes)
+  srift links list [--json]                     Active links from this daemon
+  srift links add <filepath> [...quick-share flags]
+  srift links revoke <token> [--json]           Invalidate a link immediately
+  srift history [--limit N] [--clear] [--json]  Links you created (stored locally, 0600)
   srift send <filepath> [--json]                In-session offer for joined peers
   srift receive <file-id> [--save-dir <dir>] [--json]
   srift list [--json]
@@ -1746,11 +2085,11 @@ Docs:     https://srift.app/ai-agents
   srift info                                      Zero-config quick reference
 
 ─── MCP Server ────────────────────────────────────────────────────
-  srift mcp                                       stdio transport (all 14 tools)
-  HTTP: POST http://127.0.0.1:${DAEMON_PORT}/mcp  streamable HTTP (MCP 2025-06-18)
-  SSE:  GET  http://127.0.0.1:${DAEMON_PORT}/mcp/sse
+  srift mcp                                       stdio transport (all 15 tools)
+  HTTP: POST http://127.0.0.1:${DAEMON_PORT}/mcp  streamable HTTP (MCP 2026-07-28; older clients OK)
+  SSE:  GET  http://127.0.0.1:${DAEMON_PORT}/mcp/sse   (deprecated transport, kept for old clients)
   Hosted (no install): POST https://srift.app/mcp
-        8 orchestration tools only — file/chat tools need this local daemon.
+        9 session/control tools only — file/chat tools need this local daemon.
 
 ─── Maintenance ───────────────────────────────────────────────────
   srift version [--json]
@@ -1758,6 +2097,7 @@ Docs:     https://srift.app/ai-agents
   srift reset [--json]                            Wipe daemon session state + flush keys
   srift config [get|set|delete] [key] [value]     Manage ~/.srift/config.json
   srift uninstall [--purge]                       Remove srift binary (--purge also deletes ~/.srift/)
+  srift completion <bash|zsh|fish|powershell>     Print a shell completion script
 
 Flags (global):
   --json                        Machine-readable JSON output
@@ -1766,6 +2106,10 @@ Flags (global):
 Env vars:
   SRIFT_DAEMON_PORT=3822        Change daemon port
   SRIFT_NO_UPDATE_CHECK=1       Disable background update checks
+  HTTPS_PROXY / NO_PROXY        Proxy (http://, https://, socks5://) — honoured everywhere
+  NODE_EXTRA_CA_CERTS=<pem>     Trust a TLS-inspecting proxy's root CA (never disable TLS checks)
+  SRIFT_LINK_PASSWORD           Password for quick-share/get without putting it in shell history
+  SRIFT_NO_HISTORY=1            Don't record created links in ~/.srift/history.jsonl
 `);
 }
 
@@ -1843,10 +2187,10 @@ Same command/args as above.
 
 # Cloud / browser agents (ChatGPT, Claude.ai, n8n, Zapier, etc.)
 # These run off your machine and CANNOT reach 127.0.0.1 — use the hosted endpoint:
-Hosted MCP:         POST https://srift.app/mcp        (no install, 8 orchestration tools)
+Hosted MCP:         POST https://srift.app/mcp        (no install, 9 session/control tools)
 { "mcpServers": { "srift": { "type": "streamable-http", "url": "https://srift.app/mcp" } } }
 
-# Local daemon surfaces (this machine only — full 14 tools):
+# Local daemon surfaces (this machine only — all 15 tools):
 HTTP MCP endpoint:  POST http://127.0.0.1:${DAEMON_PORT}/mcp
 OpenAPI spec:       GET  http://127.0.0.1:${DAEMON_PORT}/openapi.json
 AI Plugin:          GET  http://127.0.0.1:${DAEMON_PORT}/.well-known/ai-plugin.json
@@ -1873,12 +2217,10 @@ Everything below works without tokens, OAuth, or API keys.
     → the user opens it in any browser, or downloads via:
         curl -OJ https://srift.app/d/<token>
         wget --content-disposition https://srift.app/d/<token>
-    → the daemon keeps seeding in the background after this command exits.
-      The link stays live while that daemon is running. If it is stopped
-      (srift daemon stop, reboot, laptop sleep) the link returns 503
-      "sender is offline" — SRIFT keeps no server-side copy of the file.
-      For a link that must outlive your machine, upload it somewhere that
-      does retain the bytes; SRIFT is a relay, not storage.
+    → the daemon keeps serving in the background after this command exits,
+      and nothing is stored server-side. If the daemon stops (srift daemon
+      stop, reboot, laptop sleep) the link returns 503.
+    → add --encrypt for end-to-end encryption (key stays in the #k= part).
 
 ──── Open a long-lived collaboration room ────
   srift session start --name "AI-Collab"
@@ -1906,3 +2248,72 @@ Crypto: AES-256-GCM + PBKDF2-SHA256 (100k iter). Keys never leave the device.
 }
 
 main();
+
+function completionScript(shell: string): string | null {
+  const cmds = ALL_COMMANDS.join(' ');
+  const qsFlags = '--separate --bundle-name --wait --wait-timeout --keep-alive --foreground --encrypt --password --ttl --once --max-downloads --name --exclude --qr --json';
+  if (shell === 'bash') {
+    return `# srift bash completion
+_srift() {
+  local cur prev
+  cur="\${COMP_WORDS[COMP_CWORD]}"; prev="\${COMP_WORDS[COMP_CWORD-1]}"
+  if [ "$COMP_CWORD" -eq 1 ]; then COMPREPLY=( $(compgen -W "${cmds}" -- "$cur") ); return; fi
+  case "$prev" in
+    --ttl) COMPREPLY=( $(compgen -W "15m 1h 24h 7d" -- "$cur") ); return;;
+  esac
+  case "\${COMP_WORDS[1]}" in
+    quick-share|share) COMPREPLY=( $(compgen -W "${qsFlags}" -- "$cur") $(compgen -f -- "$cur") );;
+    get|download) COMPREPLY=( $(compgen -W "-o --password --force --json" -- "$cur") );;
+    links|pubshare) COMPREPLY=( $(compgen -W "list add revoke" -- "$cur") );;
+    completion) COMPREPLY=( $(compgen -W "bash zsh fish powershell" -- "$cur") );;
+    *) COMPREPLY=( $(compgen -f -- "$cur") );;
+  esac
+}
+complete -o default -F _srift srift
+`;
+  }
+  if (shell === 'zsh') {
+    return `#compdef srift
+_srift() {
+  local -a cmds; cmds=(${cmds})
+  if (( CURRENT == 2 )); then _describe 'command' cmds; return; fi
+  case $words[2] in
+    quick-share|share) _arguments '--encrypt' '--password:password:' '--ttl:duration:' '--once' '--max-downloads:count:' '--name:name:' '--exclude:glob:' '--qr' '--json' '*:file:_files';;
+    get|download) _arguments '-o:output:_files' '--password:password:' '--force' '--json' '1:link:';;
+    links|pubshare) _values 'subcommand' list add revoke;;
+    completion) _values 'shell' bash zsh fish powershell;;
+    *) _files;;
+  esac
+}
+compdef _srift srift
+`;
+  }
+  if (shell === 'fish') {
+    return [
+      '# srift fish completion',
+      `complete -c srift -f -n '__fish_use_subcommand' -a '${cmds}'`,
+      ...qsFlags.split(' ').map((f) => `complete -c srift -n '__fish_seen_subcommand_from quick-share share' -l ${f.slice(2)}`),
+      `complete -c srift -n '__fish_seen_subcommand_from get download' -s o -r`,
+      `complete -c srift -n '__fish_seen_subcommand_from links pubshare' -f -a 'list add revoke'`,
+      `complete -c srift -n '__fish_seen_subcommand_from completion' -f -a 'bash zsh fish powershell'`,
+      '',
+    ].join('\n');
+  }
+  if (shell === 'powershell' || shell === 'pwsh') {
+    return `# srift PowerShell completion
+Register-ArgumentCompleter -Native -CommandName srift -ScriptBlock {
+  param($wordToComplete, $commandAst, $cursorPosition)
+  $words = $commandAst.CommandElements | ForEach-Object { $_.ToString() }
+  $cands = if ($words.Count -le 2) { '${cmds}'.Split(' ') }
+    elseif ($words[1] -in @('quick-share','share')) { '${qsFlags}'.Split(' ') }
+    elseif ($words[1] -in @('links','pubshare')) { @('list','add','revoke') }
+    elseif ($words[1] -eq 'completion') { @('bash','zsh','fish','powershell') }
+    else { @() }
+  $cands | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+    [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+  }
+}
+`;
+  }
+  return null;
+}
