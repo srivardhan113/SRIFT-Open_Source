@@ -4,16 +4,14 @@ Everything needed to publish, list, and verify SRIFT across npm, the MCP
 registry, and the agent directories. Written so a cold session can pick this up
 with no prior context.
 
-**Last verified:** 2026-09-28 · npm `4.1.0` · PyPI `srift` `4.1.0` · MCP registry `app.srift/srift` `4.1.0` · srift.app `4.2.0`
+**Last verified:** 2026-09-30 · npm `4.3.0` · PyPI `srift` `4.3.0` · MCP registry `app.srift/srift` `4.3.0` · srift.app `4.3.0`
 
-**4.2.2 is prepared in the repo, not yet published** (4.2.1 was never released; its changes ship in 4.2.2).
-Commit with `SKIP_VERSION_BUMP=1 git commit …` so the pre-commit hook keeps 4.2.2. Publish in this order:
-1. Deploy the server (srift.app) — the instance mesh, RAM store, `/v1/ice` and AgentNet cross-instance sync are server-side.
-2. npm `srift-transfer@4.2.2` (packages/cli) and the `/dl/4.2.2/` binaries.
-3. PyPI `srift==4.2.2` (`python packages/pypi/build.py`, without `--skip-bundle`, so the vendored CLI is rebuilt) — its README carries the
-   `mcp-name: app.srift/srift` marker, and the wheel includes the Python SDK.
-4. MCP registry (`mcp-publisher publish`) — `server.json` lists the PyPI package too, which the
-   registry only accepts after step 3.
+Publish order for a new version:
+1. Deploy the server (srift.app) — binaries land under `/dl/<ver>/`.
+2. npm `srift-transfer@<ver>` (`packages/cli`).
+3. PyPI `srift==<ver>` (`python packages/pypi/build.py`).
+4. MCP registry (`mcp-publisher publish`) — after npm + PyPI both exist.
+5. Bump Scoop / Homebrew taps; submit winget; AUR by hand.
 
 ---
 
@@ -21,21 +19,25 @@ Commit with `SKIP_VERSION_BUMP=1 git commit …` so the pre-commit hook keeps 4.
 
 | Surface | Value | Status |
 |---|---|---|
-| npm package | [**`srift-transfer`**](https://www.npmjs.com/package/srift-transfer) | ✅ published `4.1.0` |
+| npm package | [**`srift-transfer`**](https://www.npmjs.com/package/srift-transfer) | ✅ published `4.3.0` |
 | CLI command | **`srift`** (bin name ≠ package name) | ✅ |
-| Website / API | https://srift.app | ✅ `4.2.0` |
+| Website / API | https://srift.app | ✅ `4.3.0` |
 | Hosted MCP | `POST https://srift.app/mcp` | ✅ 9 tools |
 | Local MCP | `srift mcp` (stdio) | ✅ 15 tools |
 | GitHub | `SRIPTO-Tech/srift-website` (private) | ✅ |
-| Open-source mirror | `srivardhan113/SRIFT-Open_Source` | referenced in npm metadata |
-| MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ **published 4.1.0** (isLatest) |
-| PyPI | [`srift`](https://pypi.org/project/srift/) (CLI + MCP via bundled Node.js) | ✅ `4.1.0` |
-| Python SDK | included in PyPI `srift` from 4.1.0 (`from srift import Srift`) | ✅ |
-| Other library SDKs | npm `srift`, crates, Maven, NuGet, Packagist, RubyGems | ❌ not published — direct download from `srift.app/sdk/` |
+| Open-source mirror | `srivardhan113/SRIFT-Open_Source` | ✅ docs synced |
+| MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ **published 4.3.0** (isLatest) |
+| PyPI | [`srift`](https://pypi.org/project/srift/) (CLI + MCP via bundled Node.js) | ✅ `4.3.0` |
+| Python SDK | included in PyPI `srift` (`from srift import Srift`) | ✅ |
+| Scoop | [`srivardhan113/scoop-srift`](https://github.com/srivardhan113/scoop-srift) | ✅ `4.3.0` |
+| Homebrew | [`srivardhan113/homebrew-srift`](https://github.com/srivardhan113/homebrew-srift) | ✅ `4.3.0` |
+| winget | `SRIFT.Srift` | ⏳ manifest ready — PR against `microsoft/winget-pkgs` |
+| AUR | `srift` | ⏳ PKGBUILD ready — needs AUR SSH push |
+| Other library SDKs | npm `srift`, crates, Maven, NuGet, Packagist, RubyGems | ⏳ registry tokens / account setup still required; direct download from `srift.app/sdk/` works |
 | Smithery | `srift/srift` | ✅ live ([page](https://smithery.ai/servers/srift/srift)) |
 | GitHub topics | 18 topics on the public mirror | ✅ |
 | Glama | [connector](https://glama.ai/mcp/connectors/app.srift/srift) · [server](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source) | ✅ live |
-| awesome-mcp-servers | PR submitted | ✅ |
+| awesome-mcp-servers | prior PRs closed unmerged — reopen/resubmit | ⏳ |
 
 ### Known drift to fix
 
@@ -308,11 +310,11 @@ curl -fLOJ "https://srift.app/d/<token>"
 
 ## 8. Remaining work
 
-1. ~~Publish npm~~ ✅ `4.1.0` (4.2.2 pending)
-2. ~~MCP registry~~ ✅ `app.srift/srift` (`4.1.0`; 4.2.2 pending)
-3. **Smithery / Glama / awesome-mcp-servers / GitHub topics**
-4. Google Search Console — no verification code set; `app/layout.tsx` only emits
-   one if `GOOGLE_VERIFICATION_CODE` is in the environment
-5. Backlinks: Show HN, Product Hunt, r/selfhosted, AlternativeTo
-6. Optional product call: make `roomSecret` prominent or default — it is the only
-   path to a truthful zero-knowledge claim
+1. ~~Publish npm / PyPI / MCP~~ ✅ `4.3.0`
+2. ~~Scoop + Homebrew taps~~ ✅ live
+3. **winget** — submit `packaging/winget/manifests/.../4.3.0` via `wingetcreate` / PR to `microsoft/winget-pkgs`
+4. **AUR** — push `packaging/aur` with AUR SSH (`ssh://aur@aur.archlinux.org/srift.git`)
+5. **Library SDKs** — publish when registry tokens exist (crates / NuGet / RubyGems / Packagist / npm `srift` if name allowed; else keep `srift.app/sdk/` downloads)
+6. **awesome-mcp-servers** — reopen PR (earlier PRs closed unmerged)
+7. Google Search Console — set `GOOGLE_VERIFICATION_CODE` if desired
+8. Backlinks: Show HN, Product Hunt, r/selfhosted, AlternativeTo

@@ -19,13 +19,13 @@
 #      to npm.
 #   2. Update `url`, `sha256`, and `version` below.
 #   3. Commit to the `srivardhan113/homebrew-srift` tap repo (CI job
-#      `winget-scoop-tap-bump` in `.github/workflows/release-distribution.yml`
+#      `tap-bump` in `.github/workflows/release-distribution.yml`
 #      does this automatically when `HOMEBREW_TAP_TOKEN` is configured).
 class Srift < Formula
   desc "Zero-config, zero-token P2P E2EE file transfer, chat, and MCP server"
   homepage "https://srift.app"
-  url "https://registry.npmjs.org/srift-transfer/-/srift-transfer-4.1.0.tgz"
-  sha256 "" # TODO: fill in with `shasum -a 256` of the published tarball before tagging a release
+  url "https://registry.npmjs.org/srift-transfer/-/srift-transfer-4.3.0.tgz"
+  sha256 "9b8dc66876013e01bdcb10b656cb7abee8ceacb5a68441077c5b1bbf74fbcd9b"
   license "MIT"
 
   depends_on "node"
@@ -37,9 +37,8 @@ class Srift < Formula
 
   test do
     assert_match version.to_s, shell_output("#{bin}/srift --version")
-    # `srift doctor --json` never touches the network beyond localhost and
-    # exits 0 even with no daemon running yet (it starts one), so it is a
-    # reasonable install smoke test without requiring E2E connectivity in CI.
+    # `srift version --json` needs no network and no daemon, so it is a safe
+    # install smoke test in Homebrew's sandboxed CI.
     system "#{bin}/srift", "version", "--json"
   end
 end
