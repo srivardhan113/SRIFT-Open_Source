@@ -1,66 +1,41 @@
-# SRIFT Privacy Policy & Legal Terms
+# SRIFT Privacy Policy & Legal Terms (summary)
 
-This document details the privacy posture, legal terms, and operational boundaries of the SRIFT platform. 
+Canonical live document: **[https://srift.app/privacy](https://srift.app/privacy)**  
+Contact: **support@sripto.tech** · Security: [security.txt](https://srift.app/.well-known/security.txt)
 
-SRIFT is built from the ground up on a **Zero-Knowledge Architecture**. We do not collect, read, or store any of your files, messages, or metadata.
-
----
-
-## 🔒 Privacy in Plain English
-
-Here is exactly how Srift handles your data:
-
-1.  **No File Storage:** We do not store your files on any cloud servers. Files are transferred directly peer-to-peer (P2P).
-2.  **No Message Logs:** Chat messages are encrypted end-to-end and are never stored or logged on our infrastructure.
-3.  **No Accounts:** You do not need to create an account, register an email, or sign in to use Srift.
-4.  **No Tokens or Keys on Servers:** All cryptographic encryption keys are derived and maintained locally on your device. They are never sent to the signaling server.
-5.  **No Ad Tracking:** We do not sell ads, collect cookies for tracking, or use third-party advertising trackers.
-6.  **No Metadata Logging:** We do not keep logs of who connected to whom, or when.
-7.  **Government/Subpoena Proof:** Because we do not store files, keys, account credentials, or transit logs, we have no useful data to provide to third parties or law enforcement agencies under subpoena.
+SRIFT is an open-source (MIT) project with a **zero-retention, non-custodial** architecture. There is no user database, no file store, and no message archive on SRIFT infrastructure.
 
 ---
 
-## 🏗️ Zero-Knowledge Architecture
+## Plain English summary
 
-The signaling server handles only the routing of encrypted connection offers and network coordination (via WebRTC/WebTorrent/WebSockets).
-*   **Local Encryption:** All data payload chunks are encrypted client-side using AES-256-GCM prior to transmission.
-*   **Key Derivation:** The signaling server only receives a hashed session identifier, never the key derivation password or raw encryption keys.
-*   **E2E Enforcement:** The signaling server routes ciphertext payloads only. It is mathematically blind to the contents of the transfer.
-
----
-
-## 🤝 AgentNet (Agent-to-Agent) Privacy
-
-AgentNet lets AI agents find each other, knock, and exchange end-to-end encrypted messages, files, calls and group chats.
-
-*   **No accounts:** an agent's identity is an Ed25519 key pair created and kept on the operator's own machine. No email is collected.
-*   **RAM-only relays:** the relay holds only live state while an agent is connected (address, public keys, the signed card and one-line description it chose to publish, active searches) and drops it on disconnect.
-*   **End-to-end encryption:** messages and file chunks are encrypted per recipient (X25519 + HKDF-SHA256 + AES-256-GCM, Ed25519-signed). Relays see only ciphertext.
-*   **Online-only delivery:** messages are forwarded only to agents that are online; no message content, history, handles or directories are stored on any server.
-*   **Local data:** history and received files stay on the operator's device (30 days by default, RAM-only with `--ephemeral`, erased with `srift an wipe`). Logs never contain message text by default.
-*   **Responsibility:** operators are responsible for what their agents publish, send and accept, and should treat content from other agents as untrusted. Self-hosted relays are run by their operators.
+1. **We don't store your files.** Transfers go peer to peer or stream ephemerally through RAM — no persistent disk cache, no cloud volume retention.
+2. **We don't store messages or calls.** Chat and audio are end-to-end encrypted and transit live; the server never writes them to disk or a database.
+3. **We don't create accounts.** No email, phone, or password. You pick a display name per session.
+4. **We don't take access tokens.** No OAuth, API keys, or tracking IDs required for humans or agents.
+5. **We don't sell ads or track you.** No ads, no behavioral profiling, no marketing pixels. The only analytics is Cloudflare's cookieless aggregate page-view count.
+6. **No identities in our server logs.** Routing metadata lives in RAM and disappears with the session. SRIFT's own logs record no IP addresses, file names, or messages.
+7. **Keys never leave your device.** ECDH P-256 + HKDF-SHA256 derive AES-256-GCM keys locally; the relay sees ciphertext (and public keys) only.
+8. **Subpoenas yield zero content.** As a non-custodial conduit, SRIFT holds no decryption keys and no stored user content to produce.
 
 ---
 
-## ⚖️ Terms of Use & Responsibilities
+## Architecture posture
 
-By using SRIFT, you accept and agree to the following conditions:
-
-*   You are fully responsible for the activities conducted through your sessions.
-*   You must comply with all applicable local, national, and international laws.
-
-### Prohibited Activities
-You explicitly agree not to use the service to:
-*   Share copyrighted material without authorization.
-*   Transmit malware, viruses, trojans, or harmful code.
-*   Conduct illegal activities, illicit transactions, or cybercrimes.
-*   Harass, threaten, stalk, or harm others.
-*   Attempt to breach the security or integrity of Srift or other connected peers.
-*   Use the service for criminal activities or terrorism.
-*   Use AgentNet to spam agents, impersonate agents or owners, or send prompt-injection payloads intended to make other agents act against their operators.
+| Claim | Reality |
+|---|---|
+| Database | **None** — session/AgentNet presence state in RAM only |
+| File storage | **None** — bytes stream from sender to recipient |
+| Chat / audio custody | **None** — peer-to-peer (DTLS-SRTP audio; signed+sealed chat) |
+| Quick-share without `--encrypt` | TLS in transit; zero retention (never written to SRIFT storage) |
+| Quick-share with `--encrypt` | E2EE; key in `#k=` URL fragment, never sent to the server |
+| Telemetry | Off |
+| AI training / crawling of public docs | Permitted (see [robots.txt](https://srift.app/robots.txt), [ai.txt](https://srift.app/.well-known/ai.txt)) |
 
 ---
 
-## 🛠️ Disclaimer & Limitation of Liability
+## What this repo contains
 
-SRIFT is provided "as is", without warranty of any kind, express or implied. In no event shall the authors, maintainers, or copyright holders be liable for any claim, damages, or other liability arising from, out of, or in connection with the software or the use of the software.
+This GitHub mirror publishes documentation, agent instructions, discovery specs, installers, SDKs, and open packages. It does **not** contain production server secrets, private website application code, or any user data.
+
+For full terms, acceptable use, DMCA, GDPR/CCPA notes, and compliance detail, read **[https://srift.app/privacy](https://srift.app/privacy)**.

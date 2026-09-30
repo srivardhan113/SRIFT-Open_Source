@@ -124,12 +124,15 @@ runs:
         fi
         [ -n "$SRIFT_PASSWORD" ] && args+=(--password "$SRIFT_PASSWORD")
 
+        # Nothing is left in the workspace: stderr goes to a runner temp dir removed on exit.
+        tmp="$(mktemp -d "${RUNNER_TEMP:-/tmp}/srift.XXXXXX")"
+        trap 'rm -rf "$tmp"' EXIT
         echo "::group::srift-transfer quick-share"
         set +e
-        raw="$(npx -y "srift-transfer@${SRIFT_CLI_VERSION}" "${args[@]}" 2>err.log)"
+        raw="$(npx -y "srift-transfer@${SRIFT_CLI_VERSION}" "${args[@]}" 2>"$tmp/err.log")"
         status=$?
         set -e
-        cat err.log >&2 || true
+        cat "$tmp/err.log" >&2 || true
         echo "::endgroup::"
 
         if [ $status -ne 0 ] || [ -z "$raw" ]; then
@@ -157,19 +160,15 @@ runs:
             console.error("::error title=SRIFT Quick Share::response missing downloadUrl: " + JSON.stringify(out));
             process.exit(1);
           }
+          // Mask before the URL (which may carry the #k= key) is written anywhere.
+          if (process.env.SRIFT_MASK_URL === "true") console.log("::add-mask::" + out.downloadUrl);
           const lines = [
             `url=${out.downloadUrl}`,
             `token=${out.token ?? ""}`,
-            `expires-at=${out.expiresAt ?? ""}`,
+            `expires-at=${out.expiresAt ? new Date(out.expiresAt).toISOString() : ""}`,
           ];
           fs.appendFileSync(process.env.GITHUB_OUTPUT, lines.join("\n") + "\n");
-          fs.writeFileSync("srift-share-result.json", JSON.stringify(out, null, 2));
         ' "$raw"
-
-        if [ "$SRIFT_MASK_URL" = "true" ]; then
-          url="$(node -e 'console.log(JSON.parse(require("fs").readFileSync("srift-share-result.json","utf8")).downloadUrl)')"
-          echo "::add-mask::$url"
-        fi
 
     - name: Wait for the download
       if: inputs.wait-for-download != '0' && inputs.wait-for-download != '' && steps.share.outputs.token != ''

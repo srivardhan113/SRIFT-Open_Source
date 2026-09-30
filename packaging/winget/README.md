@@ -9,7 +9,7 @@ prebuilt binary (`InstallerType: portable`) from `https://srift.app/dl/<version>
 winget-submitted packages are expected to be self-contained installers/binaries.
 
 ```
-packaging/winget/manifests/s/SRIFT/Srift/3.0.0/
+packaging/winget/manifests/s/SRIFT/Srift/<version>/
 ├── SRIFT.Srift.yaml              # version manifest
 ├── SRIFT.Srift.installer.yaml    # installer manifest (InstallerSha256 is a placeholder)
 └── SRIFT.Srift.locale.en-US.yaml # default locale manifest
@@ -27,14 +27,14 @@ winget install wingetcreate  # or: iwr https://aka.ms/wingetcreate/latest -OutFi
 # First submission — interactively generates + validates a manifest, then
 # opens the PR against microsoft/winget-pkgs for you (needs `gh auth login`
 # or a GITHUB_TOKEN):
-wingetcreate new https://srift.app/dl/3.0.0/win-x64/srift.exe `
-  --id SRIFT.Srift --version 3.0.0
+wingetcreate new https://srift.app/dl/<version>/win-x64/srift.exe `
+  --id SRIFT.Srift --version <version>
 
 # Subsequent releases — bumps version + recomputes InstallerSha256 from the
 # URL automatically, reusing the existing manifest as a template:
 wingetcreate update SRIFT.Srift `
-  --version 3.0.0 `
-  --urls https://srift.app/dl/3.0.0/win-x64/srift.exe `
+  --version <version> `
+  --urls https://srift.app/dl/<version>/win-x64/srift.exe `
   --submit
 ```
 
@@ -47,5 +47,5 @@ maintainer's behalf) — see that workflow for the exact `if:` guard.
 ## Manual validation
 
 ```powershell
-winget validate --manifest packaging/winget/manifests/s/SRIFT/Srift/3.0.0/
+winget validate --manifest packaging/winget/manifests/s/SRIFT/Srift/<version>/
 ```

@@ -6,7 +6,7 @@
     Installs or uninstalls the SRIFT CLI on Windows (PowerShell 5.1+, pwsh 7+).
 
     Install:   irm https://srift.app/install.ps1 | iex
-    Uninstall: irm https://srift.app/install.ps1 | iex; # then run: Uninstall-Srift
+    Uninstall: irm https://srift.app/install.ps1 | iex; # then run: Uninstall-SRIFT
     Or pipe with args:
       & ([scriptblock]::Create((irm https://srift.app/install.ps1))) --uninstall
       & ([scriptblock]::Create((irm https://srift.app/install.ps1))) --uninstall --purge
@@ -16,6 +16,7 @@
       $env:SRIFT_VERSION      - pin a specific version (default: latest)
       $env:SRIFT_INSTALL_DIR  - override install directory (default: ~\.srift\bin)
       $env:SRIFT_NO_VERIFY    - set to 1 to skip checksum (not recommended)
+      $env:SRIFT_NO_MODIFY_PATH - set to 1 to leave the user PATH unchanged
 
     Script args (when invoked with & ([scriptblock]::Create(...)) args):
       --uninstall             Remove the srift binary and PATH entry
@@ -32,7 +33,7 @@ try {
     $OutputEncoding = New-Object System.Text.UTF8Encoding
 } catch { <# best-effort #> }
 
-$SriftVersion   = if ($env:SRIFT_VERSION)     { $env:SRIFT_VERSION }     else { '4.1.0' }
+$SriftVersion   = if ($env:SRIFT_VERSION)     { $env:SRIFT_VERSION }     else { '4.3.0' }
 $InstallDir     = if ($env:SRIFT_INSTALL_DIR) { $env:SRIFT_INSTALL_DIR } else { Join-Path $HOME '.srift\bin' }
 $BaseUrl        = 'https://srift.app/dl'
 $BinPath        = Join-Path $InstallDir 'srift.exe'
@@ -40,14 +41,16 @@ $BinPath        = Join-Path $InstallDir 'srift.exe'
 function Write-Info    { param($M) Write-Host "[srift] $M" -ForegroundColor Cyan }
 function Write-Success { param($M) Write-Host "[srift] $M" -ForegroundColor Green }
 function Write-Warn    { param($M) Write-Host "[srift] WARNING: $M" -ForegroundColor Yellow }
-function Write-Err     { param($M) Write-Host "[srift] ERROR: $M" -ForegroundColor Red; exit 1 }
+# Throws instead of `exit`: under `irm ... | iex`, exit would close the user's PowerShell window.
+# The marker lets inner try/catch blocks re-throw an abort instead of swallowing it.
+function Write-Err     { param($M) Write-Host "[srift] ERROR: $M" -ForegroundColor Red; throw "SRIFT_INSTALL_ABORT: $M" }
 
 # Detect architecture
 function Get-Arch {
     $arch = $env:PROCESSOR_ARCHITECTURE
     switch ($arch) {
         'AMD64' { return 'x64' }
-        'ARM64' { return 'arm64' }
+        'ARM64' { return 'x64' }   # Windows on ARM runs the x64 build (emulated); there is no win-arm64 build
         default { Write-Err "Unsupported CPU architecture: $arch" }
     }
 }
@@ -60,7 +63,7 @@ function Get-Checksum {
     return $null
 }
 
-function Uninstall-Srift {
+function Uninstall-SRIFT {
     param([switch]$Purge)
 
     Write-Info "Uninstalling SRIFT..."
@@ -265,7 +268,7 @@ function Install-Main {
     # Handle --uninstall flag
     if ($ScriptArgs -contains '--uninstall') {
         $purge = $ScriptArgs -contains '--purge'
-        Uninstall-Srift -Purge:$purge
+        Uninstall-SRIFT -Purge:$purge
         return
     }
 
@@ -464,13 +467,14 @@ del /f /q "%~f0" >nul 2>&1
                     }
                     Write-Success "Checksum verified ($($expected.Substring(0,16))...)"
                 } else {
-                    Write-Warn "No checksum for srift.exe in SHA256SUMS. Skipping verification."
+                    Write-Err "No checksum for srift.exe in SHA256SUMS. Refusing to install an unverified binary (set SRIFT_NO_VERIFY=1 to override)."
                 }
             } catch {
-                Write-Warn "Could not parse SHA256SUMS. Skipping verification."
+                if ("$_" -like 'SRIFT_INSTALL_ABORT*') { throw }
+                Write-Err "Could not read SHA256SUMS to verify the binary. Re-run, or set SRIFT_NO_VERIFY=1 to skip (not recommended)."
             }
         } else {
-            Write-Warn "Could not download SHA256SUMS. Skipping verification."
+            Write-Err "Could not download SHA256SUMS to verify the binary. Re-run, or set SRIFT_NO_VERIFY=1 to skip (not recommended)."
         }
     } else {
         Write-Warn "Checksum verification skipped (SRIFT_NO_VERIFY=1). Not recommended."
@@ -521,7 +525,9 @@ del /f /q "%~f0" >nul 2>&1
     # Add to PATH (user scope)
     $currentPath = [System.Environment]::GetEnvironmentVariable('Path', 'User')
     if (-not $currentPath) { $currentPath = '' }
-    if ($currentPath -notlike "*$InstallDir*") {
+    if ($env:SRIFT_NO_MODIFY_PATH -eq '1') {
+        Write-Info "Skipping PATH change (SRIFT_NO_MODIFY_PATH=1). Run $BinPath directly."
+    } elseif ($currentPath -notlike "*$InstallDir*") {
         $newUserPath = if ($currentPath) { "$InstallDir;$currentPath" } else { $InstallDir }
         [System.Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
         Write-Success "Added $InstallDir to user PATH."
@@ -595,4 +601,11 @@ public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wP
     Write-Info "============================================================"
 }
 
-Install-Main -ScriptArgs $args
+try {
+    Install-Main -ScriptArgs $args
+} catch {
+    if ("$_" -notlike 'SRIFT_INSTALL_ABORT*') { Write-Host "[srift] ERROR: $_" -ForegroundColor Red }
+    # Run as a file (powershell -File install.ps1): report failure to the caller / CI.
+    # Run via `irm | iex`: just stop, keeping the user's window open.
+    if ($PSCommandPath) { exit 1 }
+}

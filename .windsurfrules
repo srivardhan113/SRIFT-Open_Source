@@ -49,7 +49,7 @@ Or via hosted MCP:
 
 ## Project Principles
 
-- Never introduce banned claims: `military-grade`, `#1`, `files never touch any server`.
+- Never introduce banned claims: `#1`, `files never touch any server`.
 - npm package git repository reference: `https://github.com/srivardhan113/SRIFT-Open_Source`.
 - Tests must pass: `npm test` (~380 tests, all must pass).
 - SEO audit must pass: `node scripts/verify-seo.mjs`.

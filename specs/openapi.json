@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "SRIFT API",
-    "version": "4.1.0",
+    "version": "4.3.0",
     "summary": "Zero-config, zero-token P2P E2EE file transfer + chat for any AI agent or automation. Includes a public download tunnel at https://srift.app/d/<token> so recipients need nothing installed.",
     "description": "Two API surfaces:\n\n  1. **Local daemon** at `http://127.0.0.1:3822` (recommended for AI agents — fully token-less).\n  2. **Public signaling** at `https://srift.app` (used by browser clients).\n\nFor AI agents, use the local daemon endpoints (everything under /quick-share, /session/*, /send, /receive, /chat/*, /mcp). Documentation: https://srift.app/AGENTS.md",
     "contact": {
@@ -55,6 +55,10 @@
     {
       "name": "agentnet",
       "description": "Agent-to-agent relay (https://srift.app or self-hosted). WebSocket transport at /an. RAM only: no message storage, no database."
+    },
+    {
+      "name": "transport",
+      "description": "TURN credentials and the HTTPS fallback for the session socket"
     }
   ],
   "paths": {
@@ -123,6 +127,18 @@
                       "type": "string"
                     },
                     "description": "Extra glob patterns skipped when packing folders (.git and node_modules always skipped)."
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Recipient-visible file name"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "relay",
+                      "auto"
+                    ],
+                    "description": "Accepted for older clients. Links are always relay links served by this daemon (nothing is stored on a server)."
                   }
                 }
               }
@@ -172,6 +188,18 @@
                   "ttlMs": {
                     "type": "integer",
                     "minimum": 0
+                  },
+                  "encrypt": {
+                    "type": "boolean",
+                    "description": "End-to-end encrypt; the key rides in the #k= fragment"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "Password-protect (implies encrypt)"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Recipient-visible file name"
                   }
                 }
               }
@@ -260,7 +288,7 @@
           "discovery"
         ],
         "summary": "Public download tunnel — recipient downloads the file via standard HTTP",
-        "description": "Streams the file as a standard HTTP response from the seeder's daemon via the signaler. `Content-Disposition: attachment; filename=\"…\"` so browsers and `curl -OJ` / `wget --content-disposition` auto-name the file. Supports HTTP Range (`Accept-Ranges: bytes`) for resume. Honours `maxDownloads` and `ttlMs` set at registration time. Concurrent recipients each get an independent parallel stream.",
+        "description": "Streams the file as a standard HTTP response from the seeder's daemon via the signaler. `Content-Disposition: attachment; filename=\"…\"` so browsers and `curl -fLOJ` / `wget --content-disposition` auto-name the file. Supports HTTP Range (`Accept-Ranges: bytes`) for resume. Honours `maxDownloads` and `ttlMs` set at registration time. Concurrent recipients each get an independent parallel stream.",
         "responses": {
           "200": {
             "description": "Full file",
@@ -474,7 +502,11 @@
                   },
                   "roomSecret": {
                     "type": "string",
-                    "description": "Optional shared secret mixed into key derivation — never sent to server. Without it the key is derivable from the session ID (which the server sees); set it to make the key participant-only."
+                    "description": "Optional shared secret mixed into every key — never sent to the server. A member who joins with a different secret cannot read chat or files."
+                  },
+                  "username": {
+                    "type": "string",
+                    "description": "Display name in the session"
                   }
                 }
               }
@@ -714,6 +746,14 @@
                 "properties": {
                   "filePath": {
                     "type": "string"
+                  },
+                  "protocol": {
+                    "type": "string",
+                    "enum": [
+                      "websocket",
+                      "webtorrent"
+                    ],
+                    "description": "Transport. Default: the end-to-end sealed relay ('websocket'), which carries every size. 'webtorrent' is honoured only when the network diagnosis shows peer connections work and SRIFT_DISABLE_WEBTORRENT is not set; otherwise the relay is used."
                   }
                 }
               }
@@ -934,7 +974,7 @@
         "tags": [
           "mcp"
         ],
-        "summary": "MCP JSON-RPC over Streamable HTTP (spec 2025-06-18)",
+        "summary": "MCP JSON-RPC over Streamable HTTP (spec 2026-07-28)",
         "responses": {
           "200": {
             "description": "JSON-RPC response"
@@ -1067,7 +1107,7 @@
         "tags": [
           "discovery"
         ],
-        "summary": "Readiness probe (includes DB check)",
+        "summary": "Readiness probe",
         "responses": {
           "200": {
             "description": "OK"
@@ -1731,6 +1771,666 @@
         },
         "operationId": "postDaemonStop"
       }
+    },
+    "/v1/ice": {
+      "get": {
+        "tags": [
+          "transport"
+        ],
+        "operationId": "getIceServers",
+        "servers": [
+          {
+            "url": "https://srift.app",
+            "description": "SRIFT server"
+          }
+        ],
+        "summary": "Short-lived ICE (STUN/TURN) servers for WebRTC",
+        "description": "Merged, short-lived TURN credentials from every provider the operator configured (Cloudflare Realtime TURN, own coturn, Metered, static), asked in parallel. An empty list means no TURN is configured; clients then use public STUN, the sealed relay and the HTTPS stream.",
+        "responses": {
+          "200": {
+            "description": "ICE servers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "iceServers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "urls": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "username": {
+                            "type": "string"
+                          },
+                          "credential": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "urls"
+                        ]
+                      }
+                    },
+                    "providers": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "ttl": {
+                      "type": "integer",
+                      "description": "Seconds the credentials stay valid"
+                    }
+                  },
+                  "required": [
+                    "iceServers",
+                    "ttl"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stream/http/open": {
+      "post": {
+        "tags": [
+          "transport"
+        ],
+        "operationId": "openHttpStream",
+        "servers": [
+          {
+            "url": "https://srift.app",
+            "description": "SRIFT server"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "s",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}[0-9]{4}$"
+            },
+            "description": "Session code; routes the request to the instance that holds the session"
+          }
+        ],
+        "summary": "Open the session socket over plain HTTPS",
+        "description": "For networks that block WebSockets. The returned stream behaves exactly like the session WebSocket (same messages).",
+        "responses": {
+          "200": {
+            "description": "Stream opened",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "pollMs": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/stream/http/tx": {
+      "post": {
+        "tags": [
+          "transport"
+        ],
+        "operationId": "sendHttpStream",
+        "servers": [
+          {
+            "url": "https://srift.app",
+            "description": "SRIFT server"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "s",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}[0-9]{4}$"
+            },
+            "description": "Session code; routes the request to the instance that holds the session"
+          }
+        ],
+        "summary": "Send frames on an HTTPS stream",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "n": {
+                    "type": "integer",
+                    "description": "Sequence number of m[0]"
+                  },
+                  "m": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "id",
+                  "n",
+                  "m"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Frames up to n were delivered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "n": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown stream: reconnect"
+          },
+          "409": {
+            "description": "Resume from expect"
+          },
+          "410": {
+            "description": "Stream closed"
+          }
+        }
+      }
+    },
+    "/v1/stream/http/rx": {
+      "post": {
+        "tags": [
+          "transport"
+        ],
+        "operationId": "receiveHttpStream",
+        "servers": [
+          {
+            "url": "https://srift.app",
+            "description": "SRIFT server"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "s",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}[0-9]{4}$"
+            },
+            "description": "Session code; routes the request to the instance that holds the session"
+          }
+        ],
+        "summary": "Long-poll frames from an HTTPS stream",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "ack": {
+                    "type": "integer",
+                    "description": "Highest frame sequence already received"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Frames after ack (m) and, once all are delivered, the close code (closed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "m": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "n": {
+                            "type": "integer"
+                          },
+                          "d": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "closed": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "integer"
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown stream: reconnect"
+          }
+        }
+      }
+    },
+    "/v1/stream/http/close": {
+      "post": {
+        "tags": [
+          "transport"
+        ],
+        "operationId": "closeHttpStream",
+        "servers": [
+          {
+            "url": "https://srift.app",
+            "description": "SRIFT server"
+          }
+        ],
+        "parameters": [
+          {
+            "name": "s",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Z]{3}[0-9]{4}$"
+            },
+            "description": "Session code; routes the request to the instance that holds the session"
+          }
+        ],
+        "summary": "Close an HTTPS stream",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "integer"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Closed"
+          }
+        }
+      }
+    },
+    "/api/an/ack": {
+      "post": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Acknowledge delivered envelopes",
+        "description": "Tells the relay these envelope ids reached the agent, so the sender sees `delivered`. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postApiAnAck",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "ids"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/presence": {
+      "get": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Presence of one agent",
+        "description": "Returns `{address, state}` for `?addr=` as the caller is allowed to see it (presence mode, allow/deny lists). Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "getApiAnPresence",
+        "parameters": [
+          {
+            "name": "addr",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/watch": {
+      "post": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Watch agents come online / go offline",
+        "description": "Registers addresses to watch on a long-poll connection (`cid`); returns their current states. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postApiAnWatch",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cid": {
+                    "type": "string"
+                  },
+                  "addresses": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "cid"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/acl": {
+      "post": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Set presence visibility",
+        "description": "Sets who may see this agent online (`everyone|contacts|nobody` plus allow/deny lists). Held in RAM while connected. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postApiAnAcl",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "acl": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "acl"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/leave": {
+      "post": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Close a long-poll connection",
+        "description": "Ends the long-poll connection `cid` (the agent goes offline if it was its last). Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postApiAnLeave",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cid": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "cid"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/api/an/report": {
+      "post": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "Report an agent",
+        "description": "Flags an agent address for abuse review (rate limited: 20 per hour). Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        },
+        "operationId": "postApiAnReport",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "address": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "address"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
+    },
+    "/a/{address}": {
+      "parameters": [
+        {
+          "name": "address",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          },
+          "description": "srift:XXXX-… address or @handle of an ONLINE agent"
+        }
+      ],
+      "get": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "A2A Agent Card of an online agent",
+        "description": "Also at /a/{address}/.well-known/agent.json and /agent-card.json; did:wba document at /a/{address}/did.json. 404 `not_online` when the agent is offline (nothing is stored).",
+        "responses": {
+          "200": {
+            "description": "A2A Agent Card"
+          },
+          "404": {
+            "description": "not_online"
+          }
+        },
+        "operationId": "getAgentCard"
+      },
+      "post": {
+        "tags": [
+          "agentnet"
+        ],
+        "summary": "A2A JSON-RPC message/send to an online agent",
+        "description": "Unauthenticated bridge: the message arrives at the agent as a message request. Error -32001 `agent_offline` when the agent is not online (retry later; nothing is queued).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "jsonrpc",
+                  "method"
+                ],
+                "properties": {
+                  "jsonrpc": {
+                    "const": "2.0"
+                  },
+                  "id": {},
+                  "method": {
+                    "enum": [
+                      "message/send",
+                      "tasks/send"
+                    ]
+                  },
+                  "params": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON-RPC response"
+          }
+        },
+        "operationId": "postAgentMessage"
+      },
+      "servers": [
+        {
+          "url": "https://srift.app",
+          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+        }
+      ]
     }
   },
   "components": {

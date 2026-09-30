@@ -1,8 +1,78 @@
 {
   "$comment": "SRIFT machine-readable changelog. Human-readable version at /CHANGELOG.md.",
   "project": "SRIFT",
-  "latestVersion": "4.1.0",
+  "latestVersion": "4.3.0",
   "releases": [
+    {
+      "version": "4.3.0",
+      "date": "2026-09-30",
+      "kind": "minor",
+      "securityFix": true,
+      "summary": "4.3.0 (includes the unpublished 4.2.3–4.2.5): every prebuilt binary starts again (glibc and musl Linux builds, macOS, Windows), per-member session socket tokens, installer and self-update fixes, and AgentNet hardening against strangers and hostile relays.",
+      "breaking": [],
+      "changes": [
+        "Prebuilt binaries no longer exit at start-up (WebTorrent is kept outside the binary); Linux builds link glibc again, with new linux-x64-musl / linux-arm64-musl builds for Alpine.",
+        "srift self-update verifies the per-target checksum and refuses an unverified binary.",
+        "A local or self-hosted server no longer points clients at srift.app (production defaults apply on Cloud Run only).",
+        "Session sockets must present the per-member wsToken issued at create/join.",
+        "Installers: version pinning, busybox wget, no 404 retry storms, checksum required, PowerShell window kept open on errors, Windows on ARM, SRIFT_NO_MODIFY_PATH for install.ps1.",
+        "The .mcpb bundle ships the self-contained CLI; the AUR package installs the npm tarball.",
+        "Browser transfers: live progress bars, sender shows uploading, receiver cancel stops every path, gone offers close, transport chunk-load failures recover.",
+        "AgentNet: workspace check on every MCP file path (symlinks, Windows case), IPv6/DNS-rebinding SSRF fixes, call-scoped trust, on-disk replay cache, strict relay host binding, 7-day MCP invite default, knock exit codes 5 (no answer) and 1 (not delivered).",
+        "File offers tracked per recipient; host sees join requests immediately; new interface across the site and dashboard.",
+        "Every SDK's quick-share accepts the daemon options (encrypt, password, TTL, download limit, several paths).",
+        "Group state carries signed admin grants back to the creator; first-seen states without a valid chain are refused."
+      ]
+    },
+    {
+      "version": "4.2.2",
+      "date": "2026-09-28",
+      "kind": "patch",
+      "securityFix": true,
+      "summary": "4.2.2: no database anywhere, peer-to-peer chat and audio, keys generated on each device for everything that passes through the server, short-lived TURN, an HTTPS fallback for networks that block WebSockets, and every CLI file size sent over the sealed relay by default.",
+      "breaking": [],
+      "changes": [
+        "No database: sessions live in memory only, and any number of server instances act as one over an authenticated instance mesh. Each session has a home instance with an in-memory backup on a sibling; a crashed instance's sessions resume within seconds, and shutdowns hand sessions over first.",
+        "Browser chat and audio are peer to peer: a WebRTC mesh (full mesh up to 10, bounded overlay beyond). Audio is DTLS-SRTP, or sealed Opus frames carried by other members when two people cannot connect. Chat is signed by its author, sealed with per-sender keys that rotate when someone leaves, and never stored on a server. LiveKit is gone.",
+        "Participant-only keys (ECDH P-256 + HKDF-SHA256 + AES-256-GCM) for everything relayed through the server: the chat copy for CLI/agent members and WebSocket-relayed file chunks (a fresh key pair per transfer). The room secret is mixed into every key. Older peers keep the previous format.",
+        "GET /v1/ice mints short-lived TURN credentials from every configured provider in parallel (Cloudflare Realtime TURN, own coturn, Metered, static); public STUN from four operators.",
+        "HTTPS session stream: browsers switch to /v1/stream/http/* when WebSockets never open, with the same behaviour and sequence-numbered, acknowledged delivery.",
+        "Session mesh routes around a degraded peer link at once instead of sending into it while ICE recovers.",
+        "CLI files of every size now go over the end-to-end sealed relay by default (WebTorrent is now opt-in). Before, files over 10 MB went to WebTorrent: a CLI-to-CLI transfer could stall with no fallback, the bytes were not end-to-end encrypted, and the client joined the public BitTorrent DHT. Requested WebTorrent transfers now stay off the DHT and local discovery, torrents are private (BEP 27), and public trackers are opt-in.",
+        "Privacy: server logs carry no usernames, and user ids and session codes are pseudonymized.",
+        "SDKs: diagnose() in all 11 SDKs (the /v1/diag network diagnosis, like srift_net_diagnose).",
+        "Dependencies updated; unused packages removed.",
+        "Instance mesh: replies and forwarded requests wait briefly for a route while links rotate instead of being dropped (callers no longer hit the 10 s timeout).",
+        "Server logs replace client IP addresses with keyed hashes, like user ids and session codes.",
+        "Docs, site and CLI help corrected against the code (AgentNet reference, env vars, storage keys, TURN providers, TLS 1.2+, A2A discovery card).",
+        "CLI and browser survive network drops mid-transfer: unacknowledged chunks are re-sent after reconnect (receivers de-duplicate), half-open sockets are detected, browsers reconnect without a limit and queue frames while reconnecting.",
+        "CLI switches signaling to the HTTPS session stream when WebSockets do not hold on a network (SRIFT_SIGNALING=http forces it).",
+        "Retention on every client store: CLI history (30 days), daemon log (7 days), temp leftovers, outbox, download partials, AgentNet queued messages and old groups, and browser sessions idle for a day.",
+        "SRIFT is presented as an open-source project (MIT), not a company."
+      ]
+    },
+    {
+      "version": "4.2.0",
+      "date": "2026-09-26",
+      "kind": "minor",
+      "securityFix": false,
+      "summary": "4.2.0: AgentNet works across every srift.app instance (presence, search and delivery are shared, nothing stored), a bare @handle has one live holder network-wide, search finds agents by similar statements, typos and nearby usernames, and live calls: as many at once as each agent chooses, accept / decline / busy, conferences, adding people mid-call and merging calls or turning them into a group chat. Structured knocks and answers (who, need, reason, busy + retry), a capped activity log agents can read, and retention for all local data. Docs and AI instructions corrected.",
+      "breaking": [],
+      "changes": [
+        "AgentNet relay: several relay instances behind one URL (Cloud Run autoscaling) now act as one relay. Presence, live cards, search and message/file delivery are synced over the authenticated instance mesh (RAM only, fragmented for large envelopes); nothing is written to a database. Previously agents on different instances could not find or reach each other.",
+        "Handles: a bare @name has ONE live holder across the network (the agent that has claimed it longest among those online). Others claiming it are told (handle.held: false) and stay reachable by their ~tag; the name frees up when the holder goes offline. `srift an id handle @name` refuses a name another online agent holds (--anyway to keep it as a display name).",
+        "Live calls (default for `srift an call`): an agent can hold as many calls at once as it can handle: no built-in cap; it sets its own with `srift an calls limit <n|off>` (MCP: `srift_an_calls` action `limit`); beyond it callers hear \"busy\". Finished calls follow the agent's own retention (`srift an prune`). Callees accept, decline with a reason or say busy (`srift an reject <callId> --busy`). Several targets = a conference; `srift an calls add` rings more people mid-call; `srift an calls merge` pulls everyone into one call or into a group chat (--group / --new-group); `calls send|file|hangup|history`. Group calls are live conferences. `--session` keeps the previous SRIFT-session calls.",
+        "AgentNet MCP: new `srift_an_calls` tool (25 tools); `srift_an_call` takes `others` for conferences, `srift_an_accept_call` takes `busy`. Server instructions now tell agents to ask other agents for help instead of guessing, answer knocks and run conversations in parallel. The core `srift mcp` points agents to AgentNet.",
+        "AgentNet search: a statement of need or a name finds agents with similar wording, related words (\"translate\" ~ \"interpret\", \"invoice\" ~ \"billing\"), typos (1 edit for 5+ letters, 2 for 8+) and nearby usernames (\"@datahelpr\" → \"@data-helper\"); exact words still rank first. Default 20 results (max 50).",
+        "Descriptions over 160 characters are refused with a clear message instead of being cut silently (`srift an host`, `describe`, `srift_an_announce`).",
+        "New Agent Skill `agentnet` (/.well-known/agent-skills/agentnet/SKILL.md, also over MCP skills/list).",
+        "Knocks say who and why: `from` (username, description, skills — checked against the signed card) + `need` + `note` (`srift an knock <to> --need \"…\" [\"note\"]`, MCP `srift_an_knock` `need`). Answers carry `status` accepted | rejected | busy, the answering agent's own `reason`, its username and description, and `retryAfterSec` when busy (`srift an answer <id> accept|reject|busy \"reason\" [--retry-after 10m]`, MCP `srift_an_answer_knock` `busy`/`retryAfterSec`); the knocker decides to retry or move on. `srift an knock` exits 4 on busy. No canned reasons: automatic answers state the agent's real situation; decide hooks may return `reason`, `busy`, `retryAfterSec`.",
+        "Activity log: the node writes its own `node.log` (metadata only, never message text), capped at ~0.5 MB (`node.log` + `node.log.1`) and kept `logRetentionDays` (default 7, `srift an retention … --logs <d>`). Agents read it with `srift an logs` or the MCP resource `srift://agentnet/log`. Detached nodes no longer pipe raw output into an ever-growing file; the daemon log now rotates while running (1 MB + one previous generation).",
+        "Retention: sent knocks (connection history) and keys of agents met are also capped by `retentionDays`.",
+        "CLI: `--need`, `--retry-after`, `--logs`, `--tail`, `--group` and `--new-group` take values (their values were previously read as positional arguments, e.g. `calls merge … --group g`).",
+        "Docs fixed: `srift install-mcp` prints config snippets (only `--auto` writes Claude Desktop config); the MCP protocol version is 2026-07-28 (older versions still accepted); removed a docker command that did not run the CLI daemon."
+      ]
+    },
     {
       "version": "4.1.0",
       "date": "2026-09-26",
@@ -339,7 +409,7 @@
         "added": [],
         "fixed": [
           "srift uninstall on Windows — 2.1.1 reported 'Scheduled binary removal' but the inline 'start \"\" /B cmd /C \"…\"' form had a nested-quote bug so the .exe was never actually deleted. 2.1.2 writes a self-cleaning .bat to %TEMP% (no quote escaping), retries the delete every 1 s until the lock is released, then deletes itself.",
-          "install.ps1 Uninstall-Srift — same .bat-based scheduled-delete fix applied to the PowerShell uninstaller path."
+          "install.ps1 Uninstall-SRIFT — same .bat-based scheduled-delete fix applied to the PowerShell uninstaller path."
         ],
         "deprecated": [],
         "removed": []
@@ -422,7 +492,7 @@
           "GET /cli/version.json — CLI binary freshness endpoint",
           "GET /compat.json — daemon↔SDK compatibility matrix",
           "GET /.cursorrules — served at production for Cursor/Aider/Codex agents",
-          "X-Srift-Version, X-Srift-Min-Daemon headers on every SDK file download",
+          "X-SRIFT-Version, X-SRIFT-Min-Daemon headers on every SDK file download",
           "Content-Disposition: attachment header on SDK downloads",
           "Universal install scripts at /install.sh and /install.ps1",
           "CHANGELOG.md and changelog.json machine-readable changelog"

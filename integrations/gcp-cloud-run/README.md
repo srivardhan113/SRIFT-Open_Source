@@ -36,7 +36,7 @@ spec:
           ports: [{ containerPort: 8080 }]
           env: [{ name: SRIFT_BASE_URL, value: "http://127.0.0.1:3822" }]
         - name: srift
-          image: REGION-docker.pkg.dev/PROJECT/repo/srift-daemon:4.1.0
+          image: REGION-docker.pkg.dev/PROJECT/repo/srift-daemon:4.3.0
 ```
 
 Notes:

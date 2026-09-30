@@ -22,4 +22,4 @@ Available MCP tools (see `/.well-known/mcp/server-card.json` for full schemas):
 - `srift_list_transfers` — list all active and recent transfers with progress.
 - `srift_read_state` — read the raw `.srift-state.json` snapshot for debugging/observability.
 
-Your local daemon (or the browser) encrypts messages and file chunks with AES-256-GCM before they leave the device, using keys derived from the session (plus the optional `roomSecret`); the relay server only forwards ciphertext and never receives the key. Without a `roomSecret` the key is derivable from the session ID (which the server sees); set one on both sides to make it participant-only.
+Your local daemon (or the browser) encrypts messages and file chunks with AES-256-GCM before they leave the device, under ECDH P-256 keys generated on the devices (the optional `roomSecret` is mixed in); the relay only forwards ciphertext and public keys and stores nothing. Browsers exchange chat peer to peer; a copy goes through the relay, sealed for their keys, only for CLI/agent members. Peers older than 4.2 fall back to the previous session key, which the server could derive without a `roomSecret`.

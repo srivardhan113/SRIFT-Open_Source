@@ -9,12 +9,12 @@ Expires: 2027-06-29T23:59:59.000Z
 Preferred-Languages: en
 Canonical: https://srift.app/.well-known/security.txt
 Policy: https://srift.app/privacy
-Hiring: https://sripto.tech/careers
 
 # Security model (details: https://srift.app/about and https://srift.app/AGENTS.md)
-# - Sessions: AES-256-GCM; keys derived on-device with PBKDF2-SHA256 (100,000
-#   iterations) from the session ID plus an optional room secret. Set a room
-#   secret (--room-secret / roomSecret) to make keys participant-only.
+# - Sessions: AES-256-GCM under keys generated on each device (ECDH P-256 +
+#   HKDF-SHA256, fresh per relayed transfer; the optional room secret is mixed
+#   in). Browser chat and audio are peer to peer; the server has no database
+#   and relays only public keys and ciphertext.
 # - Quick-share links: end-to-end encrypted with --encrypt (key in the #k=
 #   URL fragment, never sent to the server); plain links are TLS in transit.
 #   The relay streams bytes and stores no copy.

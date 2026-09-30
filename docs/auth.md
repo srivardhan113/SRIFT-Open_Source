@@ -79,7 +79,7 @@ Pass the same `roomSecret` to host and guest on `srift_start_session` / `srift_j
 ## Why no OAuth tokens
 
 1. The daemon is **localhost-only** (`127.0.0.1:3822`).
-2. Security is **E2EE between peers** (AES-256-GCM + PBKDF2-SHA256), not server auth.
+2. Security is **E2EE between peers** (AES-256-GCM under ECDH P-256 keys generated on each device), not server auth.
 3. Sessions are ephemeral and leave no server-side accounts to register.
 
 ## Discovery

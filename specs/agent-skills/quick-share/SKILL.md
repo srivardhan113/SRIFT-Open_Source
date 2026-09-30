@@ -19,12 +19,12 @@ No credentials. The SRIFT local daemon binds to `127.0.0.1:3822` with zero authe
    - `srift get <url> [<url> ...]` (or `npx -y srift-transfer get <url>`; proxy-aware, resumable, decrypts `#k=` links, supports multiple URLs with `--concurrency N`, works where curl is broken)
    - `wget --content-disposition <url>`
    - PowerShell `iwr <url> -OutFile <name>`
-   - `curl -OJ <url>`
+   - `curl -fLOJ <url>`
    - or just open it in any browser.
 4. Keep the sending side running until the recipient has downloaded. From a shell, `srift quick-share <file> [<file> ...] --wait` blocks until then (`--wait-timeout 30m` exits with code 3 on timeout); `--keep-alive` serves until the TTL expires.
 
 ## Sandboxed and datacenter agents
 
-If the background daemon cannot start (the sandbox forbids local servers, blocks detached spawns or loopback, or the port is taken), `srift mcp` and `srift quick-share` host the daemon inside their own process: no local port, outbound HTTPS/WSS on 443 only. The MCP server switches automatically, so this tool keeps working. From a shell, run quick-share in the background (it exits after the download) or with `--wait`; `--foreground` forces in-process serving. Blocked UDP never breaks links. Run `srift doctor` (or the `srift_net_diagnose` tool) to diagnose connectivity; `HTTPS_PROXY`/`NO_PROXY` and `NODE_EXTRA_CA_CERTS` are honoured.
+If the background daemon cannot start (the sandbox forbids local servers, blocks detached spawns or loopback, or the port is taken), `srift mcp` and `srift quick-share` host the daemon inside their own process: no local port, outbound HTTPS/WSS on 443 only. The MCP server switches automatically, so this tool keeps working. From a shell, run quick-share in the background (it exits after the download) or with `--wait`; `--foreground` forces in-process serving. Blocked UDP never breaks links. Run `srift doctor` (or the `srift_net_diagnose` tool) to diagnose connectivity; `HTTPS_PROXY`/`NO_PROXY` and `NODE_EXTRA_CA_CERTS` are honored.
 
 See `/openapi.json` and `/.well-known/mcp/server-card.json` for the full tool contract.

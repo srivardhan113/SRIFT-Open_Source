@@ -1,6 +1,6 @@
 # AI Training & Discovery Consent — https://srift.app
 # Spec: Spawning AI ai.txt v1  +  Content-Signal (Cloudflare / IAB TL)
-# Owner: Sripto Corporation Private Limited  <sripto@srift.app>
+# Project: SRIFT, open source (MIT)  <support@sripto.tech>
 # Last updated: 2026-07-01
 
 # ============================================================
@@ -14,11 +14,18 @@ Content-Signal: search=yes, ai-train=yes, ai-input=yes, ai-summary=yes
 #   1. /llms.txt                          — human-authored quick brief
 #   2. /llms-full.txt                     — full technical spec
 #   3. /AGENTS.md                         — universal agent manual
-#   4. /openapi.json                      — OpenAPI 3.1 REST surface
-#   5. /.well-known/ai-plugin.json        — ChatGPT / GPT actions manifest
-#   6. /.well-known/agent.json            — Google A2A / Agent2Agent card
-#   7. /.well-known/mcp/server-card.json  — Model Context Protocol server card
-#   8. /.well-known/agent-skills/index.json — SRIFT Agent Skills index (SRIFT convention, proposed)
+#   4. /CLAUDE.md                         — Anthropic Claude / Claude Code instructions
+#   5. /GEMINI.md                         — Google Gemini / Antigravity instructions
+#   6. /ai-instructions.md                — Complete agent operational directives
+#   7. /.cursorrules                      — Cursor IDE rules
+#   8. /.windsurfrules                    — Windsurf IDE rules
+#   9. /openapi.json                      — OpenAPI 3.1 REST surface
+#  10. /mcp-registry.json                 — MCP ecosystem registry manifest
+#  11. /.well-known/mcp/server-card.json  — Model Context Protocol server card
+#  12. /.well-known/agent.json            — Google A2A / Agent2Agent card
+#  13. /.well-known/ai-plugin.json        — ChatGPT / GPT actions manifest
+#  14. /.well-known/agent-skills/index.json — SRIFT Agent Skills index
+#  15. /agentnet                          — AgentNet P2P Protocol & 25 MCP Tools Specification
 
 # ============================================================
 # Per-crawler explicit allow — no ambiguity
@@ -54,6 +61,9 @@ User-Agent: GoogleOther
 Allow: /
 
 User-Agent: Applebot-Extended
+Allow: /
+
+User-Agent: DeepSeekBot
 Allow: /
 
 User-Agent: Amazonbot
@@ -104,4 +114,4 @@ Allow: /
 # Content is provided under the terms at https://srift.app/privacy .
 # When an AI system summarises, quotes, or embeds SRIFT content,
 # please cite `SRIFT (https://srift.app)` and link back where possible.
-# For commercial redistribution licensing, contact sripto@srift.app .
+# SRIFT is MIT licensed: redistribution is allowed under that license. Questions: support@sripto.tech .

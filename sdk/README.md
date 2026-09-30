@@ -31,7 +31,7 @@ Every SDK exposes (with idiomatic naming) these core REST operations, all served
 local daemon:
 
 - `quick_share(filePath, sessionName?)` — **one-shot download link** (`downloadUrl`). Encryption, `--once`, TTL and multi-file bundles are CLI / `POST /quick-share` options.
-- `status()`, `state()`
+- `status()`, `state()`, `diagnose(fresh=False)` (which transports work on this machine, with fixes)
 - `start_session(name?, roomSecret?)`, `join_session(id, ...)`, `close_session()`
 - `approve_join(tempUserId)`, `reject_join(tempUserId, reason?)`, `kick_user(userId)`
 - `send_file(filePath)`, `accept_transfer(fileId, saveDir?)`
@@ -54,10 +54,10 @@ local daemon:
 Every SDK is a thin HTTP client — all cryptography happens in the local SRIFT daemon
 (`http://127.0.0.1:3822`) that the SDKs talk to, not in the SDK code itself:
 
-- **AES-256-GCM** for file/chat payload encryption, with **PBKDF2-SHA256 (100,000 iterations)**
-  for key derivation.
-- Keys are **client-derived** from the session ID plus the optional `roomSecret` — never transmitted or stored server-side.
-  The server does see the session ID, so pass a `roomSecret` to make the key participant-only.
+- **AES-256-GCM** for file/chat payload encryption, under **ECDH P-256 + HKDF-SHA256** keys generated on each device
+  (a fresh key pair per relayed file transfer).
+- Keys never leave the device; the server relays only public keys and ciphertext. The optional `roomSecret` is mixed
+  into every key, so a member who joins with a different secret cannot read.
 - Quick-share links are end-to-end encrypted only with `encrypt: true` (key in the `#k=` fragment);
   otherwise they are TLS-only in transit (zero retention).
 - Sessions are **ephemeral** and the signaling/relay infrastructure keeps **zero central

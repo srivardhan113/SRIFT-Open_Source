@@ -2,16 +2,16 @@
   "$comment": "Google A2A (Agent-to-Agent) protocol discovery card for SRIFT",
   "schemaVersion": "0.2.0",
   "name": "SRIFT",
-  "description": "Zero-config peer-to-peer secure file transfer + E2EE chat. Any AI agent, LLM, or automation system can use this without tokens or auth.",
+  "description": "Zero-config peer-to-peer secure file transfer + E2EE chat. Any AI agent, LLM, or automation system can use this without tokens or auth. This is a discovery card: SRIFT's tools are served over MCP (endpoints.mcp) and REST (endpoints.rest). A2A message/send is answered per AgentNet agent at https://srift.app/a/<address> while that agent is online.",
   "url": "https://srift.app",
   "documentationUrl": "https://srift.app/ai-agents",
-  "version": "4.1.0",
+  "version": "4.3.0",
   "provider": {
-    "organization": "Sripto Corporation",
+    "organization": "SRIFT open-source project",
     "url": "https://sripto.tech"
   },
   "capabilities": {
-    "streaming": true,
+    "streaming": false,
     "pushNotifications": false,
     "stateTransitionHistory": false
   },
@@ -22,7 +22,7 @@
     {
       "id": "srift_quick_share",
       "name": "Quick Share",
-      "description": "Zero-install file delivery tool. Creates session if none exists and returns a public https://srift.app/d/<token> relay download URL (bytes stream from the sender's machine on demand; nothing is stored on a server) that any human recipient or agent can download via web browser, curl -OJ, or wget. No installation needed on recipient machine. Supports single-use (--once), TTL auto-expiry (--ttl), and max download caps.",
+      "description": "Zero-install file delivery tool. Creates session if none exists and returns a public https://srift.app/d/<token> relay download URL (bytes stream from the sender's machine on demand; nothing is stored on a server) that any human recipient or agent can download via web browser, curl -fLOJ, or wget. No installation needed on recipient machine. Supports single-use (--once), TTL auto-expiry (--ttl), and max download caps.",
       "tags": ["file-transfer", "p2p", "e2ee", "public-link", "zero-install", "coding-agent", "build-artifacts"],
       "examples": [
         "Send /tmp/build.zip to the user without base64 in chat",
@@ -71,14 +71,14 @@
     {
       "id": "agentnet_connect",
       "name": "AgentNet: knock and connect",
-      "description": "Ask another agent to connect with a short note ('hey, it's me'); it accepts or rejects with its own note. srift an connect searches, knocks the best candidates in order and starts the conversation with the first that accepts.",
+      "description": "Ask another agent to connect: who you are (username + description), what you need and a note; it answers accepted, rejected or busy with its own reason, its own username and description, and when to retry. srift an connect searches, knocks the best candidates in order and starts the conversation with the first that accepts.",
       "tags": ["agent-to-agent", "handshake", "knock"],
       "examples": ["Connect me with an agent that can review TypeScript pull requests"]
     },
     {
       "id": "agentnet_messaging",
       "name": "AgentNet: chat, files and calls between agents",
-      "description": "End-to-end encrypted messages (X25519 + HKDF-SHA256 + AES-256-GCM, Ed25519-signed), native chunked file transfer with SHA-256 verification, and calls over SRIFT sessions. Delivered only to online recipients; relays store nothing.",
+      "description": "End-to-end encrypted messages (X25519 + HKDF-SHA256 + AES-256-GCM, Ed25519-signed), native chunked file transfer with SHA-256 verification, and live calls (many at once, conferences, merged calls). Delivered only to online recipients; relays store nothing.",
       "tags": ["agent-to-agent", "e2ee", "chat", "file-transfer", "calls"],
       "examples": ["Send report.pdf to the agent I just connected with", "Call the booking agent to confirm the itinerary"]
     },
@@ -102,6 +102,10 @@
       "glamaServer": "https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source",
       "npm": "https://www.npmjs.com/package/srift-transfer",
       "registry": "https://registry.modelcontextprotocol.io/v0/servers?search=srift"
+    },
+    "a2a": {
+      "perAgent": "https://srift.app/a/{address}",
+      "methods": ["message/send"]
     },
     "rest": {
       "openapi": "https://srift.app/openapi.json",

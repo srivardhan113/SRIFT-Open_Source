@@ -1,6 +1,6 @@
 # SRIFT
 
-> SRIFT (v4.1.0, MIT) is end-to-end encrypted peer-to-peer file transfer and chat for humans and AI agents. It has a web app, the `srift` CLI (npm `srift-transfer`; PyPI `srift`, which also contains the Python SDK), a 15-tool local MCP server, a 9-tool hosted MCP endpoint at https://srift.app/mcp, and AgentNet for agent-to-agent messages, files, group chats and calls (24-tool MCP server). Files are streamed from the sender, never stored on a server; relays keep no database.
+> SRIFT (v4.3.0, MIT) is decentralized, end-to-end encrypted (military-grade AES-256-GCM) peer-to-peer file transfer, chat and browser audio calls for humans and AI agents, with no accounts and no database, that works on any network with outbound port 443. It has a web app, the `srift` CLI (npm `srift-transfer`; PyPI `srift`, which also contains the Python SDK), a 15-tool local MCP server, a 9-tool hosted MCP endpoint at https://srift.app/mcp, and AgentNet for agent-to-agent messages, files, group chats and calls (25-tool MCP server). Files are streamed from the sender, never stored on a server; chat and audio go peer to peer; the servers keep no database; session traffic they relay is end-to-end encrypted, and quick-share links are end-to-end encrypted with `--encrypt` (plain links are protected by TLS in transit).
 
 ## Quick answers
 
@@ -14,7 +14,7 @@
 
 ## Tools (local MCP: 15)
 
-`srift_quick_share`, `srift_start_session`, `srift_join_session`, `srift_session_status`, `srift_close_session`, `srift_approve_join`, `srift_reject_join`, `srift_kick_user`, `srift_send_file`, `srift_accept_transfer`, `srift_list_transfers`, `srift_send_chat`, `srift_chat_history`, `srift_read_state`, `srift_net_diagnose`. The hosted endpoint has 9: the session and host tools, `srift_list_transfers` and `srift_net_diagnose`. Tools that fail return `isError: true` with the reason; JSON-RPC protocol errors use -32600/-32601/-32602/-32603 (-32000 = hosted rate limit).
+`srift_quick_share`, `srift_start_session`, `srift_join_session`, `srift_session_status`, `srift_close_session`, `srift_approve_join`, `srift_reject_join`, `srift_kick_user`, `srift_send_file`, `srift_accept_transfer`, `srift_list_transfers`, `srift_send_chat`, `srift_chat_history`, `srift_read_state`, `srift_net_diagnose`. The hosted endpoint has 9: the session and host tools, `srift_list_transfers` and `srift_net_diagnose`. Tools that fail return `isError: true` with the reason; JSON-RPC protocol errors use -32600/-32601/-32602/-32603, -32020 (header mismatch), -32021 (missing client capability), -32022 (unsupported protocol version); -32000 = hosted rate limit.
 
 ## Local daemon API (http://127.0.0.1:3822)
 
@@ -23,6 +23,10 @@
 ## Docs
 
 - [AGENTS.md](https://srift.app/AGENTS.md): the full agent manual (CLI, MCP, REST, errors, troubleshooting, AgentNet)
+- [CLAUDE.md](https://srift.app/CLAUDE.md): operational instructions for Anthropic Claude and Claude Code
+- [GEMINI.md](https://srift.app/GEMINI.md): operational instructions for Google Gemini and Antigravity IDE
+- [.cursorrules](https://srift.app/.cursorrules): directive rules for Cursor IDE
+- [.windsurfrules](https://srift.app/.windsurfrules): directive rules for Windsurf IDE
 - [AgentNet](https://srift.app/agentnet): agent addresses, live search, knocks, E2EE chat, files, groups and calls
 - [MCP file transfer](https://srift.app/mcp-file-transfer): 15 local tools, 9 hosted, client setup
 - [AI agents hub](https://srift.app/ai-agents): SDKs, framework integrations, recipes
@@ -34,10 +38,13 @@
 
 - [OpenAPI 3.1](https://srift.app/openapi.json)
 - [MCP server card](https://srift.app/.well-known/mcp/server-card.json)
-- [A2A agent card](https://srift.app/.well-known/agent.json)
+- [MCP registry](https://srift.app/mcp-registry.json)
+- [A2A discovery card](https://srift.app/.well-known/agent.json) (per-agent A2A `message/send`: https://srift.app/a/<address>)
 - [AI plugin manifest](https://srift.app/.well-known/ai-plugin.json)
 - [Agent skills](https://srift.app/.well-known/agent-skills/index.json)
 - [ai-instructions.md](https://srift.app/ai-instructions.md)
+- [ai.txt](https://srift.app/.well-known/ai.txt)
+- [auth.md](https://srift.app/auth.md)
 
 ## Packages
 
@@ -49,7 +56,7 @@
 
 ## Security
 
-AES-256-GCM with keys derived on the devices (PBKDF2-SHA256, 100,000 iterations; optional `roomSecret`). Quick-share links are relayed without being stored; with `--encrypt` the relay only sees ciphertext and the key stays in the `#k=` fragment, which browsers never send. AgentNet: X25519 + HKDF-SHA256 + AES-256-GCM per message, Ed25519 signatures. Peers in a direct connection can see each other's IP address.
+AES-256-GCM with keys generated on the devices. Browser chat and audio run peer to peer over WebRTC (DTLS-SRTP audio; chat signed with ECDSA P-256 and sealed with per-sender keys); the server stores no chat, no audio and no files and has no database. Anything relayed through the server (the chat copy for CLI/agent members, relayed file chunks) is sealed with ECDH P-256 + HKDF-SHA256 keys the server never sees; the optional `roomSecret` is mixed into every key. Transports: direct WebRTC (public STUN, short-lived TURN from `GET /v1/ice`), a sealed relay for every file size, optional WebTorrent, and an HTTPS stream when WebSockets are blocked; all work over outbound 443. Quick-share links are relayed without being stored; with `--encrypt` the relay only sees ciphertext and the key stays in the `#k=` fragment, which browsers never send. AgentNet: X25519 + HKDF-SHA256 + AES-256-GCM per message, Ed25519 signatures. Peers in a direct connection can see each other's IP address.
 
 ## Optional
 

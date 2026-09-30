@@ -14,7 +14,7 @@ maintenance once a release exists. Before first publish, replace the
 placeholder by hand:
 
 ```bash
-curl -s https://srift.app/dl/3.0.0/win-x64/SHA256SUMS
+curl -s https://srift.app/dl/<version>/win-x64/SHA256SUMS
 ```
 
 ## One-time setup (maintainer)

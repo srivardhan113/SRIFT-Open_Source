@@ -1,34 +1,41 @@
 {
   "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
-  "$comment": "This /.well-known/agent-skills/ HTTP discovery path is a SRIFT convention (proposed), NOT part of the published Agent Skills specification (agentskills.io defines only a directory format, with no standardized HTTP discovery mechanism). The Skills-over-MCP Working Group lists a well-known discovery URI as an open, in-scope design question; SRIFT also serves these same 4 skills over MCP itself via skills/list + skills/get + resources/read (skill:// URIs, SEP-2640 'Skills Extension', io.modelcontextprotocol/skills), which IS a ratified extension of the Model Context Protocol.",
+  "$comment": "This /.well-known/agent-skills/ HTTP discovery path is a SRIFT convention (proposed), NOT part of the published Agent Skills specification (agentskills.io defines only a directory format, with no standardized HTTP discovery mechanism). The Skills-over-MCP Working Group lists a well-known discovery URI as an open, in-scope design question; SRIFT also serves these same 5 skills over MCP itself via skills/list + skills/get + resources/read (skill:// URIs, SEP-2640 'Skills Extension', io.modelcontextprotocol/skills), which IS a ratified extension of the Model Context Protocol.",
   "skills": [
     {
       "name": "get-company-info",
       "type": "skill-md",
-      "description": "Retrieve overview and core metadata for SRIFT and SRIPTO Corporation",
+      "description": "Overview of SRIFT, the open-source (MIT) project - what it does, how to install it, and where the agent docs are",
       "url": "https://srift.app/.well-known/agent-skills/get-company-info/SKILL.md",
-      "digest": "sha256:b6e0151a95a00671de28afa5a6dd8adc37107feeb83259d767d749b6e3b538b0"
+      "digest": "sha256:0cc53db4be506bd2f2bc81d00ada40e0fc1cb343e0b7ea5439b52880fe508131"
     },
     {
       "name": "quick-share",
       "type": "skill-md",
       "description": "Zero-install file delivery: seed a file and get a public download URL, no session setup required on the recipient's end",
       "url": "https://srift.app/.well-known/agent-skills/quick-share/SKILL.md",
-      "digest": "sha256:21360420e560430b7dc571f32544170b76f3130352384fa3999221dc53198fcd"
+      "digest": "sha256:c7955397c1307bb67be307e3512cf2b21124dee2b89b26a065d1629629c1d2d8"
     },
     {
       "name": "session-management",
       "type": "skill-md",
       "description": "Create, join, monitor, and control SRIFT end-to-end encrypted P2P sessions via the local MCP daemon",
       "url": "https://srift.app/.well-known/agent-skills/session-management/SKILL.md",
-      "digest": "sha256:2cf16dd5471af9a6b194ff60167ec425dc8e9375a346b4c85c88cb539d86de19"
+      "digest": "sha256:711d3067ecb764f005497c9e38736bb771537573cb2173c4b8259e6f08261190"
     },
     {
       "name": "encrypted-chat",
       "type": "skill-md",
       "description": "Send and read end-to-end encrypted chat messages and manage in-session file transfers within an active SRIFT session",
       "url": "https://srift.app/.well-known/agent-skills/encrypted-chat/SKILL.md",
-      "digest": "sha256:c3ea6b9bcbed93174a75b512211e11b6546b56a32c8e0b4babd10e85eab9bf6c"
+      "digest": "sha256:f3b2604fc6273fcce5ae320e6a6547b5ab0065657b849946fce42160c6d2f9f5"
+    },
+    {
+      "name": "agentnet",
+      "type": "skill-md",
+      "description": "Talk to other AI agents over SRIFT AgentNet: permanent address + unique live handle, stay online, find help, knock, chat, files and group chats in parallel",
+      "url": "https://srift.app/.well-known/agent-skills/agentnet/SKILL.md",
+      "digest": "sha256:0bafcaf12a9e4ea80bdf1f6a45b80f37db307305721580ff90db399875d4b1be"
     }
   ]
 }

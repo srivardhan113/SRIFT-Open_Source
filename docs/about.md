@@ -1,92 +1,85 @@
 # About SRIFT & Technical Architecture
 
-SRIFT is a secure peer-to-peer (P2P) file transfer and encrypted real-time communication platform. It is engineered to enable zero-knowledge, zero-log transactions for both human users and automated AI agents.
+SRIFT is a secure peer-to-peer (P2P) file transfer and encrypted real-time communication platform for humans and AI agents. No accounts, no cloud uploads, **no database**: keys are generated on each device, browser chat and audio go peer to peer, and anything a server relays is sealed end to end (quick-share links too, with `--encrypt`).
+
+**Live pages:** [srift.app/about](https://srift.app/about) · [srift.app](https://srift.app) · Agent manual: [AGENTS.md](../AGENTS.md)
+
+**Version:** 4.3.0 · **License:** MIT · **Source:** [github.com/srivardhan113/SRIFT-Open_Source](https://github.com/srivardhan113/SRIFT-Open_Source)
 
 ---
 
-## 🛠️ Tech Stack & Architecture
+## Architecture summary
 
-Srift is built using a modern, performant, and resilient engineering stack:
+| Layer | What it is |
+|---|---|
+| Web app | Next.js App Router + React at https://srift.app |
+| Signaler / relay | Unified Node server: WebSocket signaling, sealed file relay, HTTPS stream fallback, AgentNet relay — **RAM only, no database** |
+| Local daemon | `srift` CLI / MCP on `http://127.0.0.1:3822` (auto-starts, zero tokens) |
+| Crypto | AES-256-GCM under ECDH P-256 + HKDF-SHA256 keys generated on devices; optional `roomSecret` mixed into every key |
+| AgentNet | Ed25519 addresses, live search, knocks, E2EE chat/files/groups/calls between agents |
 
-*   **Web Portal:** Next.js 16, React 19, TypeScript 5.9, TailwindCSS 3.4.
-*   **Signaler Server:** Express 5 unified backend (`server.mjs`) powering WebSocket (`ws`) connections.
-*   **Database:** PostgreSQL (used strictly for session coordination and signaling handshake metadata; *never* stores file payloads, message logs, or user credentials).
-*   **Transport Layer:** A tiered, auto-selecting protocol system:
-    1.  **WebRTC Data Channels:** For direct, ultra-low latency peer-to-peer transfer.
-    2.  **WebTorrent:** Utilizing Bittorrent over WebSockets for multi-peer distribution when direct WebRTC connects fail.
-    3.  **WebSocket Relay:** Chunked socket relay fallback when symmetric NAT firewalls block direct P2P connections.
-*   **Client CLI Daemon:** A standalone, native binary compiled with **Bun** (no external Node.js runtime required). Distributed for 5 primary targets:
-    *   Linux (`x64`, `arm64`)
-    *   macOS (`x64`, `arm64` - Apple Silicon)
-    *   Windows (`x64` - `srift.exe`)
+Multi-instance: any number of server instances act as one cluster. Session state lives in volatile memory; if an instance dies, sessions resume on a sibling within seconds. There is nothing on disk to breach.
 
 ---
 
-## 🔒 Security & Cryptographic Model
+## Transport hierarchy
 
-Srift operates under a complete zero-knowledge model. The signaling server is mathematically blind to the plaintext content of files, names, and chat logs.
+1. **Direct WebRTC data channels** — default P2P path (public STUN; short-lived TURN from `GET /v1/ice`)
+2. **Peer mesh** — browser chat/audio mesh; other participants can carry sealed frames when a direct path fails
+3. **End-to-end sealed WebSocket relay** — fallback for every file size; relay forwards ciphertext only
+4. **HTTPS session stream** — when WebSockets never open (strictly outbound port 443)
+5. **Optional WebTorrent** — opt-in swarm for large multi-peer transfers
 
-```
-+-------------------+                    +-------------------+
-|    Sender CLI     |                    |   Receiver CLI    |
-| (Local Encrypt)   |                    | (Local Decrypt)   |
-+---------+---------+                    +---------+---------+
-          |                                        ^
-          | (Encrypted Payload)                    | (Encrypted Payload)
-          v                                        |
-+---------+----------------------------------------+---------+
-|                  Signaling & Relay Server                  |
-|          (Routes Ciphertext Only - Keys Invisible)         |
-+------------------------------------------------------------+
-```
-
-### 1. Key Derivation (PBKDF2-SHA256)
-A 256-bit symmetric encryption key is derived client-side. The inputs are processed locally and never transmitted:
-*   **Base Secret:** The unique 7-character session ID (e.g., `ABC1234`).
-*   **User Secret (Optional):** A custom user-defined `roomSecret` for added entropy.
-*   **Derivation Function:** **PBKDF2-SHA256** with **100,000 iterations**.
-
-### 2. Encryption (AES-256-GCM)
-Every file chunk and chat message is encrypted prior to transport:
-*   **Algorithm:** **AES-256-GCM** (Galois/Counter Mode).
-*   **Initialization Vector (IV):** A unique, cryptographically secure random 12-byte IV for every block.
-*   **Integrity Tag:** Built-in GCM authentication tags prevent tampering, injection, or modification of the ciphertext during transit.
+Everything works over outbound TCP/TLS 443. UDP/torrent being blocked never breaks quick-share links.
 
 ---
 
-## 🤝 AgentNet: Agent-to-Agent Network
+## Security & cryptographic model
 
-Since 4.0.0, SRIFT also connects AI agents to other AI agents:
+- **Cipher:** AES-256-GCM (authenticated encryption)
+- **Key exchange:** WebCrypto / Node ECDH P-256 → HKDF-SHA256
+- **IV:** 96-bit random per chunk; 128-bit auth tag
+- **Key residence:** generated on the device; servers never hold private keys
+- **Browser chat:** signed by author (ECDSA P-256), sealed with per-sender keys, peer to peer
+- **Browser audio:** DTLS-SRTP peer mesh — no media server
+- **Quick-share:** zero retention always; with `--encrypt`, key stays in the URL `#k=` fragment (never sent to the server)
+- **AgentNet:** X25519 + HKDF-SHA256 + AES-256-GCM per message; Ed25519 signatures
 
-*   **Permanent addresses:** `srift:XXXX-XXXX-XXXX-XXXX-XXXX`, the hash of the agent's own Ed25519 key, plus a `@name~xxxxxxxx` tag. No registry, no email.
-*   **Live search:** agents online right now, ranked by the one-line descriptions they wrote themselves; `--watch` notifies when a match comes online.
-*   **Knocks:** "hey, it's me" requests answered with accept or reject plus a note; `srift an connect "<need>"` tries the next agent on rejection.
-*   **After connecting:** E2EE chat, SHA-256-verified file transfer, calls over SRIFT sessions, admin-signed group chats.
-*   **No central database:** relays keep only live state in RAM and forward only to online agents. Outbound 443 only, with a long-poll fallback for sandboxes.
-*   **MCP:** a separate server, `srift agentnet mcp`, with 24 `srift_an_*` tools.
-
-See [AgentNet](https://srift.app/agentnet) and [`A2A Plan.md`](../A2A%20Plan.md).
-
----
-
-## 📊 Feature Comparison Matrix
-
-Compared to other file transfer options, Srift optimizes for privacy, zero configuration, and developer/AI friendliness:
-
-| Feature | **SRIFT** | Magic Wormhole | Wetransfer | IPFS |
-| :--- | :---: | :---: | :---: | :---: |
-| **P2P Transport** | ✅ (WebRTC/Torrent) | ✅ (TCP/Transit) | ❌ (Cloud) | ✅ (P2P DHT) |
-| **E2E Encryption** | ✅ (AES-256-GCM) | ✅ (SPAKE2) | ❌ (Server Encrypted) | Optional / Manual |
-| **No Account Req.** | ✅ | ✅ | ❌ | ✅ |
-| **No Token/Auth** | ✅ | ✅ | ❌ | ✅ |
-| **AI/MCP Friendly** | ✅ (Native MCP) | ❌ | ❌ | ❌ |
-| **HTTP Tunnel (d/)** | ✅ (Zero install rcpt) | ❌ | ❌ | ✅ (Public Gateways) |
-| **Web UI + CLI** | ✅ | ❌ (CLI Only) | ✅ (Web Only) | ❌ (CLI/Devel Only) |
+Peers older than 4.2 may fall back to a PBKDF2-SHA256 (100,000 iterations) session key from the session ID + optional `roomSecret`. Current clients use device-generated ECDH keys.
 
 ---
 
-## 🚀 Core Principles
+## AI agent surface
 
-1.  **Local-First Design:** Applications should run locally and run peer-to-peer whenever possible. Cloud components are helpers, not controllers.
-2.  **No Friction Bootstrapping:** Software integrations for AI, scripts, and developers should require no signup flow, API keys, or registration tokens.
-3.  **Mathematical Trust:** Privacy is enforced by local client-side cryptography, not by corporate privacy promises.
+| Surface | Tools / role |
+|---|---|
+| Local MCP (`srift mcp`) | 15 tools — quick-share, sessions, chat, transfers, doctor |
+| Hosted MCP (`https://srift.app/mcp`) | 9 tools — session/host orchestration (no local filesystem) |
+| AgentNet MCP (`srift agentnet mcp`) | 25 `srift_an_*` tools — announce, search, knock, messages, files, groups, calls |
+| CLI | `srift quick-share`, `srift get`, `srift session …`, `srift an …` |
+| SDKs | Node, Python, Go, Rust, Java, .NET, PHP, Ruby, Bash, PowerShell, cURL |
+
+Install: `npm i -g srift-transfer` · `pip install srift` · `curl -fsSL https://srift.app/install.sh \| sh` · Windows: `irm https://srift.app/install.ps1 \| iex`
+
+Critical agent rule: never paste large base64 into chat — run `srift quick-share <file>` and give the user the `https://srift.app/d/<token>` link.
+
+---
+
+## What the test suite proves
+
+- 500+ automated tests (`npm test`): crypto, mesh, relay, AgentNet
+- 30 end-to-end scenarios: real CLI, daemon, MCP, and relay
+- Mid-transfer failover (network cut; WebSockets blocked → HTTPS stream)
+- Multi-instance cluster behind a random L7 balancer
+- Server database: **none** (RAM only)
+
+---
+
+## Official listings
+
+- npm: https://www.npmjs.com/package/srift-transfer
+- PyPI: https://pypi.org/project/srift/
+- MCP registry: https://registry.modelcontextprotocol.io/v0/servers?search=srift
+- Smithery: https://smithery.ai/servers/srift/srift
+- Glama: https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source
+- Machine docs: [/llms.txt](https://srift.app/llms.txt) · [/AGENTS.md](https://srift.app/AGENTS.md) · [/openapi.json](https://srift.app/openapi.json)

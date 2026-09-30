@@ -4,15 +4,16 @@ Everything needed to publish, list, and verify SRIFT across npm, the MCP
 registry, and the agent directories. Written so a cold session can pick this up
 with no prior context.
 
-**Last verified:** 2026-09-25 · npm `4.0.0` · PyPI `srift` `4.0.0.post1` · MCP registry `app.srift/srift` `4.0.0`
+**Last verified:** 2026-09-28 · npm `4.1.0` · PyPI `srift` `4.1.0` · MCP registry `app.srift/srift` `4.1.0` · srift.app `4.2.0`
 
-**4.1.0 is prepared in the repo, not yet published.** Publish in this order:
-1. Deploy the server (srift.app) — the 424 / large-download / relay-format / `?id=` fixes are server-side.
-2. npm `srift-transfer@4.1.0` (packages/cli) and the `/dl/4.1.0/` binaries.
-3. PyPI `srift==4.1.0` (`python packages/pypi/build.py`) — its README now carries the
+**4.2.2 is prepared in the repo, not yet published** (4.2.1 was never released; its changes ship in 4.2.2).
+Commit with `SKIP_VERSION_BUMP=1 git commit …` so the pre-commit hook keeps 4.2.2. Publish in this order:
+1. Deploy the server (srift.app) — the instance mesh, RAM store, `/v1/ice` and AgentNet cross-instance sync are server-side.
+2. npm `srift-transfer@4.2.2` (packages/cli) and the `/dl/4.2.2/` binaries.
+3. PyPI `srift==4.2.2` (`python packages/pypi/build.py`, without `--skip-bundle`, so the vendored CLI is rebuilt) — its README carries the
    `mcp-name: app.srift/srift` marker, and the wheel includes the Python SDK.
-4. MCP registry (`mcp-publisher publish`) — `server.json` now lists the PyPI package too, which the
-   registry only accepts after step 3; `mcp` moved from `runtimeArguments` to `packageArguments`.
+4. MCP registry (`mcp-publisher publish`) — `server.json` lists the PyPI package too, which the
+   registry only accepts after step 3.
 
 ---
 
@@ -20,16 +21,16 @@ with no prior context.
 
 | Surface | Value | Status |
 |---|---|---|
-| npm package | [**`srift-transfer`**](https://www.npmjs.com/package/srift-transfer) | ✅ published `4.0.0` |
+| npm package | [**`srift-transfer`**](https://www.npmjs.com/package/srift-transfer) | ✅ published `4.1.0` |
 | CLI command | **`srift`** (bin name ≠ package name) | ✅ |
-| Website / API | https://srift.app | ✅ `4.0.0` |
+| Website / API | https://srift.app | ✅ `4.2.0` |
 | Hosted MCP | `POST https://srift.app/mcp` | ✅ 9 tools |
 | Local MCP | `srift mcp` (stdio) | ✅ 15 tools |
 | GitHub | `SRIPTO-Tech/srift-website` (private) | ✅ |
 | Open-source mirror | `srivardhan113/SRIFT-Open_Source` | referenced in npm metadata |
-| MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ **published 4.0.0** (isLatest) |
-| PyPI | [`srift`](https://pypi.org/project/srift/) (CLI + MCP via bundled Node.js) | ✅ `4.0.0.post1` |
-| Python SDK | included in PyPI `srift` from 4.1.0 (`from srift import Srift`) | ✅ with the next PyPI release |
+| MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ **published 4.1.0** (isLatest) |
+| PyPI | [`srift`](https://pypi.org/project/srift/) (CLI + MCP via bundled Node.js) | ✅ `4.1.0` |
+| Python SDK | included in PyPI `srift` from 4.1.0 (`from srift import Srift`) | ✅ |
 | Other library SDKs | npm `srift`, crates, Maven, NuGet, Packagist, RubyGems | ❌ not published — direct download from `srift.app/sdk/` |
 | Smithery | `srift/srift` | ✅ live ([page](https://smithery.ai/servers/srift/srift)) |
 | GitHub topics | 18 topics on the public mirror | ✅ |
@@ -45,11 +46,7 @@ with no prior context.
    publish to npm, then publish to the registry. The auth token also expires;
    re-run `mcp-publisher login dns` with `key.pem` first.
 
-2. **GitHub repo description still says "Military-Grade Encryption."** That is a
-   banned claim everywhere else in this project, and it feeds GitHub search,
-   Glama's auto-indexer and directory listings. Repo settings are not in the
-   codebase, so it has to be changed by hand. Suggested replacement:
-   `Secure P2P file transfer, encrypted chat and MCP server for AI agents. AES-256-GCM, no accounts, zero retention.`
+2. **GitHub repo description says "Military-Grade Encryption"**: kept on purpose (owner decision 2026-09-28).
 
 3. **Smithery's own badge endpoint returns HTTP 500** for every URL form
    (`/badge/srift/srift`, `/badge/@srift/srift`, `/badge/srift`). The READMEs use
@@ -198,7 +195,7 @@ Fork [punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-serv
 add one alphabetical line under the file-management section, open a PR:
 
 ```markdown
-- [srift-transfer](https://github.com/SRIPTO-Tech/srift-website) - Secure P2P file transfer and encrypted chat. Zero accounts, hosted endpoint at srift.app/mcp.
+- [srift-transfer](https://github.com/srivardhan113/SRIFT-Open_Source) - Secure P2P file transfer and encrypted chat. Zero accounts, hosted endpoint at srift.app/mcp.
 ```
 
 ### GitHub topics
@@ -227,7 +224,8 @@ Hosted omits `srift_quick_share`, `srift_send_file`, `srift_accept_transfer`
 
 ### Encryption — be precise, this has caused real errors
 
-- **Session transfers**: end-to-end encrypted, AES-256-GCM, PBKDF2-SHA256 100k.
+- **Session transfers and chat**: end-to-end encrypted, AES-256-GCM under ECDH P-256 + HKDF-SHA256 keys
+  generated on the devices (4.2+; older peers fall back to a PBKDF2-SHA256 session key).
 - **`quick-share` public links**: end-to-end encrypted **only with `--encrypt`**
   (or `--password`; key in the `#k=` fragment, browser/`srift get` decrypt
   locally). Without it the bytes are relayed in readable form over TLS. Either
@@ -261,7 +259,7 @@ disables the fallback. `srift doctor` / `srift_net_diagnose` report what is bloc
 
 ### Banned claims (enforced by tests)
 
-Never use: `military-grade`, `#1`, `files never touch any server`,
+Never use: `#1`, `files never touch any server`,
 `untraceable`, `complete anonymity`, `trusted by millions`, `zero-knowledge`
 (as a product claim). Say `zero-retention` and `AES-256-GCM` instead.
 
@@ -274,7 +272,7 @@ Never use: `military-grade`, `#1`, `files never touch any server`,
 npx tsc --noEmit
 npm run lint
 npm run build
-npm test                                  # 172 tests
+npm test                                  # 475+ tests
 node scripts/sync-version.mjs --check
 
 # CLI package
@@ -288,7 +286,7 @@ curl -s -X POST https://srift.app/mcp -H "Content-Type: application/json" \
 
 # Full round trip
 srift quick-share <abs-path> --ttl 15m --json
-curl -OJ "https://srift.app/d/<token>"
+curl -fLOJ "https://srift.app/d/<token>"
 ```
 
 > On Windows, pass **absolute Windows paths** (`C:/...`) to the CLI. Git Bash
@@ -310,8 +308,8 @@ curl -OJ "https://srift.app/d/<token>"
 
 ## 8. Remaining work
 
-1. ~~Publish npm~~ ✅ `4.0.0`
-2. ~~MCP registry~~ ✅ `app.srift/srift` (`4.0.0`)
+1. ~~Publish npm~~ ✅ `4.1.0` (4.2.2 pending)
+2. ~~MCP registry~~ ✅ `app.srift/srift` (`4.1.0`; 4.2.2 pending)
 3. **Smithery / Glama / awesome-mcp-servers / GitHub topics**
 4. Google Search Console — no verification code set; `app/layout.tsx` only emits
    one if `GOOGLE_VERIFICATION_CODE` is in the environment

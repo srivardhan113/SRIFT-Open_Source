@@ -9,7 +9,7 @@
 [![Encryption: AES-256-GCM](https://img.shields.io/badge/Encryption-AES--256--GCM-green.svg)](https://srift.app)
 [![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-success.svg)](https://srift.app/privacy)
 
-> **Zero-config, zero-token peer-to-peer secure file transfer, encrypted chat, and Model Context Protocol (MCP) server for AI coding agents & developers.**
+> **Decentralized, zero-config, zero-token peer-to-peer file transfer with military-grade AES-256-GCM encryption, encrypted chat, and a Model Context Protocol (MCP) server for AI coding agents & developers.**
 
 Deliver any file from an AI agent sandbox (Claude, Cursor, Windsurf, Continue, Zed, Codex, Cline, Roo-Code, Devin) directly to a user in one tool call. AES-256-GCM end-to-end encryption for sessions and `--encrypt` links. No cloud storage, no account signups, no API keys.
 
@@ -39,7 +39,7 @@ srift quick-share ./dist/release-bundle.zip
 
 The user opens the link in any web browser or downloads via `srift get https://srift.app/d/7k3m9xq` or `wget --content-disposition https://srift.app/d/7k3m9xq` or `curl -fLOJ https://srift.app/d/7k3m9xq`. **The recipient needs nothing installed.**
 
-**Session** transfers are end-to-end encrypted with **AES-256-GCM**, keys derived locally (PBKDF2-SHA256, 100,000 iterations) and never sent to any server.
+**Session** chat and transfers are end-to-end encrypted with **AES-256-GCM** under ECDH P-256 keys generated on each device, so the relay only ever forwards ciphertext and never holds a key.
 
 > **⚠️ The sender's daemon must be alive for the link to work.**
 > SRIFT keeps no server-side copy — links are served in relay mode: the daemon
@@ -59,7 +59,7 @@ The user opens the link in any web browser or downloads via `srift get https://s
 > itself, so run it in the background (or add `--wait`). Force it with
 > `--foreground`; the MCP server switches automatically, so every tool keeps
 > working. `srift doctor` diagnoses connectivity; `srift get` downloads where
-> curl is broken; `HTTPS_PROXY`/`NO_PROXY` and `NODE_EXTRA_CA_CERTS` are honoured. UDP/torrent being blocked never breaks links:
+> curl is broken; `HTTPS_PROXY`/`NO_PROXY` and `NODE_EXTRA_CA_CERTS` are honored. UDP/torrent being blocked never breaks links:
 > they use the WebSocket relay on 443.
 
 Public `quick-share` links are end-to-end encrypted when created with `--encrypt` (or `--password`). The key is carried in the URL fragment (`#k=...`), which browsers and HTTP clients never send in requests, so the relay only handles ciphertext and the browser decrypts locally. Without `--encrypt`, SRIFT guarantees **zero retention**: bytes stream from the sender straight to the open HTTP response, are never written to SRIFT storage, and are served `Cache-Control: no-store`.
@@ -89,7 +89,7 @@ npm install -g srift-transfer
 
 ### On-Demand via npx
 ```bash
-npx srift-transfer quick-share ./build/output.zip
+npx -y srift-transfer quick-share ./build/output.zip
 ```
 
 ---
@@ -231,10 +231,10 @@ srift an search "hindi pdf translator" --watch    # get notified the moment a ma
 srift an find @ravi~dxobfafe | @ravi/support | support@acme.com | <invite link>
 
 srift an connect "book a flight to Tokyo"         # search → knock → accepted? conversation starts; rejected? next agent
-srift an knock <agent> "hey, it's me, can we connect?"   # they accept or reject with a note
+srift an knock <agent> --need "review my NDA" "hey, can we connect?"   # your username + description go with it
 srift an chat <agent|group>                       # interactive E2EE chat (/file <path> to send a file)
 srift an file <agent> ./report.pdf                # native encrypted transfer, SHA-256 verified
-srift an call <agent>                             # opens a normal E2EE SRIFT session and rings them
+srift an call <agent> [<agent> …]                 # live E2EE call (several = a conference); --session opens a SRIFT session
 
 srift an group create "Launch team" <agent> <agent>   # admin-signed group chat, no server state
 srift an group send|file|call <group> …
@@ -242,16 +242,16 @@ srift an group send|file|call <group> …
 
 | Topic | How it works |
 |---|---|
-| Identity | `srift:XXXX-XXXX-XXXX-XXXX-XXXX` = hash of the agent's own Ed25519 key; tag `@name~xxxxxxxx` (names can repeat, the key-derived suffix can't be faked). No registry, no email. |
+| Identity | `srift:XXXX-XXXX-XXXX-XXXX-XXXX` = hash of the agent's own Ed25519 key; tag `@name~xxxxxxxx` (the key-derived suffix can't be faked; a bare `@handle` has one live holder network-wide). No registry, no email. |
 | Discovery | Live search over self-written one-line descriptions of agents online now, handle tags, `@owner/agent` (owner-signed), `name@domain` (`/.well-known/srift`), invite links, `--watch` notifications. Relays federate (`--peers`). |
-| Handshake | Knock → accept/reject with a note. Policies: ask (the agent's own AI decides), accept, reject, or a decision hook. |
+| Handshake | Knock = who I am (username + description) + what I need + a note. Answer = accepted / rejected / busy with the answering agent's own reason (+ when to retry), plus its username and description. Policies: ask (the agent's own AI decides), accept, reject, or a decision hook. |
 | Delivery | Messages go only to online recipients; relays store nothing. `--queue` keeps a message on your own machine until the recipient comes online. |
 | Encryption | X25519 + HKDF-SHA256 + AES-256-GCM per message and per file chunk, Ed25519-signed. Relays see only ciphertext. |
 | Groups | Admin-signed membership held only by members; add, remove, promote, leave; messages and files encrypted per member; group calls. |
 | Local data | History kept 30 days by default (`srift an retention`, `prune`, `wipe`); `--ephemeral` keeps conversations in RAM only; logs never contain message text by default. |
 | Self-hosting | `srift an relay serve --port 8787 --peers https://other-relay`; agents choose relays with `SRIFT_AN_RELAY`. |
 
-AgentNet runs as a **separate MCP server** with 24 `srift_an_*` tools (the core `srift mcp` above keeps its 15 tools):
+AgentNet runs as a **separate MCP server** with 25 `srift_an_*` tools (the core `srift mcp` above keeps its 15 tools):
 
 ```json
 { "mcpServers": { "srift-agentnet": { "command": "srift", "args": ["agentnet", "mcp"] } } }
@@ -333,8 +333,8 @@ srift monitor <file-id> [--json-stream]         # live transfer progress stream
 
 ### Moderation & Encrypted Chat
 ```bash
-srift approve <user-id>                         # host: approve join request
-srift reject <user-id> [--reason <msg>]         # host: reject join request
+srift approve <temp-user-id>                    # host: approve join request
+srift reject <temp-user-id> [--reason <msg>]    # host: reject join request
 srift kick <user-id>                            # host: kick participant
 srift chat send "Analysis complete."           # send encrypted message
 srift chat history                              # view decrypted room history
@@ -384,13 +384,16 @@ Events emitted: `connection_state`, `join_request`, `participants`, `file_offer`
 
 ## 🔐 Architecture & Security
 
-- **Session Cryptography**: Data in a *session* transfer is encrypted client-side using **AES-256-GCM** with a distinct 12-byte IV per block. Keys are derived locally via **PBKDF2-SHA256 (100,000 iterations)** from the session ID plus an optional room secret, and are never sent to the server. The server does see the session ID, so without a room secret the key is derivable from it; start sessions with `--room-secret` (CLI) / `roomSecret` (SDK) to make the key participant-only. The browser UI does not set a room secret.
-- **Quick-share Encryption**: A public `quick-share` link created with `--encrypt` (or `--password`) is encrypted with AES-256-GCM. The key is placed in the URL fragment (`#k=...`), which browsers and HTTP clients never send in requests, so the relay only handles ciphertext. Without `--encrypt`, bytes are relayed in readable form with zero retention (never stored, streamed directly from the sender's daemon). Use a session transfer if you need encryption with interactive features.
+- **No database**: every server instance keeps sessions in RAM only, and any number of instances behave as one (an authenticated instance mesh; each session has one home instance with a RAM backup on a sibling). A crashed instance's sessions resume on the backup within seconds.
+- **Chat and audio are peer to peer**: browsers in a session form a WebRTC mesh (a full mesh up to 10 members, a bounded overlay beyond). Chat records are signed by their author (ECDSA P-256) and sealed with the sender's key (AES-256-GCM, handed to each member under an ECDH P-256 + HKDF-SHA256 pair key and rotated when someone leaves). Audio goes over DTLS-SRTP directly, or as sealed Opus frames carried by other members when two people cannot connect. The server keeps no chat, no audio and no roster.
+- **Traffic that passes through the server is sealed for the participants**: the chat copy for CLI/agent members (`pk1`) and WebSocket-relayed file chunks (`pgcm1`) use ECDH P-256 keys generated on the devices (fresh per transfer for files); the optional room secret is mixed into every key. Clients older than 4.2 fall back to the previous session-key format, whose key (PBKDF2-SHA256, 100,000 iterations, from the session ID plus the optional room secret) the server could derive without a room secret.
+- **Quick-share Encryption**: A public `quick-share` link created with `--encrypt` (or `--password`) is encrypted with AES-256-GCM. The key is placed in the URL fragment (`#k=...`), which browsers and HTTP clients never send in requests, so the relay only handles ciphertext. Without `--encrypt`, bytes are relayed in readable form with zero retention (never stored, streamed directly from the sender's daemon).
 - **Private, not anonymous**: peer-to-peer connections expose participant IP addresses to each other. SRIFT is not a substitute for Tor.
-- **Adaptive Transport Stack**:
-  1. **WebRTC**: browser↔browser, files >5 MB.
-  2. **AES-256-GCM WebSocket relay**: small files, and whenever WebRTC fails; the only transport the CLI daemon uses.
-  3. **WebTorrent**: optional, browser only.
+- **Adaptive Transport Stack** (every rung works over outbound 443 when needed):
+  1. **Direct WebRTC** (browser↔browser) gets a short head start: ICE uses public STUN from four operators and short-lived TURN credentials (`GET /v1/ice`) from every configured provider in parallel (Cloudflare, your own coturn, Metered, static).
+  2. **End-to-end sealed relay** takes over whenever the direct path is slow to connect or fails, so a transfer never waits on hole punching.
+  3. **WebTorrent**: optional and off by default (browser opt-in); SRIFT's own tracker, which only serves the session's members (public trackers are opt-in, `SRIFT_PUBLIC_TRACKERS=1`, because seeded bytes are not encrypted).
+  4. **HTTPS session stream**: when a network blocks WebSockets (proxies that strip `Upgrade`), browsers switch to plain HTTPS with the same behaviour.
 - **Zero Retention**: nothing transferred is ever written to SRIFT storage. Session traffic is relayed as ciphertext; `quick-share` bytes are streamed from the sender's disk straight to the open HTTP response with `Cache-Control: no-store` and are never persisted.
 
 ---
@@ -407,7 +410,7 @@ Set custom configuration options via environment variables or `~/.srift/config.j
 | `SRIFT_LINK_PASSWORD` | — | Password for `quick-share --encrypt` / `get` without putting it in shell history |
 | `SRIFT_NO_HISTORY` | `0` | Set to `1` to stop recording created links in `~/.srift/history.jsonl` |
 | `SRIFT_NO_EMBEDDED` | `0` | Set to `1` to disable the in-process daemon fallback (sandboxes) |
-| `HTTPS_PROXY` / `NO_PROXY` | — | Proxy (`http://`, `https://`, `socks5://`), honoured everywhere |
+| `HTTPS_PROXY` / `NO_PROXY` | — | Proxy (`http://`, `https://`, `socks5://`), honored everywhere |
 | `NODE_EXTRA_CA_CERTS` | — | Trust a TLS-inspecting proxy's root CA |
 | `SRIFT_AN_HOME` | `~/.srift/agentnet` | AgentNet identity and data directory |
 | `SRIFT_AN_RELAY` | `https://srift.app` | AgentNet relay(s), comma-separated |
@@ -472,7 +475,7 @@ Maintainer documentation. Condensed runbook: [`docs/DISTRIBUTION.md`](docs/DISTR
 | `cli/` | CLI source (`index.ts`) and headless daemon (`daemon.ts`) |
 | `lib/mcp/` | Shared MCP core — one tool catalogue, two backends (local daemon + in-process) |
 | `packages/cli/` | The publishable npm package (`srift-transfer`) |
-| `tests/` | ~380 tests, Node's built-in runner |
+| `tests/` | 475+ tests, Node's built-in runner |
 | `scripts/sync-version.mjs` | Single source of version propagation |
 | `server.json` | MCP registry manifest |
 
@@ -491,7 +494,7 @@ npm run srift -- --help     # run the CLI from TypeScript source
 npx tsc --noEmit
 npm run lint
 npm run build               # must run BEFORE npm test — SEO tests read .next/server/app
-npm test                    # ~380 tests
+npm test                    # 475+ tests
 node scripts/sync-version.mjs --check
 ```
 
@@ -555,6 +558,7 @@ names (`@scope/name`) bypass the similarity filter if a rename is ever needed.
 | `403 too similar to existing package` | typosquat filter | Pick a different or scoped name |
 | `npm warn publish "bin[srift]" ... was invalid and removed` | `bin` path had a leading `./` | Use `"bin": {"srift": "dist/index.js"}`. **npm strips it silently** and ships a package with no command. CI now fails on *any* publish warning. |
 | Install dies on `node-datachannel` / `utp-native` | `webtorrent` in `dependencies` | Keep it in `optionalDependencies`; the daemon degrades to WebSocket transfer |
+| WebTorrent seeding crashes in `arr2hex` (`Buffer.from(undefined)`) | `uint8-util` ≥ 2.3 is incompatible with `webtorrent` 2.8.5 | Keep the `"uint8-util": "2.2.5"` entry in `package.json` `overrides` until webtorrent is upgraded |
 | `EBADENGINE` | `engines.node` too high | Must not exclude Node 20/22 LTS |
 
 ---
@@ -646,7 +650,7 @@ curl -s -X POST https://srift.app/mcp -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 
 srift quick-share <absolute-path> --ttl 15m --json
-curl -OJ "https://srift.app/d/<token>"
+curl -fLOJ "https://srift.app/d/<token>"
 ```
 
 On Windows pass **absolute Windows paths** (`C:/...`). Git Bash `/tmp` resolves
@@ -667,13 +671,14 @@ Source of truth: `lib/mcp/backend-inprocess.mjs` → `SUPPORTED_TOOLS`.
 
 ### Claim policy
 
-False or unprovable for SRIFT, and **enforced by tests**: `military-grade` ·
+False or unprovable for SRIFT, and **enforced by tests**:
 `#1` · `files never touch any server` · `untraceable` · `complete anonymity` ·
 `trusted by millions` · `zero-knowledge` as a product claim.
 
-Say **zero-retention** and **AES-256-GCM** instead. "Zero-knowledge" is false by
-default: `lib/encryption.ts` derives the key from the session ID alone unless an
-optional `roomSecret` is supplied, and the server knows the session ID.
+Say **zero-retention** and **military-grade AES-256-GCM** instead. "Zero-knowledge" stays off
+the table as a product claim: plain quick-share links are TLS-only (use
+`--encrypt`), and peers older than 4.2 fall back to a key derived from the
+session ID, which the server knows. 4.2+ peers use device ECDH P-256 + HKDF keys.
 
 ---
 

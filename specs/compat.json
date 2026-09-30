@@ -1,14 +1,18 @@
 {
   "$comment": "SRIFT daemon ↔ SDK compatibility matrix. Machine-readable. Updated on every release.",
-  "daemon": "4.1.0",
+  "daemon": "4.3.0",
   "minSdkMajor": 2,
   "minSdkMinor": 0,
   "deprecatedSdks": ["1.x"],
   "wireVersion": 2,
-  "mcpProtocolVersion": "2025-06-18",
-  "mcpProtocolFallbacks": ["2024-11-05"],
+  "mcpProtocolVersion": "2026-07-28",
+  "mcpProtocolFallbacks": ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"],
   "supportedLanguages": ["python", "node", "go", "rust", "java", "dotnet", "php", "ruby", "shell", "powershell", "curl"],
   "minDaemonForSdk": {
+    "4.2.x": "4.0.0",
+    "4.1.x": "4.0.0",
+    "4.0.x": "4.0.0",
+    "3.0.x": "2.0.0",
     "2.2.x": "2.0.0",
     "2.1.x": "2.0.0",
     "2.0.x": "2.0.0"
@@ -16,7 +20,7 @@
   "eol": {
     "1.x": "2026-12-31"
   },
-  "releaseDate": "2026-09-08",
+  "releaseDate": "2026-09-30",
   "changelogUrl": "https://srift.app/changelog.json",
   "binaryDistribution": {
     "installer": {
@@ -27,13 +31,15 @@
     },
     "selfUpdate": "srift self-update",
     "targets": {
-      "linux-x64":    "https://srift.app/dl/4.1.0/linux-x64/srift",
-      "linux-arm64":  "https://srift.app/dl/4.1.0/linux-arm64/srift",
-      "darwin-x64":   "https://srift.app/dl/4.1.0/darwin-x64/srift",
-      "darwin-arm64": "https://srift.app/dl/4.1.0/darwin-arm64/srift",
-      "win-x64":      "https://srift.app/dl/4.1.0/win-x64/srift.exe"
+      "linux-x64":    "https://srift.app/dl/4.3.0/linux-x64/srift",
+      "linux-arm64":  "https://srift.app/dl/4.3.0/linux-arm64/srift",
+      "linux-x64-musl":   "https://srift.app/dl/4.3.0/linux-x64-musl/srift",
+      "linux-arm64-musl": "https://srift.app/dl/4.3.0/linux-arm64-musl/srift",
+      "darwin-x64":   "https://srift.app/dl/4.3.0/darwin-x64/srift",
+      "darwin-arm64": "https://srift.app/dl/4.3.0/darwin-arm64/srift",
+      "win-x64":      "https://srift.app/dl/4.3.0/win-x64/srift.exe"
     },
-    "checksums": "https://srift.app/dl/4.1.0/SHA256SUMS",
+    "checksums": "https://srift.app/dl/4.3.0/SHA256SUMS",
     "runtime": "standalone (bun-compiled, no Node.js required on end-user machine)"
   },
   "versionCheckUrls": {

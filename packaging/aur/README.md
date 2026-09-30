@@ -17,7 +17,7 @@ makepkg --printsrcinfo > .SRCINFO
 1. Fill in `sha256sums` in `PKGBUILD` (currently `SKIP`) — AUR review expects
    a real checksum, not `SKIP`, for a reproducible source tarball:
    ```bash
-   curl -sL -o /tmp/srift.tgz https://registry.npmjs.org/srift-transfer/-/srift-transfer-3.0.0.tgz
+   curl -sL -o /tmp/srift.tgz https://registry.npmjs.org/srift-transfer/-/srift-transfer-<version>.tgz
    sha256sum /tmp/srift.tgz
    ```
 2. `makepkg` locally to confirm it builds and `usr/bin/srift --version` works.
@@ -30,7 +30,7 @@ git clone ssh://aur@aur.archlinux.org/srift.git aur-srift
 cp packaging/aur/PKGBUILD packaging/aur/.SRCINFO aur-srift/
 cd aur-srift
 git add PKGBUILD .SRCINFO
-git commit -m "Initial import: srift 3.0.0"
+git commit -m "Initial import: srift <version>"
 git push
 ```
 

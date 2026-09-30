@@ -10,7 +10,7 @@
     "displayName": "SRIFT — Secure P2P File Transfer + E2EE Chat",
     "tagline": "Zero-config, zero-token peer-to-peer file transfer and encrypted chat for humans AND AI agents.",
     "shortDescription": "Send files and chat securely, peer-to-peer, with AES-256-GCM encryption. No accounts, no cloud storage, no API keys. Local MCP server + CLI for AI agents; web app for humans.",
-    "longDescription": "SRIFT is a zero-config, zero-token, peer-to-peer file transfer and end-to-end-encrypted chat platform built for both humans (https://srift.app) and AI agents (local daemon on 127.0.0.1:3822). It exposes a Model Context Protocol server (stdio + Streamable HTTP + SSE), an OpenAPI 3.1 REST surface, and a native CLI. Any LLM — Claude, GPT-4/5, Gemini, Grok, Perplexity, Cursor, Continue, Cline, Aider, Goose, Zed, Codex — can call `srift_quick_share` (one file, a folder, or many files at once) and hand back a public https://srift.app/d/<token> URL that the human recipient downloads with any HTTP client (browser, curl, wget) with nothing installed on their side. Quick-share links are relay links streamed from the sender's machine on demand: nothing is stored on any server, and --encrypt makes them end-to-end encrypted. Works in sandboxed and datacenter agents (the daemon runs in-process, outbound 443 only). AES-256-GCM, PBKDF2 100k, WebRTC/WebTorrent/WebSocket transport, zero retention, zero telemetry.",
+    "longDescription": "SRIFT is a zero-config, zero-token, peer-to-peer file transfer and end-to-end-encrypted chat platform built for both humans (https://srift.app) and AI agents (local daemon on 127.0.0.1:3822). It exposes a Model Context Protocol server (stdio + Streamable HTTP + SSE), an OpenAPI 3.1 REST surface, and a native CLI. Any LLM — Claude, GPT-4/5, Gemini, Grok, Perplexity, Cursor, Continue, Cline, Aider, Goose, Zed, Codex — can call `srift_quick_share` (one file, a folder, or many files at once) and hand back a public https://srift.app/d/<token> URL that the human recipient downloads with any HTTP client (browser, curl, wget) with nothing installed on their side. Quick-share links are relay links streamed from the sender's machine on demand: nothing is stored on any server, and --encrypt makes them end-to-end encrypted. Works in sandboxed and datacenter agents (the daemon runs in-process, outbound 443 only). AES-256-GCM under keys generated on each device (ECDH P-256 + HKDF-SHA256), WebRTC/WebTorrent/sealed-relay/HTTPS transport over port 443, no database, zero retention, zero telemetry.",
     "homepage": "https://srift.app",
     "documentation": "https://srift.app/AGENTS.md",
     "aiAgentHub": "https://srift.app/ai-agents",
@@ -42,16 +42,20 @@
     ]
   },
   "author": {
-    "name": "Sripto Corporation Private Limited",
-    "url": "https://sripto.tech",
-    "email": "sripto@srift.app",
+    "name": "SRIFT contributors",
+    "url": "https://github.com/srivardhan113/SRIFT-Open_Source",
+    "email": "support@sripto.tech",
     "twitter": "@Sripto_tech"
   },
   "discovery": {
     "llmsTxt": "https://srift.app/llms.txt",
     "llmsFullTxt": "https://srift.app/llms-full.txt",
     "agentsMd": "https://srift.app/AGENTS.md",
+    "claudeMd": "https://srift.app/CLAUDE.md",
+    "geminiMd": "https://srift.app/GEMINI.md",
     "aiInstructions": "https://srift.app/ai-instructions.md",
+    "cursorrules": "https://srift.app/.cursorrules",
+    "windsurfrules": "https://srift.app/.windsurfrules",
     "openapi": "https://srift.app/openapi.json",
     "mcpServerCard": "https://srift.app/.well-known/mcp/server-card.json",
     "aiPluginManifest": "https://srift.app/.well-known/ai-plugin.json",
@@ -68,11 +72,10 @@
     "powershell": "irm https://srift.app/install.ps1 | iex",
     "cmd": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"irm https://srift.app/install.ps1 | iex\"",
     "npm": "npm install -g srift-transfer",
-    "docker": "docker run --rm -it -p 3822:3822 sriptotech/srift",
-    "postInstall": "srift install-mcp   # auto-writes MCP config to Claude Desktop, Cursor, Continue, Zed, Cline, Goose, Aider"
+    "postInstall": "srift install-mcp   # prints MCP config snippets for your client; --auto writes Claude Desktop config"
   },
   "mcp": {
-    "supportedProtocolVersions": ["2025-06-18", "2025-03-26", "2024-11-05"],
+    "supportedProtocolVersions": ["2026-07-28", "2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"],
     "transports": [
       {
         "type": "streamable-http",

@@ -2,19 +2,19 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "app.srift/srift",
   "title": "SRIFT",
-  "description": "Secure P2P file transfer and encrypted chat for AI agents. No accounts, no API keys.",
+  "description": "Decentralized P2P file transfer + encrypted chat for AI agents. Military-grade AES-256. No accounts.",
   "repository": {
     "url": "https://github.com/srivardhan113/SRIFT-Open_Source",
     "source": "github"
   },
-  "version": "4.1.0",
+  "version": "4.3.0",
   "websiteUrl": "https://srift.app",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "srift-transfer",
-      "version": "4.1.0",
+      "version": "4.3.0",
       "transport": {
         "type": "stdio"
       },
@@ -39,7 +39,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "srift",
-      "version": "4.1.0",
+      "version": "4.3.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

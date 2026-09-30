@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # SRIFT Universal Installer - macOS, Linux, WSL, Termux, any POSIX shell
 # Usage: curl -fsSL https://srift.app/install.sh | sh
-# Or:    curl -fsSL https://srift.app/install.sh | SRIFT_VERSION=2.2.2 sh
+# Or:    curl -fsSL https://srift.app/install.sh | SRIFT_VERSION=<version> sh   (srift.app serves the current release only)
 # Uninstall: curl -fsSL https://srift.app/install.sh | sh -s -- --uninstall
 # Uninstall (purge all data): curl -fsSL https://srift.app/install.sh | sh -s -- --uninstall --purge
 #
@@ -21,7 +21,9 @@
 
 set -eu
 
-SRIFT_VERSION="${SRIFT_VERSION:-4.1.0}"
+# Remember whether the user pinned a version BEFORE the default fills it in.
+_SRIFT_USER_PINNED="${SRIFT_VERSION:+1}"
+SRIFT_VERSION="${SRIFT_VERSION:-4.3.0}"
 SRIFT_BASE_URL="https://srift.app/dl"
 SRIFT_INSTALL_DIR="${SRIFT_INSTALL_DIR:-$HOME/.srift/bin}"
 SRIFT_BIN="$SRIFT_INSTALL_DIR/srift"
@@ -66,11 +68,16 @@ detect_target() {
   case "$arch" in
     x86_64 | amd64) arch="x64" ;;
     aarch64 | arm64) arch="arm64" ;;
-    armv7l) arch="arm" ;;
-    *)      error "Unsupported CPU architecture: $arch" ;;
+    *)      error "No prebuilt binary for CPU architecture $arch. Install with Node.js 20+: npm i -g srift-transfer (or: pip install srift)" ;;
   esac
 
-  echo "${os}-${arch}"
+  # Alpine and other musl systems get the musl build (the default Linux build needs glibc).
+  local libc=""
+  if [ "$os" = "linux" ]; then
+    if ls /lib/ld-musl-* >/dev/null 2>&1 || (ldd --version 2>&1 | grep -qi musl); then libc="-musl"; fi
+  fi
+
+  echo "${os}-${arch}${libc}"
 }
 
 # -- Download helper - robust retry on 5xx + rustup-style security flags --
@@ -81,15 +88,15 @@ download() {
   local dest="$2"
   local ua="srift-installer/${SRIFT_VERSION} ($(uname -s); $(uname -m))"
   if command -v curl >/dev/null 2>&1; then
-    # --retry-all-errors retries on HTTP 5xx (curl 7.71+).
+    # --retry covers timeouts and HTTP 408/429/5xx, never a 404 (a missing file fails at once).
     # --proto =https + --tlsv1.2 are the rustup security recommendation.
-    # Capability probe - fall back to plain --retry on ancient curl.
-    if curl --help all 2>/dev/null | grep -q -- '--retry-all-errors'; then
+    # Capability probe - fall back to a manual loop on ancient curl.
+    if curl --help all 2>/dev/null | grep -q -- '--retry-connrefused'; then
       curl -fL \
            --proto '=https' --tlsv1.2 \
            -A "$ua" \
            --compressed \
-           --retry 15 --retry-delay 4 --retry-all-errors \
+           --retry 15 --retry-delay 4 --retry-connrefused \
            --connect-timeout 15 \
            -o "$dest" "$url"
     else
@@ -103,7 +110,12 @@ download() {
       return 1
     fi
   elif command -v wget >/dev/null 2>&1; then
-    wget -q -U "$ua" --tries=15 --waitretry=4 --retry-on-http-error=500,502,503,504 -O "$dest" "$url"
+    # GNU wget retries 5xx; busybox wget (Alpine, minimal images) has none of those flags.
+    if wget --help 2>&1 | grep -q -- '--retry-on-http-error'; then
+      wget -q -U "$ua" --tries=15 --waitretry=4 --retry-on-http-error=500,502,503,504 -O "$dest" "$url"
+    else
+      wget -q -U "$ua" -O "$dest" "$url"
+    fi
   else
     error "Neither curl nor wget found. Install one and retry."
   fi
@@ -124,8 +136,7 @@ verify_checksum() {
   local expected
   expected=$(grep " $basename$" "$sums_file" | cut -d' ' -f1)
   if [ -z "$expected" ]; then
-    warn "No checksum found for $basename in SHA256SUMS. Skipping verification."
-    return 0
+    error "No checksum for $basename in SHA256SUMS. Refusing to install an unverified binary (SRIFT_NO_VERIFY=1 overrides)."
   fi
 
   local actual
@@ -134,8 +145,7 @@ verify_checksum() {
   elif command -v shasum >/dev/null 2>&1; then
     actual=$(shasum -a 256 "$file" | cut -d' ' -f1)
   else
-    warn "No sha256sum or shasum found. Skipping checksum verification."
-    return 0
+    error "No sha256sum or shasum found to verify the download. Install coreutils, or set SRIFT_NO_VERIFY=1 to skip (not recommended)."
   fi
 
   if [ "$actual" != "$expected" ]; then
@@ -275,7 +285,7 @@ main() {
       error "Cannot reach https://srift.app - check your internet connection / proxy / firewall, then retry."
     fi
   elif command -v wget >/dev/null 2>&1; then
-    if ! wget -q --spider --timeout=8 https://srift.app/cli/version.json 2>/dev/null; then
+    if ! wget -q --spider -T 8 https://srift.app/cli/version.json 2>/dev/null; then
       error "Cannot reach https://srift.app - check your internet connection / proxy / firewall, then retry."
     fi
   fi
@@ -286,7 +296,7 @@ main() {
   # (handles the case where this script is older than the latest release).
   if [ -z "${SRIFT_VERSION_PINNED:-}" ] && [ -z "${_SRIFT_USER_PINNED:-}" ]; then
     local _remote_latest
-    _remote_latest=$(curl -fsSL --max-time 10 https://srift.app/cli/version.json 2>/dev/null \
+    _remote_latest=$( (curl -fsSL --max-time 10 https://srift.app/cli/version.json 2>/dev/null || wget -qO- -T 10 https://srift.app/cli/version.json 2>/dev/null) \
                      | sed -n 's/.*"latest"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
                      | head -1)
     if [ -n "$_remote_latest" ] && [ "$_remote_latest" != "$SRIFT_VERSION" ]; then
@@ -347,27 +357,17 @@ main() {
     info "Fresh install of SRIFT v${SRIFT_VERSION} ..."
   fi
 
-  # -- Pre-install cleanup - kill any running srift + remove stale installs --
-  # Mirrors what `srift uninstall` does in 2.1.4+: kill processes, sweep PATH
-  # for stale srift binaries elsewhere on the system, remove them, so the
-  # new install is the ONLY srift on the box after this script finishes.
+  # -- Pre-install: stop a running standalone srift; point out other installs --
+  # Other `srift` commands on PATH may belong to npm, pip or Homebrew; deleting them would break
+  # those package managers, so they are only reported.
   if command -v pkill >/dev/null 2>&1; then pkill -x srift 2>/dev/null || true; fi
-  if command -v killall >/dev/null 2>&1; then killall srift 2>/dev/null || true; fi
-  # Scan every PATH dir for stale srift binaries (other than the install target)
-  local stale_count=0
   if command -v which >/dev/null 2>&1; then
-    # `which -a` lists every srift in PATH; busybox `which` may not support -a - fall back to PATH scan
     local found
     found=$(which -a srift 2>/dev/null || true)
     if [ -n "$found" ]; then
       printf '%s\n' "$found" | while IFS= read -r b; do
-        # Skip the canonical install target
         case "$b" in "$SRIFT_BIN") continue ;; esac
-        if [ -f "$b" ]; then
-          warn "Removing stale install: $b"
-          rm -f "$b" 2>/dev/null || true
-          stale_count=$((stale_count + 1))
-        fi
+        [ -f "$b" ] && warn "Another srift is on PATH: $b (npm/pip/brew install?). Remove it with its own package manager if it shadows $SRIFT_BIN."
       done
     fi
   fi
@@ -418,11 +418,14 @@ main() {
   fi
 
   info "Downloading checksums..."
-  if download "$sums_url" "$tmp_sums" 2>/dev/null; then
+  if [ "${SRIFT_NO_VERIFY:-0}" = "1" ]; then
+    warn "Checksum verification skipped (SRIFT_NO_VERIFY=1). Not recommended."
+  elif download "$sums_url" "$tmp_sums" 2>/dev/null; then
     verify_checksum "$tmp_bin" "$tmp_sums"
     success "Checksum verified."
   else
-    warn "Could not download SHA256SUMS. Skipping verification."
+    rm -rf "$tmp_dir"
+    error "Could not download SHA256SUMS to verify the binary. Retry, or set SRIFT_NO_VERIFY=1 to skip (not recommended)."
   fi
 
   # Install
