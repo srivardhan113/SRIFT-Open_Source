@@ -13,7 +13,7 @@
 
 - **No database.** SRIFT's servers keep session state in memory only. Any number of server instances behave as one over an authenticated instance mesh; each session has a home instance plus an in-memory backup on a sibling, so a crashed instance's sessions resume within seconds.
 - **Peer-to-peer chat and audio.** Browsers in a session form a WebRTC mesh (full mesh up to 10 members, a bounded overlay beyond). Audio is DTLS-SRTP, or sealed Opus frames carried by other members when two people cannot connect. Chat is signed by its author (ECDSA P-256), sealed with per-sender AES-256-GCM keys that rotate when someone leaves, and never stored on a server; late joiners get history from other members.
-- **Files.** Quick-share links stream from the sender's device on demand and are never stored. In sessions, browsers try direct WebRTC first and fall back to an end-to-end sealed relay; the sealed relay carries every file size by default, with WebTorrent optional on request.
+- **Files.** Quick-share links stream from the sender's device on demand and are never stored. In sessions, browsers try direct WebRTC first and fall back to an end-to-end sealed relay; a direct transfer that fails continues over the relay from the bytes already received. The sealed relay carries every file size by default, with WebTorrent optional on request. A browser that receives a file writes it straight into its own download (it appears in the Downloads folder while it arrives); where that is not reliable the file is held in the browser's private storage and saved when complete.
 - **Keys born on the devices.** ECDH P-256 + HKDF-SHA256 → AES-256-GCM; a fresh key pair per relayed transfer; the optional room secret is mixed into every key. The relay sees only public keys and ciphertext.
 - **Works on any network with outbound port 443.** Public STUN from four operators, short-lived TURN credentials (`GET /v1/ice`, every configured provider in parallel), the sealed relay, and an automatic HTTPS stream when a proxy blocks WebSockets (`/v1/stream/http/*`). The CLI honours `HTTPS_PROXY` and can run fully in-process in sandboxes; `srift doctor` names the blocked hop.
 - **Agents.** A 15-tool local MCP server, a 9-tool hosted MCP endpoint, SDKs in 11 languages, and AgentNet (agent-to-agent addresses, live search, E2EE messages, files, groups and calls; 25-tool MCP server).
@@ -81,7 +81,7 @@ SRIFT AgentNet lets AI agents find and talk to other AI agents. Every agent gets
 - **Traffic through the server** (the chat copy for CLI/agent members `pk1`, relayed file chunks `pgcm1`): AES-256-GCM under ECDH P-256 + HKDF-SHA256 keys generated on the devices (a fresh key pair per file transfer); the optional `roomSecret` is mixed into every key. Peers older than 4.2 fall back to the previous session key (PBKDF2-SHA256, 100,000 iterations, from the 7-character session ID + optional `roomSecret`), which the server could derive without a room secret.
 - **Cipher**: AES-256-GCM, 12-byte random IV per message, authenticated data binds every chunk to its file and position.
 - **Quick-share links**: ciphertext with `--encrypt` (key in the `#k=` fragment, never sent to the server), otherwise TLS-only pass-through; never stored.
-- **Transports** (all over outbound 443 when needed): direct WebRTC (public STUN from four operators, short-lived TURN credentials from `GET /v1/ice`), the sealed relay (every file size by default), optional WebTorrent, and an HTTPS session stream for networks that block WebSockets.
+- **Transports** (all over outbound 443 when needed): direct WebRTC (public STUN from four operators, short-lived TURN credentials from `GET /v1/ice`), the sealed relay (every file size by default; 256 KB chunks with a sliding window of acknowledgments, older clients keep 48/64 KB), optional WebTorrent, and an HTTPS session stream for networks that block WebSockets.
 
 ## When SRIFT fits
 
@@ -164,7 +164,7 @@ Agent calls `srift_start_session`, emits the room URL, and opens encrypted chat 
 ```bash
 srift quick-share ./renders/final_cut_4k.mov
 ```
-*Result:* The file streams directly peer-to-peer at the seeder's full network upload speed without 2GB/10GB file size caps or cloud compression.
+*Result:* The file streams from the sender's machine through the relay to the recipient on demand, without being stored and without 2GB/10GB file size caps.
 
 ### Scenario 7: Confidential Documents & Private Data Exchange
 *Context:* Legal teams, healthcare providers, or financial auditors need to transfer sensitive contracts, patient records, or audit spreadsheets securely.
@@ -284,13 +284,13 @@ Bun-compiled standalone binaries (bundled runtime, no Node.js on end-user machin
 
 | Target | URL |
 |---|---|
-| linux-x64 | https://srift.app/dl/4.3.0/linux-x64/srift |
-| linux-arm64 | https://srift.app/dl/4.3.0/linux-arm64/srift |
-| darwin-x64 | https://srift.app/dl/4.3.0/darwin-x64/srift |
-| darwin-arm64 | https://srift.app/dl/4.3.0/darwin-arm64/srift |
-| win-x64 | https://srift.app/dl/4.3.0/win-x64/srift.exe |
-| Combined SHA256 | https://srift.app/dl/4.3.0/SHA256SUMS |
-| Per-target SHA256 | https://srift.app/dl/4.3.0/{target}/SHA256SUMS |
+| linux-x64 | https://srift.app/dl/4.3.2/linux-x64/srift |
+| linux-arm64 | https://srift.app/dl/4.3.2/linux-arm64/srift |
+| darwin-x64 | https://srift.app/dl/4.3.2/darwin-x64/srift |
+| darwin-arm64 | https://srift.app/dl/4.3.2/darwin-arm64/srift |
+| win-x64 | https://srift.app/dl/4.3.2/win-x64/srift.exe |
+| Combined SHA256 | https://srift.app/dl/4.3.2/SHA256SUMS |
+| Per-target SHA256 | https://srift.app/dl/4.3.2/{target}/SHA256SUMS |
 
 ## Integration matrix (every modern AI runtime supported)
 
@@ -423,7 +423,7 @@ the CLI or `POST /quick-share`.
 
 ### Signaling (public, used by browser clients)
 - `POST /create-session` { username, name } → { sessionId, userId, wsToken }
-- `POST /join-session` { sessionId, username } → { tempUserId, status }
+- `POST /join-session` { sessionId, username } → { tempUserId, status } (previews the session; the host is asked when the joiner sends `request_join` on the socket)
 - `GET /healthz`, `GET /readyz`, `GET /metrics`
 
 ### Local daemon (zero-auth, used by AI agents)
@@ -589,6 +589,7 @@ A tool that fails returns a normal result with `isError: true` and the reason in
 | MCP `initialize` rejects protocolVersion | Unsupported version | Use `2026-07-28` (older versions listed above work). |
 | Transfer stuck at 0% | The peer hasn't accepted the offer | The receiver runs `srift receive <fileId>` / `srift_accept_transfer`. |
 | Guest can't chat right after joining | Not approved yet (409) | The host runs `srift approve <tempUserId>`; approve returns once the guest is in the room. |
+| Host sees no join request after sharing the link | The person has not pressed "Request to Join" yet (the page only previews the session) | Ask them to press it, then `srift approve <tempUserId>`. A CLI or MCP join asks the host at once. |
 | `Decryption failed` in a session | Different `roomSecret` | Both sides must pass the same `roomSecret`. |
 | `/d/<token>` returns 404 | Link expired or revoked, or the sender's daemon stopped | Keep the sender online (`srift daemon status`); share again. |
 | `/d/<token>` returns 424 | The shared file was deleted or edited | Share the file again. |

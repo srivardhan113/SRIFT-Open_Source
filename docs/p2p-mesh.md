@@ -35,8 +35,9 @@ has embedded mode for sandboxes.
 Transfers survive drops: the CLI relay re-sends an unacknowledged chunk after 15 s and right after a
 reconnect (receivers de-duplicate and re-acknowledge), and reports failure only after ~10 minutes without
 progress; the browser relay re-sends every unacknowledged chunk after 8 s without an ack. A browser WebRTC
-file link that goes `disconnected` gets 5 s to recover before the relay takes over (the relay then starts
-the file from the beginning; a shared byte-offset assembly for mid-file hand-over is not built yet).
+file link that goes `disconnected` gets 5 s to recover before the relay takes over (the relay then continues
+from the bytes the receiver already holds: direct and relay transports fill one byte-addressed file,
+`lib/incoming-file-store.ts`).
 `/d/` downloads that stop flowing for 60 s are closed so the client resumes with a Range request.
 
 Once admitted, a browser keeps its peer links when the WebSocket drops: audio and chat between

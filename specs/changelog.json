@@ -1,8 +1,30 @@
 {
   "$comment": "SRIFT machine-readable changelog. Human-readable version at /CHANGELOG.md.",
   "project": "SRIFT",
-  "latestVersion": "4.3.0",
+  "latestVersion": "4.3.2",
   "releases": [
+    {
+      "version": "4.3.2",
+      "date": "2026-10-05",
+      "kind": "patch",
+      "securityFix": false,
+      "summary": "4.3.2 (4.3.1 was never published): a received file goes straight into the browser's Downloads while it arrives (20 GB measured with about 100 MB of page memory), a faster negotiated relay format, a rewritten direct WebRTC transport that waits for the receiver's confirmation, and fixes for multi-recipient transfers.",
+      "breaking": [],
+      "changes": [
+        "Browser: a received file is written into the browser's own download and is visible in Downloads while it arrives; Firefox, Safari, iPhone/iPad and Firefox for Android store it first when it fits. A reload continues the download.",
+        "Relay: 256 KB base64 chunks with a sliding window of acknowledgments, negotiated per transfer; older clients keep the 48/64 KB format.",
+        "Direct WebRTC: one connection per transfer; the sender finishes on the receiver's confirmation; a failed direct transfer continues over the relay from the bytes already received.",
+        "Several recipients are independent: a sender's cancel no longer removes a copy that was already received; two tabs of one browser no longer collide on the same file.",
+        "CLI daemon: sends to every recipient with a sliding window; recognises a local SRIFT server on port 8080 by /compat.json.",
+        "Multi-instance: open file offers move with a session to its new home instance.",
+        "Empty (0-byte) files can be sent between browser and CLI.",
+        "Joining: a browser join link previews the session until \"Request to Join\"; CLI and MCP joins ask the host at once.",
+        "A receiver whose sender disappears ends the transfer on its own (a minute after the sender went offline, or eleven minutes without data) instead of showing \"Receiving\" forever.",
+        "A recipient whose own download failed keeps that outcome after a reload, even when another recipient has the file.",
+        "Chrome and Edge: a receiving tab closed and reopened within minutes continues the same download.",
+        "CLI daemon: one outcome per recipient (recipients in srift list --json); the file is completed when at least one recipient has it."
+      ]
+    },
     {
       "version": "4.3.0",
       "date": "2026-09-30",

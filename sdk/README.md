@@ -79,13 +79,13 @@ package registry yet:
 | Language | Works today | Not yet live |
 |---|---|---|
 | Python | `pip install srift` — the PyPI package includes this SDK (`from srift import Srift`) alongside the `srift` CLI (from 4.1.0) | — |
-| Node.js | npm `srift` — **not yet published**; use direct file download below | npm |
-| Go | `go get .../srift` — **not yet published**; use direct file download below | Go proxy / pkg.go.dev |
-| Rust | `cargo add srift` — **not yet published**; use direct file download below | crates.io |
-| Java | Maven coordinate `app.srift:srift` — **not yet published**; use direct file download below | Maven Central |
-| .NET | NuGet `Srift` — **not yet published**; use direct file download below | NuGet |
-| PHP | Composer `srift/srift` — **not yet published**; use direct file download below | Packagist |
-| Ruby | `gem install srift` — **not yet published**; use direct file download below | RubyGems |
+| Node.js | npm `srift` — source in this repo; registry publish pending maintainer tokens � direct download works | npm |
+| Go | `go get .../srift` — source in this repo; registry publish pending maintainer tokens � direct download works | Go proxy / pkg.go.dev |
+| Rust | `cargo add srift` — source in this repo; registry publish pending maintainer tokens � direct download works | crates.io |
+| Java | Maven coordinate `app.srift:srift` — source in this repo; registry publish pending maintainer tokens � direct download works | Maven Central |
+| .NET | NuGet `Srift` — source in this repo; registry publish pending maintainer tokens � direct download works | NuGet |
+| PHP | Composer `srift/srift` — source in this repo; registry publish pending maintainer tokens � direct download works | Packagist |
+| Ruby | `gem install srift` — source in this repo; registry publish pending maintainer tokens � direct download works | RubyGems |
 
 **The currently-working install method for every language above except Python (on PyPI) is a direct file download**, e.g.:
 

@@ -5,7 +5,7 @@
 # — this is the standard shape for an AUR package that wraps an npm CLI
 # rather than vendoring/building a prebuilt binary.
 pkgname=srift
-pkgver=4.3.0
+pkgver=4.3.2
 pkgrel=1
 pkgdesc="Zero-config, zero-token P2P E2EE file transfer, chat, and MCP server for AI agents"
 arch=('any')
@@ -18,7 +18,7 @@ source=("$pkgname-$pkgver.tgz::https://registry.npmjs.org/srift-transfer/-/srift
 # converted to sha256 (npm publishes shasum as sha1; use
 # `sha256sum <(curl -sL "$source")` against the actual tarball) before
 # submitting to the AUR.
-sha256sums=('9b8dc66876013e01bdcb10b656cb7abee8ceacb5a68441077c5b1bbf74fbcd9b')
+sha256sums=('edccf091e20206b66806c4431cd3c8491438923a8c252036af38c05a646d4a1a')
 # Install the tarball itself: `npm install -g <folder>` only symlinks to $srcdir, which is deleted
 # after the build (Arch Node.js package guidelines: noextract + install the .tgz).
 noextract=("$pkgname-$pkgver.tgz")

@@ -32,8 +32,8 @@ srift uninstall              # or --purge to also delete ~/.srift/
 curl -fsSL https://srift.app/install.sh | sh -s -- --uninstall [--purge]
 ```
 
-Binaries served from `https://srift.app/dl/4.3.0/{linux-x64|linux-arm64|darwin-x64|darwin-arm64|win-x64}/srift[.exe]`
-SHA256 checksums at `https://srift.app/dl/4.3.0/SHA256SUMS`
+Binaries served from `https://srift.app/dl/4.3.2/{linux-x64|linux-arm64|darwin-x64|darwin-arm64|win-x64}/srift[.exe]`
+SHA256 checksums at `https://srift.app/dl/4.3.2/SHA256SUMS`
 
 ## The 1-line workflow
 

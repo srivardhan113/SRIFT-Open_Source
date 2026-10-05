@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "SRIFT API",
-    "version": "4.3.0",
+    "version": "4.3.2",
     "summary": "Zero-config, zero-token P2P E2EE file transfer + chat for any AI agent or automation. Includes a public download tunnel at https://srift.app/d/<token> so recipients need nothing installed.",
     "description": "Two API surfaces:\n\n  1. **Local daemon** at `http://127.0.0.1:3822` (recommended for AI agents — fully token-less).\n  2. **Public signaling** at `https://srift.app` (used by browser clients).\n\nFor AI agents, use the local daemon endpoints (everything under /quick-share, /session/*, /send, /receive, /chat/*, /mcp). Documentation: https://srift.app/AGENTS.md",
     "contact": {
@@ -1059,7 +1059,7 @@
         "tags": [
           "session"
         ],
-        "summary": "Public signaling: request join (used by browser clients)",
+        "summary": "Public signaling: preview a session and reserve a pending join (the host is asked when the client sends `request_join` on the session socket)",
         "requestBody": {
           "content": {
             "application/json": {

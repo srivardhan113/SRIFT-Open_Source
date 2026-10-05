@@ -8,6 +8,34 @@ Machine-readable version: [`/changelog.json`](https://srift.app/changelog.json)
 
 ---
 
+## [4.3.2] — 2026-10-05
+
+4.3.1 was never published; its changes are part of this release.
+
+### Added
+- **A received file goes straight into the browser's Downloads.** It is visible in Downloads while it arrives, like any internet download, and needs its size on disk once (measured: 20 GB browser to browser with about 100 MB of page memory). Chrome, Edge and other Chromium browsers do this; Firefox and Safari hold the file in the browser's private storage and save it when complete unless it is too large for that storage, as do iPhone/iPad, Firefox for Android and in-app browsers. A page reload continues the same download, and in Chromium so does a tab that was closed and reopened; a receiving tab that stays closed for more than about a minute ends the transfer. A file saved this way shows "In Downloads" instead of a Download button.
+- Relay: 256 KB chunks as base64 with a sliding window of acknowledgments, negotiated per transfer (older clients keep the 48/64 KB format); about 8-13 MB/s measured locally, up from about 2 MB/s.
+- Direct WebRTC: one connection per transfer; the sender finishes only when the receiver confirms the whole file; the receiver can ask the sender to pause; a direct transfer that fails continues over the relay from the bytes already received.
+- Empty (0-byte) files can be sent in both directions between browser and CLI.
+
+### Fixed
+- A direct transfer no longer shows "Done" on the sender while the receiver is stuck at 99%: the sender waited one second after the last chunk instead of for the receiver.
+- A second file, or a second recipient of the same file, is no longer pushed off the direct path; each transfer has its own connection.
+- One file to several recipients: a sender cancelling the file no longer takes it away from a recipient who had already received it; two users in two tabs of one browser no longer collide on the same file; a user who was not a recipient no longer sees the file with a dead Download button.
+- CLI daemon: sends to every recipient (it served only the first one) with a sliding window instead of one chunk per acknowledgment; another program listening on port 8080 is no longer mistaken for a local SRIFT server (the daemon checks for `/compat.json`).
+- Multi-instance: open file offers travel with a session when it moves to another instance (deploy, instance failure), so a relay transfer in flight continues instead of stalling.
+- "Download" after a page reload finds a file that is still held in the browser's storage.
+- A receiver whose sender disappears (tab closed, machine asleep, left the session) no longer shows "Receiving" forever: the transfer ends on its own a minute after the sender went offline, or after eleven minutes without any data, and a streamed download is cleaned up.
+- A recipient whose own download failed or was cancelled no longer sees the file as completed after a reload because another recipient has it; its own outcome is remembered on the device.
+- Chrome and Edge: a receiving tab that is closed and reopened within minutes continues the same download (the service worker keeps it alive); a page reload no longer re-sends the part of a direct transfer that was already stored.
+- CLI daemon: a file sent to several recipients reports one outcome per recipient (`recipients` in `srift list --json`), and its status is "completed" when at least one recipient has the whole file, instead of taking the last event's status.
+- Local data: the session start time is removed with the rest of a session's data, and copies of files being sent are swept together with a stale session.
+
+### Changed
+- Joining: opening a join link in a browser previews the session; the host is asked only after "Request to Join". CLI and MCP joins ask the host at once.
+
+---
+
 ## [4.3.0] — 2026-09-30
 
 4.2.3 – 4.2.5 were never published to npm or PyPI; srift.app served 4.2.4, whose prebuilt binaries could not start. Their changes are part of this release. It is a minor release: new musl (Alpine) binaries, quick-share options in every SDK, and a group-state protocol addition (signed admin grants); older nodes keep working. Security and install fixes: every prebuilt binary works again, the session socket proves who it is, and AgentNet closes several ways a stranger or a hostile relay could misuse a node.

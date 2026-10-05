@@ -22,7 +22,7 @@ about:
     Zero-config, zero-token peer-to-peer secure file transfer, encrypted chat,
     and session orchestration for AI agents. No account, no API key: the
     hosted endpoint below is a stateless, zero-auth JSON-RPC 2.0 / MCP
-    2025-06-18 server exposing SRIFT's session/peer orchestration tools.
+    2026-07-28 server exposing SRIFT's session/peer orchestration tools.
   icon: https://srift.app/Favicon/apple-touch-icon.png
 remote:
   transport_type: streamable-http

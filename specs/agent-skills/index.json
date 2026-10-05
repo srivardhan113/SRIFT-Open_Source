@@ -21,7 +21,7 @@
       "type": "skill-md",
       "description": "Create, join, monitor, and control SRIFT end-to-end encrypted P2P sessions via the local MCP daemon",
       "url": "https://srift.app/.well-known/agent-skills/session-management/SKILL.md",
-      "digest": "sha256:711d3067ecb764f005497c9e38736bb771537573cb2173c4b8259e6f08261190"
+      "digest": "sha256:63aa511aa22a01759e24798d410577b64dc17e9d71f9539b3d9f361ace260d7f"
     },
     {
       "name": "encrypted-chat",

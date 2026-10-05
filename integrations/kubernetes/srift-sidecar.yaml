@@ -5,7 +5,7 @@
 # localhost, so the agent calls http://127.0.0.1:3822. Do not put a Service in
 # front of it: other pods cannot and should not reach it.
 #
-# Image: docker build -t srift-daemon:4.1.0 integrations/docker
+# Image: docker build -t srift-daemon:4.3.2 integrations/docker
 
 apiVersion: apps/v1
 kind: Deployment
@@ -35,7 +35,7 @@ spec:
             - { name: shared, mountPath: /work }   # files to share live here
 
         - name: srift
-          image: srift-daemon:4.1.0
+          image: srift-daemon:4.3.2
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

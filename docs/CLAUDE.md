@@ -14,6 +14,22 @@
 
 ---
 
+## Two uses, equal weight
+
+**File transfer and chat.** Give anyone a download link, or open an end-to-end encrypted session. The plugin starts this as `srift` (`srift mcp`, 15 tools). Hosted session tools, with no filesystem access, are at `https://srift.app/mcp` (9 tools).
+
+- Skill: https://srift.app/.well-known/agent-skills/quick-share/SKILL.md
+- Sessions: https://srift.app/.well-known/agent-skills/session-management/SKILL.md
+- Chat: https://srift.app/.well-known/agent-skills/encrypted-chat/SKILL.md
+
+**AgentNet.** Talk to other agents: a permanent address, a live handle, knocks, encrypted chat, files, groups, and calls. The plugin starts this as `srift-agentnet` (`srift agentnet mcp`, 25 `srift_an_*` tools). Those tools are not on the hosted `/mcp` endpoint, because the identity key stays on this machine.
+
+- Skill: https://srift.app/.well-known/agent-skills/agentnet/SKILL.md
+- Overview: https://srift.app/agentnet
+- Full manual: https://srift.app/AGENTS.md
+
+---
+
 ## Commands
 
 - **Build all**: `npm run build` (bundles CLI via esbuild, then runs `next build --webpack`)
@@ -35,7 +51,7 @@
 
 - `cli/`: TypeScript source for the CLI binary (`index.ts`) and headless daemon (`daemon.ts`).
   - Daemon runs on `http://127.0.0.1:3822` (zero-auth, localhost-only, auto-starts on first CLI command).
-  - Falls back to `https://srift.app` if local signaler (`http://127.0.0.1:8080`) is not running.
+  - Falls back to `https://srift.app` unless a local SRIFT server answers on `http://127.0.0.1:8080` with its `/compat.json`.
 - `packages/cli/`: Standalone publishable npm package (`srift-transfer`).
 - `app/`: Next.js 16 App Router (React 19, Tailwind CSS, TypeScript).
   - Static SEO landing routes under `app/` MUST remain server components (no `'use client'`).
@@ -45,6 +61,7 @@
 - **No database** (db-plan.md): all server state is in RAM. `lib/server/ram-store.mjs` answers the session/user statements; `lib/mesh/` is the authenticated instance mesh (self-dialled via the service URL, link-state routing, flow-controlled streams); `lib/server/cluster.mjs` gives every section ONE home instance — sockets and HTTP requests that land elsewhere are tunnelled/forwarded there, each home copies its sections to a RAM backup on a sibling (promoted if the home dies, handed over on SIGTERM), idle instances consolidate and drain. Never add a database, Redis or disk persistence.
 - **Browser audio + chat are peer to peer** (docs/p2p-mesh.md): `lib/p2p/` session mesh (WebRTC links, gossip chat, sender keys, Opus-frame fallback through peers, then the `mesh_relay` socket case as last resort). No LiveKit, no media server, no server-side audio roster; never route audio or chat content through the server except as client-sealed `mesh_relay` frames. `tests/p2p/` runs real data channels via node-datachannel.
 - **Transports & keys** (docs/p2p-mesh.md): `GET /v1/ice` mints short-lived TURN from every configured provider in parallel (`lib/server/turn.mjs`; never ship static TURN creds in the bundle); public STUN from several operators is a parallel extra that must never gate a transfer; public WSS trackers stay opt-in (WebTorrent seeds unencrypted bytes, so a public tracker could fetch them). Browsers switch to the HTTPS session stream (`lib/http-stream-client.ts` ↔ `lib/server/http-stream.mjs`, registered in `wss.clients`) when WebSockets never open. Traffic through the server (CLI/agent chat copy, relayed file chunks) is sealed with participant-only keys (`lib/e2e-keys.ts`, `pk1` / `pgcm1`) when the other side advertised one; the session-key format stays for older clients.
+- **Receiving in the browser** (`lib/incoming-file-store.ts`): a received file goes straight into the browser's own download through the service worker (`public/service-worker.js`, synthetic `/__srift_dl/` URLs): it shows in Downloads while it arrives and needs its size on disk once. The page pings the worker every 5 s; a download whose page stays gone is failed after 10 minutes in Chromium (which keeps the worker alive while the response is open) and after 22 s elsewhere. Fallbacks: origin private file system (`lib/incoming-file.worker.ts`, saved to Downloads when complete), then memory. Only Chromium cleans up a streamed download that fails (Firefox leaves it "in progress"; never close the stream early there, Firefox would show the cut-off file as complete), so other browsers take the stored path when the file fits their storage; iOS, Firefox for Android and Android WebViews never stream. `tests/streaming-download.test.ts` runs the real worker source against the page side.
 - `public/`: Static discovery files served at domain root (`/llms.txt`, `/openapi.json`, `/.well-known/*`, etc.).
 
 ---

@@ -17,6 +17,28 @@ Deliver any file from an AI agent sandbox (Claude, Cursor, Windsurf, Continue, Z
 📦 **GitHub Repository:** [https://github.com/srivardhan113/SRIFT-Open_Source](https://github.com/srivardhan113/SRIFT-Open_Source)  
 🤖 **AI Agent Hub:** [https://srift.app/ai-agents](https://srift.app/ai-agents)  
 
+## Quick start
+
+Send a file as a link (nothing to install, the recipient just opens it):
+
+```bash
+npx -y srift-transfer quick-share ./report.pdf
+# ↳ https://srift.app/d/7k3m9xq
+```
+
+Give an AI agent file transfer. Add to any MCP client (Claude Desktop, Cursor, Windsurf, Cline, VS Code):
+
+```json
+{ "mcpServers": { "srift": { "command": "npx", "args": ["-y", "srift-transfer", "mcp"] } } }
+```
+
+```bash
+claude mcp add srift -- npx -y srift-transfer mcp                    # Claude Code, local (15 tools)
+claude mcp add --transport http srift-hosted https://srift.app/mcp   # hosted, no install (9 session tools)
+```
+
+Then ask: "send me the build as a link". The agent calls `srift_quick_share` and replies with the URL.
+
 ---
 
 ## ⚡ Why SRIFT for AI Agents?
@@ -427,7 +449,7 @@ Events emitted: `connection_state`, `join_request`, `participants`, `file_offer`
 - **Cryptography**: Session chat copies (`pk1`) and relayed file chunks (`pgcm1`) are sealed with **AES-256-GCM** under ECDH P-256 + HKDF-SHA256 keys generated on the devices (a fresh key pair per file transfer); the optional `--room-secret` is mixed into every key. Peers older than 4.2 fall back to the previous session key (PBKDF2-SHA256, 100,000 iterations, from the session ID plus the optional room secret), which the server could derive without a room secret. `--encrypt` quick-share links carry their key in the URL fragment; plain quick-share links are TLS-only in transit (zero retention).
 - **No database**: the server keeps sessions in RAM only, and any number of instances behave as one; a crashed instance's sessions resume on a sibling's RAM copy within seconds.
 - **Adaptive Transport Stack** (every rung works over outbound 443 when needed):
-  1. **End-to-end sealed relay** through the session socket: always available, used for small files and whenever a faster path is not up.
+  1. **End-to-end sealed relay** through the session socket: always available, used for small files and whenever a faster path is not up. The CLI sends to each recipient independently, in 256 KB chunks with a sliding window of acknowledgments (older clients keep the 64 KB format).
   2. **WebTorrent**: optional and off by default; SRIFT's own tracker, which only serves the session's members (public trackers are opt-in with `SRIFT_PUBLIC_TRACKERS=1`, because seeded bytes are not encrypted).
   3. Browsers additionally use **direct WebRTC** (public STUN from four operators, short-lived TURN from `GET /v1/ice`) and switch to an **HTTPS session stream** on networks that block WebSockets.
 - **Privacy First**: The daemon binds to `127.0.0.1` only. The relay stores nothing; for sessions and `--encrypt` links it only ever forwards ciphertext and never receives the key.

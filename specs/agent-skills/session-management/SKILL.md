@@ -18,7 +18,7 @@ Available MCP tools (see `/.well-known/mcp/server-card.json` for full schemas):
 - `srift_start_session` — open a new E2EE room as host.
 - `srift_join_session` — join an existing room by its 7-character session ID.
 - `srift_session_status` — read current session, role, connected peers, and pending join requests.
-- `srift_approve_join` / `srift_reject_join` — host-only: approve or reject a guest's join request.
+- `srift_approve_join` / `srift_reject_join` — host-only: approve or reject a guest's join request. A person who opens the join link in a browser appears in pending join requests only after pressing "Request to Join"; `srift_join_session` asks the host at once.
 - `srift_kick_user` — host-only: remove a peer. Get their `userId` from `srift_session_status` → `participants`.
 - `srift_close_session` — tear down the session and flush all encryption keys.
 

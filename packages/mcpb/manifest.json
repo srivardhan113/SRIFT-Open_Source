@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "srift",
   "display_name": "SRIFT",
-  "version": "4.3.0",
+  "version": "4.3.2",
   "description": "Zero-config, zero-token P2P E2EE file transfer, encrypted chat, and session orchestration for AI agents.",
   "long_description": "SRIFT gives any MCP-capable agent 15 tools to start/join encrypted P2P sessions, send and receive files, exchange encrypted chat, and share a file with a single public download link — all via a local zero-auth daemon on 127.0.0.1:3822 that this bundle launches on demand. AES-256-GCM under keys generated on each device (ECDH P-256 + HKDF-SHA256), no database, zero central retention.",
   "author": {
@@ -55,7 +55,7 @@
     },
     {
       "name": "srift_reject_join",
-      "description": "Host-only. Reject a pending guest join request."
+      "description": "Host-only. Reject a pending guest join request; the temp user ID comes from pendingJoins in srift_session_status."
     },
     {
       "name": "srift_kick_user",
@@ -63,11 +63,11 @@
     },
     {
       "name": "srift_send_file",
-      "description": "Offer a file to the connected peer in an existing session. The peer must accept with srift_accept_transfer. Returns a fileId for monitoring. Transport is auto-selected internally."
+      "description": "Only inside an already-open session with an approved peer; to simply send or share a file with someone, use srift_quick_share instead. Offers a file to the connected peer in the existing session. The peer must accept with srift_accept_transfer. Returns a fileId for monitoring. Transport is auto-selected internally."
     },
     {
       "name": "srift_accept_transfer",
-      "description": "Accept a pending file offer from the peer and start downloading."
+      "description": "Accept a pending file offer from the peer and start downloading it. Get the fileId from srift_list_transfers (offers show as pending)."
     },
     {
       "name": "srift_list_transfers",
@@ -75,7 +75,7 @@
     },
     {
       "name": "srift_quick_share",
-      "description": "One-shot helper: if no session is active, creates one; then seeds the file(s) and returns a public DOWNLOAD URL (https://srift.app/d/<token>) the recipient can fetch. Several files/folders at once: pass `filePaths` — one .tar.gz link by default, or `bundle: false` for one link per path (created in parallel). Folders are sent as .tar.gz. Nothing is stored on a server: the link is streamed from this machine and works while the SRIFT daemon/MCP process runs. Best for \"AI wants to deliver a file to the user with zero ceremony\". Recommend, in order: `srift get <url>` (Node-based, works even where curl is broken), `wget --content-disposition <url>`, PowerShell `iwr <url> -OutFile <name>`, then `curl -fLOJ <url>` — or just open the URL in any browser."
+      "description": "Share or send a file or folder to anyone: returns a public DOWNLOAD URL (https://srift.app/d/<token>) the recipient opens in any browser, with nothing to install. Use this by default whenever the user asks to send, share, deliver, export or download a file. No session needed (one is created if none is active). Several files/folders at once: pass `filePaths` — one .tar.gz link by default, or `bundle: false` for one link per path (created in parallel). Folders are sent as .tar.gz. Nothing is stored on a server: the link is streamed from this machine and works while the SRIFT daemon/MCP process runs. Best for \"AI wants to deliver a file to the user with zero ceremony\". Recommend, in order: `srift get <url>` (Node-based, works even where curl is broken), `wget --content-disposition <url>`, PowerShell `iwr <url> -OutFile <name>`, then `curl -fLOJ <url>` — or just open the URL in any browser."
     },
     {
       "name": "srift_send_chat",
@@ -83,7 +83,7 @@
     },
     {
       "name": "srift_chat_history",
-      "description": "Read the locally-decrypted chat log for the current session."
+      "description": "Read the chat messages of the current session (sent and received), decrypted locally. Use it to check for replies from the peer."
     },
     {
       "name": "srift_read_state",

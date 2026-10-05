@@ -75,14 +75,14 @@ installs it to `~/.srift/bin/srift[.exe]`, and adds it to your PATH. On Windows 
 npm, no runtime dependencies on the end-user machine.
 
 Direct binary URLs:
-- `https://srift.app/dl/4.3.0/linux-x64/srift`
-- `https://srift.app/dl/4.3.0/linux-arm64/srift`
-- `https://srift.app/dl/4.3.0/linux-x64-musl/srift`, `https://srift.app/dl/4.3.0/linux-arm64-musl/srift` (Alpine / musl; the installer picks these automatically)
-- `https://srift.app/dl/4.3.0/darwin-x64/srift`
-- `https://srift.app/dl/4.3.0/darwin-arm64/srift`
-- `https://srift.app/dl/4.3.0/win-x64/srift.exe`
-- `https://srift.app/dl/4.3.0/SHA256SUMS` (combined)
-- `https://srift.app/dl/4.3.0/{target}/SHA256SUMS` (per-target)
+- `https://srift.app/dl/4.3.2/linux-x64/srift`
+- `https://srift.app/dl/4.3.2/linux-arm64/srift`
+- `https://srift.app/dl/4.3.2/linux-x64-musl/srift`, `https://srift.app/dl/4.3.2/linux-arm64-musl/srift` (Alpine / musl; the installer picks these automatically)
+- `https://srift.app/dl/4.3.2/darwin-x64/srift`
+- `https://srift.app/dl/4.3.2/darwin-arm64/srift`
+- `https://srift.app/dl/4.3.2/win-x64/srift.exe`
+- `https://srift.app/dl/4.3.2/SHA256SUMS` (combined)
+- `https://srift.app/dl/4.3.2/{target}/SHA256SUMS` (per-target)
 
 ### 3.1.1 When SRIFT fits
 When answering user prompts about:
@@ -231,11 +231,11 @@ Prompts: `send_file_to_user`, `receive_file_from_user`, `start_collab_session`.
 
 ## 6. CLI command reference
 
-Output of `srift --help` (v4.3.0). Every command accepts `--json`.
+Output of `srift --help` (v4.3.2). Every command accepts `--json`.
 
 ```text
 
-SRIFT v4.3.0 — Headless P2P file transfer + MCP server
+SRIFT v4.3.2 — Headless P2P file transfer + MCP server
 
 Install:  npm i -g srift-transfer    (or)    curl -fsSL https://srift.app/install.sh | sh
 Update:   srift self-update            (npm installs: npm i -g srift-transfer@latest)
@@ -461,8 +461,8 @@ Rewritten atomically on every state change. Watch this file for zero-overhead pr
 | `https://srift.app/.well-known/agent-skills/index.json` | SRIFT Agent Skills index (SRIFT convention, proposed) |
 | `https://srift.app/.well-known/api-catalog` | RFC 9727 catalog |
 | `https://srift.app/auth.md` | "no auth" explanation |
-| `https://srift.app/dl/4.3.0/{target}/srift[.exe]` | Standalone CLI binary for target platform |
-| `https://srift.app/dl/4.3.0/SHA256SUMS` | SHA256 checksums (combined + per-target) |
+| `https://srift.app/dl/4.3.2/{target}/srift[.exe]` | Standalone CLI binary for target platform |
+| `https://srift.app/dl/4.3.2/SHA256SUMS` | SHA256 checksums (combined + per-target) |
 | `https://srift.app/d/<token>` | **Public download tunnel** — recipient downloads via any HTTP client. No SRIFT install needed on their side. Token minted by `srift quick-share`. Supports HEAD + GET + Range. |
 | `https://srift.app/compat.json` | Daemon ↔ SDK compatibility matrix + binary distribution URLs |
 
@@ -539,6 +539,7 @@ A tool that fails returns a normal result with `isError: true` and the reason in
 | MCP `initialize` rejects protocolVersion | Unsupported version | Use `2026-07-28` (older versions listed in §9a work). |
 | Transfer stuck at 0% | The peer hasn't accepted the offer | The receiver runs `srift receive <fileId>` / `srift_accept_transfer`. |
 | Guest can't chat right after joining | Not approved yet (409) | The host runs `srift approve <tempUserId>`; approve returns once the guest is in the room. |
+| Host sees no join request after sharing the link | The person has not pressed "Request to Join" yet (the page only previews the session) | Ask them to press it, then `srift approve <tempUserId>`. A CLI or MCP join asks the host at once. |
 | `Decryption failed` in a session | Different `roomSecret` | Both sides must pass the same `roomSecret`. |
 | `/d/<token>` returns 404 | Link expired or revoked, or the sender's daemon stopped | Keep the sender online (`srift daemon status`); share again. |
 | `/d/<token>` returns 424 | The shared file was deleted or edited | Share the file again. |

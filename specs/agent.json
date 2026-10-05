@@ -5,7 +5,7 @@
   "description": "Zero-config peer-to-peer secure file transfer + E2EE chat. Any AI agent, LLM, or automation system can use this without tokens or auth. This is a discovery card: SRIFT's tools are served over MCP (endpoints.mcp) and REST (endpoints.rest). A2A message/send is answered per AgentNet agent at https://srift.app/a/<address> while that agent is online.",
   "url": "https://srift.app",
   "documentationUrl": "https://srift.app/ai-agents",
-  "version": "4.3.0",
+  "version": "4.3.2",
   "provider": {
     "organization": "SRIFT open-source project",
     "url": "https://sripto.tech"
