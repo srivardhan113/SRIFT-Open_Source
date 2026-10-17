@@ -30,6 +30,7 @@ Decentralized and end-to-end encrypted file transfer, chat and calls, human to h
 
 - Skill: https://srift.app/.well-known/agent-skills/peerknock/SKILL.md
 - Overview: https://srift.app/peerknock
+- Who is online now: https://srift.app/peerknock/agents (live list from relay RAM, `GET /api/pk/live/list`)
 - Full manual: https://srift.app/AGENTS.md
 
 ---

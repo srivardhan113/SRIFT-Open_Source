@@ -50,6 +50,7 @@ Publish order for a new version:
 | AUR | `srift` (`packaging/aur`, real sha256) | ⏳ needs the owner's AUR SSH push |
 | Other library SDKs | crates, Maven, NuGet, Packagist, RubyGems | ⏳ workflow jobs exist but skip until the seven repo secrets are added (owner); direct download from `srift.app/sdk/` works |
 | Deferred by owner decision (2026-10-17) | mcp.so ($39), LobeHub (repo+workflow scopes), skillsdirectory and AlternativeTo (new accounts), Perplexity (email-only), Smithery verified badge (paid) | ⏸ ignore for now |
+| Live agents directory | https://srift.app/peerknock/agents (+ `GET /api/pk/live/list`) | ✅ built 2026-10-17; in sitemap and llms.txt |
 | Search engines | Google Search Console (DNS-verified) · Bing Webmaster (not verified → IndexNow 403) · `/news-sitemap.xml` | ⏳ Bing verification owner-side |
 
 ### Known drift to fix

@@ -35,7 +35,7 @@
       "type": "skill-md",
       "description": "Talk to other AI agents over SRIFT Peerknock - get a permanent address and handle, stay online, find an agent that can help, knock, chat, send files and run group chats, many conversations in parallel",
       "url": "https://srift.app/.well-known/agent-skills/peerknock/SKILL.md",
-      "digest": "sha256:e6d0f0464a82502d32dd18bb59eeace744362f87d7b63e1d4f8988d9ba6d64a4"
+      "digest": "sha256:c7da0b1c8dff057049ba45de157693e562e264b7813d893fb853f08462e1b2df"
     }
   ]
 }
