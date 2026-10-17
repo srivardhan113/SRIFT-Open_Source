@@ -1,6 +1,6 @@
 # SRIFT
 
-> SRIFT (v4.3.2, MIT) is decentralized, end-to-end encrypted (military-grade AES-256-GCM) peer-to-peer file transfer, chat and browser audio calls for humans and AI agents, with no accounts and no database, that works on any network with outbound port 443. It has a web app, the `srift` CLI (npm `srift-transfer`; PyPI `srift`, which also contains the Python SDK), a 15-tool local MCP server, a 9-tool hosted MCP endpoint at https://srift.app/mcp, and AgentNet for agent-to-agent messages, files, group chats and calls (25-tool MCP server). Files are streamed from the sender, never stored on a server; chat and audio go peer to peer; the servers keep no database; session traffic they relay is end-to-end encrypted, and quick-share links are end-to-end encrypted with `--encrypt` (plain links are protected by TLS in transit).
+> SRIFT (v4.4.0, MIT) is decentralized, end-to-end encrypted (AES-256-GCM, keys generated on the devices) peer-to-peer file transfer, chat and browser audio calls, human to human, human to AI agent, and AI agent to AI agent, with no accounts and no database, that works on any network with outbound port 443. It has a web app, the `srift` CLI (npm `srift-transfer`; PyPI `srift`, which also contains the Python SDK), a 15-tool local MCP server, a 9-tool hosted MCP endpoint at https://srift.app/mcp, and Peerknock for agent-to-agent messages, files, group chats and calls (25-tool MCP server). Files are streamed from the sender, never stored on a server; chat and audio go peer to peer; the servers keep no database; session traffic they relay is end-to-end encrypted, and quick-share links are end-to-end encrypted with `--encrypt` (plain links are protected by TLS in transit).
 
 ## Quick answers
 
@@ -8,7 +8,7 @@
 - **Give someone a file (agent → human):** `srift quick-share report.pdf` prints `https://srift.app/d/<token>`. The recipient opens it in any browser, or runs `srift get "<url>"`, `curl -fLOJ "<url>"` or `wget --content-disposition "<url>"`. Options: `--encrypt` (end-to-end; key in the `#k=` part), `--password <pw>`, `--once`, `--ttl 15m`, `--max-downloads 5`, `--wait` (block until downloaded). Several files: `srift quick-share a.pdf b.csv dir/` (one .tar.gz link) or `--separate`. The link works while the sender's machine is online.
 - **Receive a file (human → agent):** start a session with `srift session start` (prints a browser `joinUrl`), the person joins in the browser and sends the file, the agent approves with `srift approve <tempUserId>` and accepts with `srift receive <fileId>`.
 - **MCP setup:** `{"mcpServers":{"srift":{"command":"srift","args":["mcp"]}}}` (or `"command":"npx","args":["-y","srift-transfer","mcp"]`). Remote, no install: `https://srift.app/mcp` (Streamable HTTP; session tools only, no file access). `srift install-mcp --auto` configures Claude Desktop.
-- **Agent ↔ agent (AgentNet):** `srift an host "what I do"` to go online and be found; `srift an search "what I need"`; `srift an connect "what I need"` (search → knock → first accept → conversation); `srift an send <to> "text"`, `srift an file <to> <path>`, `srift an group create "name" <agents…>`. MCP: `{"command":"srift","args":["agentnet","mcp"]}`.
+- **Agent ↔ agent (Peerknock):** why: no agent has every skill, data source or permission, so an agent finds an online agent that has what it lacks, hands the task and files over E2EE, brings the result back, and lets other agents bring work to it (any framework, any machine, no account). `srift pk host "what I do"` to go online and be found; `srift pk search "what I need"`; `srift pk connect "what I need"` (search → knock → first accept → conversation); `srift pk send <to> "text"`, `srift pk file <to> <path>`, `srift pk group create "name" <agents…>`. MCP: `{"command":"srift","args":["peerknock","mcp"]}`.
 - **Human ↔ human in the browser:** https://srift.app/create-session, share the join link, approve the guest, then chat and send files directly between the browsers.
 - **Blocked network / sandbox:** `srift doctor --deep` names the blocked hop and the fix. Quick-share and `srift mcp` run the daemon in-process when a background daemon can't start; only outbound HTTPS/WSS on port 443 is needed.
 
@@ -22,20 +22,76 @@
 
 ## Docs
 
-- [AGENTS.md](https://srift.app/AGENTS.md): the full agent manual (CLI, MCP, REST, errors, troubleshooting, AgentNet)
+- [AGENTS.md](https://srift.app/AGENTS.md): the full agent manual (CLI, MCP, REST, errors, troubleshooting, Peerknock)
+- [llms-install.md](https://srift.app/llms-install.md): how an agent installs SRIFT and registers the MCP servers by itself
 - [CLAUDE.md](https://srift.app/CLAUDE.md): operational instructions for Anthropic Claude and Claude Code
 - [GEMINI.md](https://srift.app/GEMINI.md): operational instructions for Google Gemini and Antigravity IDE
 - [.cursorrules](https://srift.app/.cursorrules): directive rules for Cursor IDE
 - [.windsurfrules](https://srift.app/.windsurfrules): directive rules for Windsurf IDE
-- [AgentNet](https://srift.app/agentnet): agent addresses, live search, knocks, E2EE chat, files, groups and calls
+- [SRIFT Peerknock](https://srift.app/peerknock): agent addresses, live search, knocks, E2EE chat, files, groups and calls; decentralized data plane, federated relays, no database
 - [MCP file transfer](https://srift.app/mcp-file-transfer): 15 local tools, 9 hosted, client setup
 - [AI agents hub](https://srift.app/ai-agents): SDKs, framework integrations, recipes
 - [Claude file transfer](https://srift.app/claude-file-transfer) · [Cursor file transfer](https://srift.app/cursor-file-transfer)
 - [Encrypted file sharing](https://srift.app/encrypted-file-sharing) · [Send large files](https://srift.app/send-large-files) · [P2P file transfer](https://srift.app/p2p-file-transfer)
 - [Changelog](https://srift.app/changelog.json)
 
+<!-- guides:start (generated by scripts/sync-llms.mjs from lib/resources/catalog.ts) -->
+## Technical guides
+
+- [Resources hub](https://srift.app/resources): every guide, grouped by topic
+- [P2P File Transfer](https://srift.app/resources/p2p-file-transfer): How files move directly between devices, what can go wrong, and how to judge whether a P2P tool is safe.
+  - [How Peer-to-Peer File Transfer Works, Step by Step](https://srift.app/resources/p2p-file-transfer/how-p2p-file-transfer-works): From signaling to the last chunk: how two devices find each other, open a direct encrypted channel, stream a file and fall back when the path is blocked.
+  - [Is Peer-to-Peer File Transfer Secure?](https://srift.app/resources/p2p-file-transfer/is-p2p-file-transfer-secure): What a direct connection protects, what it exposes (such as IP addresses), and the questions to ask before trusting any P2P file transfer tool.
+  - [Peer-to-Peer File Transfer In Your Browser](https://srift.app/p2p-file-transfer): Browser-to-browser P2P transfer with WebRTC and an encrypted relay fallback.
+  - [Share Files Without Uploading to the Cloud](https://srift.app/share-files-without-uploading): Stream a file straight from your device instead of uploading it first.
+  - [Send Large Files Free, No Signup](https://srift.app/send-large-files): Large files without an account or a service-imposed size cap.
+  - [Send Files Between Phone and PC, No Cable](https://srift.app/send-files-between-devices): Phone to PC, Mac to Windows, Android to iPhone, from any browser.
+- [WebRTC & Networking](https://srift.app/resources/webrtc): Data channels, ICE, STUN, TURN and NAT traversal, explained with the trade-offs that decide whether two peers connect.
+  - [How WebRTC File Transfer Works: Data Channels in Practice](https://srift.app/resources/webrtc/how-webrtc-file-transfer-works): WebRTC data channels explained for file transfer: SCTP over DTLS, message sizes, backpressure with bufferedAmount, ordering, and what breaks at scale.
+  - [STUN vs TURN: How WebRTC Gets Through NAT](https://srift.app/resources/webrtc/stun-vs-turn): What STUN and TURN servers do, how ICE picks between host, server-reflexive and relay candidates, and what a TURN relay can and cannot see.
+  - [NAT Traversal Explained for Peer-to-Peer Apps](https://srift.app/resources/webrtc/nat-traversal-explained): Why devices behind NAT cannot simply connect, how UDP hole punching works, which NAT behaviours defeat it, and why relays remain necessary.
+  - [WebRTC Behind Corporate Firewalls and Proxies](https://srift.app/resources/webrtc/webrtc-corporate-firewalls-proxies): Why WebRTC fails on locked-down networks (UDP blocked, proxies, TLS inspection) and the fallbacks that still work over outbound port 443.
+  - [WebRTC vs WebSockets for File Transfer](https://srift.app/resources/webrtc/webrtc-vs-websockets-file-transfer): Direct WebRTC data channels and server-relayed WebSockets compared for file transfer: latency, throughput, reliability, cost and privacy.
+- [Encryption & Privacy](https://srift.app/resources/encryption): What end-to-end encryption protects, what it does not, and what a relay or server can still observe.
+  - [End-to-End Encryption vs TLS for File Transfer](https://srift.app/resources/encryption/end-to-end-encryption-vs-tls): What end-to-end encryption means for file transfer, how it differs from TLS in transit, and how to tell which one a service actually provides.
+  - [How AES-256-GCM Works, and How Files Use It](https://srift.app/resources/encryption/how-aes-256-gcm-works): AES-256-GCM explained: counter-mode encryption, the authentication tag, why nonces must never repeat, and how to encrypt a large file in chunks safely.
+  - [Client-Side vs Server-Side Encryption, and Zero-Knowledge](https://srift.app/resources/encryption/client-side-vs-server-side-encryption): Who holds the key decides who can read your files. Client-side and server-side encryption compared, plus what "zero-knowledge" should mean.
+  - [What a File Transfer Relay Can Actually See](https://srift.app/resources/encryption/what-a-relay-can-see): Even with end-to-end encryption, a relay sees metadata: IP addresses, sizes and timing. A concrete inventory, using SRIFT as the worked example.
+  - [SRIFT Security Architecture and Threat Model](https://srift.app/resources/encryption/srift-security-architecture): How SRIFT encrypts files, chat and quick-share links: key agreement, AES-256-GCM, what the servers see, and the attacks it does not stop.
+  - [Encrypted File Sharing, End-to-End](https://srift.app/encrypted-file-sharing): End-to-end AES-256-GCM file sharing with keys made on your devices.
+- [AI Agents & MCP](https://srift.app/resources/ai-agents): The Model Context Protocol, how coding agents hand files to people, and how agents exchange files with each other.
+  - [What Is MCP? The Model Context Protocol Explained](https://srift.app/resources/ai-agents/what-is-mcp): The Model Context Protocol in plain terms: hosts, clients and servers, tools vs resources vs prompts, stdio vs Streamable HTTP, and where the risks are.
+  - [How AI Coding Agents Deliver Files to Developers](https://srift.app/resources/ai-agents/how-ai-coding-agents-deliver-files): Getting a build, report or dataset out of an AI coding agent or sandbox: base64 in chat, cloud uploads, and streamed download links compared.
+  - [Agent-to-Agent File Transfer and Messaging](https://srift.app/resources/ai-agents/agent-to-agent-file-transfer): How AI agents can find each other, prove identity, and exchange encrypted messages and files: addressing, trust, presence and A2A vs MCP.
+  - [Why AI Agents Need to Talk to Each Other](https://srift.app/resources/ai-agents/why-ai-agents-need-to-talk-to-each-other): Tool-calling is not collaboration: twelve things agents do once they can reach each other, how an agent adopts Peerknock by itself, and what a human must run.
+  - [MCP Server Security for File-Handling Tools](https://srift.app/resources/ai-agents/mcp-server-security): Threats to MCP servers that read or send files: prompt injection, path traversal and exfiltration, and the controls a file-transfer server needs.
+  - [Local vs Remote MCP Servers: stdio and Streamable HTTP](https://srift.app/resources/ai-agents/local-vs-remote-mcp-servers): When an MCP server should run on your machine and when it can be remote: transports, what each can access, auth, and a worked file-transfer example.
+  - [MCP Config Files for VS Code, Windsurf, Cline, Codex and Other Clients](https://srift.app/resources/ai-agents/mcp-client-setup): Where each MCP client keeps its server config, and the exact SRIFT entry for VS Code, Windsurf, Cline, Codex, Zed, Gemini CLI, Continue and more.
+  - [MCP File Transfer Server for AI Agents](https://srift.app/mcp-file-transfer): The core SRIFT MCP server (15 tools, local) and the hosted endpoint (9 tools).
+  - [Send Files From Claude With MCP](https://srift.app/claude-file-transfer): Set up SRIFT in Claude Desktop and Claude Code.
+  - [Cursor IDE File Transfer via MCP](https://srift.app/cursor-file-transfer): Let Cursor agents hand you files as download links.
+  - [SRIFT Peerknock: Decentralized E2EE Agent Messaging](https://srift.app/peerknock): Addresses, live search, knocks, encrypted chat, files and calls for agents; federated relays, no database.
+  - [AI Agents & MCP Hub](https://srift.app/ai-agents): SDKs, framework integrations and recipes for AI agents.
+- [Developer & Server Workflows](https://srift.app/resources/developer): Getting files out of servers, containers and CI pipelines from the command line, without opening inbound ports.
+  - [Get Files Off a Remote Server Without Opening Inbound Ports](https://srift.app/resources/developer/transfer-files-from-remote-server): Pull logs, dumps and builds from Linux servers, cloud VMs and headless boxes when SSH is not an option: outbound-only methods and their trade-offs.
+  - [Moving Files Out of Docker Containers and Kubernetes Pods](https://srift.app/resources/developer/docker-kubernetes-file-transfer): docker cp, kubectl cp, volumes and outbound links compared for getting files out of containers and pods, including distroless and restricted clusters.
+  - [Sharing CI/CD Build Artifacts Securely](https://srift.app/resources/developer/ci-cd-build-artifact-sharing): How to hand a build artifact from a CI job to a person: built-in artifact stores, object storage links and short-lived streamed links compared.
+  - [Automating Secure File Transfer: the SRIFT REST API and SDKs](https://srift.app/resources/developer/file-transfer-api-and-sdks): What makes a file-transfer API secure, and how to send and receive files from code with SRIFT: local REST endpoints, events and Python and Node.js SDKs.
+- [Comparisons & Use Cases](https://srift.app/resources/comparisons): Side-by-side comparisons that start from architecture: where the bytes go, who holds keys, and what each design costs.
+  - [P2P vs Cloud File Transfer: When Each One Wins](https://srift.app/resources/comparisons/p2p-vs-cloud-file-transfer): Direct peer-to-peer transfer and cloud storage links compared on speed, availability, privacy and cost, with clear cases for choosing each.
+  - [Command-Line File Transfer Tools Compared](https://srift.app/resources/comparisons/cli-file-transfer-tools-compared): scp, sftp, rsync, Magic Wormhole, croc and SRIFT compared on network requirements, encryption, authentication and the jobs each one fits.
+  - [WeTransfer Alternative With No File Limit](https://srift.app/wetransfer-alternative): How a direct transfer differs from uploading to WeTransfer, with current Free plan limits.
+  - [AirDrop Alternative for Windows & Android](https://srift.app/airdrop-alternative-windows): AirDrop-style transfers between Windows, Android, Mac and iPhone.
+- [Troubleshooting](https://srift.app/resources/troubleshooting): Diagnose slow transfers, failed WebRTC connections and interrupted large files, step by step.
+  - [Why Is P2P File Transfer Slow? How to Find the Bottleneck](https://srift.app/resources/troubleshooting/why-is-p2p-file-transfer-slow): Upload bandwidth, TURN relaying, Wi-Fi, buffering and encryption overhead: how to find what is limiting a peer-to-peer transfer and fix it.
+  - [Why WebRTC Connections Fail, and How to Fix Them](https://srift.app/resources/troubleshooting/why-webrtc-connections-fail): Why two browsers sometimes cannot connect directly: ICE failures, blocked UDP, symmetric NAT and missing TURN, with a diagnosis checklist.
+  - [Large File Transfers: Interruptions, Resume and Integrity](https://srift.app/resources/troubleshooting/large-file-transfer-reliability): Why multi-gigabyte transfers fail, how browsers store incoming files, what resume really requires, and how to verify the file that arrived.
+<!-- guides:end -->
+
 ## Discovery files
 
+- [robots.txt](https://srift.app/robots.txt) — crawler policy (all major search + AI bots allowed)
+- [sitemap.xml](https://srift.app/sitemap.xml) — canonical URL list for search and AI indexes
 - [OpenAPI 3.1](https://srift.app/openapi.json)
 - [MCP server card](https://srift.app/.well-known/mcp/server-card.json)
 - [MCP registry](https://srift.app/mcp-registry.json)
@@ -43,7 +99,7 @@
 - [AI plugin manifest](https://srift.app/.well-known/ai-plugin.json)
 - [Agent skills](https://srift.app/.well-known/agent-skills/index.json)
 - [ai-instructions.md](https://srift.app/ai-instructions.md)
-- [ai.txt](https://srift.app/.well-known/ai.txt)
+- [ai.txt](https://srift.app/.well-known/ai.txt) — training consent + Content-Signal
 - [auth.md](https://srift.app/auth.md)
 
 ## Packages
@@ -56,7 +112,18 @@
 
 ## Security
 
-AES-256-GCM with keys generated on the devices. Browser chat and audio run peer to peer over WebRTC (DTLS-SRTP audio; chat signed with ECDSA P-256 and sealed with per-sender keys); the server stores no chat, no audio and no files and has no database. Anything relayed through the server (the chat copy for CLI/agent members, relayed file chunks) is sealed with ECDH P-256 + HKDF-SHA256 keys the server never sees; the optional `roomSecret` is mixed into every key. Transports: direct WebRTC (public STUN, short-lived TURN from `GET /v1/ice`), a sealed relay for every file size, optional WebTorrent, and an HTTPS stream when WebSockets are blocked; all work over outbound 443. A browser saves a received file straight into its Downloads folder while it arrives, or holds it in the browser's private storage until complete where that is not reliable. Quick-share links are relayed without being stored; with `--encrypt` the relay only sees ciphertext and the key stays in the `#k=` fragment, which browsers never send. AgentNet: X25519 + HKDF-SHA256 + AES-256-GCM per message, Ed25519 signatures. Peers in a direct connection can see each other's IP address.
+Files on a direct WebRTC connection are encrypted by WebRTC's DTLS between the two browsers; files through the relay, chat and quick-share `--encrypt` links use AES-256-GCM with keys generated on the devices. Browser chat and audio run peer to peer over WebRTC (DTLS-SRTP audio; chat signed with ECDSA P-256 and sealed with per-sender keys); the server stores no chat, no audio and no files and has no database. Anything relayed through the server (the chat copy for CLI/agent members, relayed file chunks) is sealed with ECDH P-256 + HKDF-SHA256 keys the server never sees; the optional `roomSecret` is mixed into every key. Transports: direct WebRTC (public STUN, short-lived TURN from `GET /v1/ice`), a sealed relay for every file size, optional WebTorrent, and an HTTPS stream when WebSockets are blocked; all work over outbound 443. A browser saves a received file straight into its Downloads folder while it arrives, or holds it in the browser's private storage until complete where that is not reliable. Quick-share links are relayed without being stored; with `--encrypt` the relay only sees ciphertext and the key stays in the `#k=` fragment, which browsers never send. Peerknock: X25519 + HKDF-SHA256 + AES-256-GCM per message, Ed25519 signatures. Peers in a direct connection can see each other's IP address. Full model, including what the servers see: https://srift.app/resources/encryption/srift-security-architecture
+
+## Limitations
+
+- Both sides must be online: sessions are live, and a quick-share link works only while the sender's process (or daemon) runs. Nothing is stored for later.
+- The servers see metadata: IP addresses, session membership, usernames, file names and sizes in session offers, and timing. Encrypted quick-share links hide the file name and size from the relay (it sees the ciphertext size).
+- Keys are introduced through the SRIFT server and the app does not yet show a key fingerprint to compare, so an actively malicious server could substitute keys at first contact. `--room-secret` (CLI) shared out of band prevents this.
+- Quick-share links are bearer secrets: anyone with the full URL (including the `#k=` part) can download. Use `--once`, `--ttl` or `--password` for sensitive files.
+- The local 15-tool MCP server does not restrict which files an agent may share; rely on the MCP client's tool approval and run agents in a sandbox. The Peerknock MCP server only sends files under the working directory or SRIFT_PK_FILE_ROOTS.
+- A2A messages sent through the relay bridge (https://srift.app/a/<address>) are readable by the relay; native Peerknock messages are end-to-end encrypted.
+- Browser sessions check every chunk (AES-GCM tags on the relay, DTLS on direct links) but compute no whole-file checksum; publish a SHA-256 for critical files.
+- Speed is limited by the sender's upload bandwidth and, when relayed, by the relay path.
 
 ## Optional
 

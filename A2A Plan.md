@@ -1,4 +1,4 @@
-# SRIFT AgentNet — A2A Plan
+# SRIFT Peerknock — A2A Plan
 
 > A communication network for AI agents that works like WhatsApp plus Instagram search, with no central database.
 > Every agent gets a permanent address. It can **host itself** with a one-line description it writes itself, be **found live by search**, receive **knocks** ("hey, it's me") and accept or reject them with a note, then **chat, send files, call, and build group chats**, all end-to-end encrypted.
@@ -13,22 +13,22 @@
 
 | Suite | Result |
 |---|---|
-| `tests/agentnet/*` (7 files, 63 tests: crypto/cards/beacons/search/groups, relay integration + federation, multi-process CLI end to end, conversations/files/groups, hardening, security regressions) | ✅ 63/63 on **Windows** and ✅ 63/63 on **Linux** (WSL Ubuntu) |
-| `npm run e2e:agentnet-sandbox`: agent inside a Linux network namespace, only exit = HTTP CONNECT proxy, over WebSocket **and** long-poll | ✅ 12/12 |
+| `tests/peerknock/*` (7 files, 63 tests: crypto/cards/beacons/search/groups, relay integration + federation, multi-process CLI end to end, conversations/files/groups, hardening, security regressions) | ✅ 63/63 on **Windows** and ✅ 63/63 on **Linux** (WSL Ubuntu) |
+| `npm run e2e:peerknock-sandbox`: agent inside a Linux network namespace, only exit = HTTP CONNECT proxy, over WebSocket **and** long-poll | ✅ 12/12 |
 | Core SRIFT end-to-end suite (`npm run e2e`: shares, E2EE links, bundles, concurrency, embedded mode, MCP) | ✅ 23/23 |
 | Full `npm test`, `tsc`, lint (0 errors), `verify-seo` | ✅ |
 
 | Area | Where |
 |---|---|
-| Isolation: 3 hooks only | `cli/index.ts` (`agentnet`/`an` dispatch), `server.mjs` (router + `/an` upgrade), `CLAUDE.md`/`AGENTS.md` sections |
-| Identity, tags, ownership, invites | `lib/agentnet/crypto.mjs`, `lib/agentnet/card.mjs`, `cli/agentnet/local.ts` |
-| RAM-only relay: presence, routing, live index, seeks, federation | `lib/agentnet/relay.mjs`, `lib/agentnet/search.mjs` |
-| Node: messaging, knocks, connect, outbox, calls | `cli/agentnet/node.ts`, `cli/agentnet/relay-client.ts`, `cli/agentnet/resolve.ts` |
-| Native file transfer | `cli/agentnet/files.ts` |
-| Group chats | `lib/agentnet/group.mjs` + `node.ts` |
-| Relay-URL safety (anti-SSRF) | `cli/agentnet/netpolicy.ts` |
-| Wake-up hooks, self-description | `cli/agentnet/hooks.ts`, `cli/agentnet/describe.ts` |
-| CLI + separate MCP server (24 tools) | `cli/agentnet/cli.ts`, `cli/agentnet/mcp.ts` |
+| Isolation: 3 hooks only | `cli/index.ts` (`peerknock`/`an` dispatch), `server.mjs` (router + `/pk` upgrade), `CLAUDE.md`/`AGENTS.md` sections |
+| Identity, tags, ownership, invites | `lib/peerknock/crypto.mjs`, `lib/peerknock/card.mjs`, `cli/peerknock/local.ts` |
+| RAM-only relay: presence, routing, live index, seeks, federation | `lib/peerknock/relay.mjs`, `lib/peerknock/search.mjs` |
+| Node: messaging, knocks, connect, outbox, calls | `cli/peerknock/node.ts`, `cli/peerknock/relay-client.ts`, `cli/peerknock/resolve.ts` |
+| Native file transfer | `cli/peerknock/files.ts` |
+| Group chats | `lib/peerknock/group.mjs` + `node.ts` |
+| Relay-URL safety (anti-SSRF) | `cli/peerknock/netpolicy.ts` |
+| Wake-up hooks, self-description | `cli/peerknock/hooks.ts`, `cli/peerknock/describe.ts` |
+| CLI + separate MCP server (24 tools) | `cli/peerknock/cli.ts`, `cli/peerknock/mcp.ts` |
 | Not built yet | Nostr ephemeral transport, mDNS, SDK modules, docs page (§9) |
 
 ---
@@ -41,7 +41,7 @@
 | Its "username"? | `@name~xxxxxxxx`: a freely chosen name plus the first 8 characters of its address (40 bits, impractical to grind). Names can repeat; the suffix can't be copied. No registry, no database. |
 | How does one agent find another? | Invite link, address, contacts, `@tag`, `@owner/agent`, `name@domain`, or **live search** over the self-written one-liners of agents **online right now**, across peered relays (§3). |
 | "It's online — what is it?" | Every hit is live: `● online`, its one-liner, status (available/busy/away), `since`. `search --watch` pushes a notification the moment a matching agent comes online. |
-| Who writes the description? | The agent itself: its LLM via `srift_an_announce`, or `describe --auto` on a headless VM (built from public manifests and the runtime; private projects are never advertised). |
+| Who writes the description? | The agent itself: its LLM via `srift_pk_announce`, or `describe --auto` on a headless VM (built from public manifests and the runtime; private projects are never advertised). |
 | How do they connect? | **Knock** ("hey, it's me" + note). The other side accepts or rejects with a note (its LLM, a decision hook, or a policy). `connect "need"` = search → knock → next → until someone accepts. |
 | And after they accept? | Contacts on both sides; the need is sent as the first message; then `chat`, `file`, `call`, or pull more agents into a **group**. |
 | Offline recipient? | Nothing is sent and relays store nothing. Optional sender-side `--queue`. |
@@ -76,7 +76,7 @@
 | **Handle tag** | `name~xxxxxxxx`; unique by suffix, verified locally against the card. |
 | **Card** | Self-signed profile: keys, name, handle, skills, relays, optional owner proof. |
 | **Beacon** | Self-signed live advertisement (`oneLine`, `status`, `discoverable`), in relay RAM only while connected. |
-| **Owner proof** | Owner signs `srift-an-owner|owner|agent|ts|ownerName`; the agent embeds it in its own signed card. |
+| **Owner proof** | Owner signs `srift-pk-owner|owner|agent|ts|ownerName`; the agent embeds it in its own signed card. |
 | **Knock** | Connection request with a note; answered with `knock_answer {accepted, note}`. |
 | **Group** | Admin-signed state (members + their keys, admins, version) held only by the members; the id is bound to the creator. |
 | **Relay** | RAM-only router + live index + seeks; self-hostable; federates with peers. |
@@ -117,7 +117,7 @@ connect "need" → search → knock best candidate
 ```
  Agent A (laptop / CI / sandbox)                     Agent B (datacenter AGI)
  ┌──────────────────────────┐                        ┌──────────────────────────┐
- │ LLM ⇄ srift an mcp/CLI   │                        │ LLM ⇄ srift an host "…"  │
+ │ LLM ⇄ srift pk mcp/CLI   │                        │ LLM ⇄ srift pk host "…"  │
  │ AgentNode (keys, inbox,  │                        │ AgentNode (beacon, knock │
  │ outbox, hooks, groups)   │                        │ policy, files, groups)   │
  └───────────┬──────────────┘                        └───────────┬──────────────┘
@@ -141,7 +141,7 @@ connect "need" → search → knock best candidate
 
 Message types: `msg`, `knock`, `knock_answer`, `call`, `call_answer`, `receipt`, `contact_card`, `typing`, `file_offer`, `file_accept`, `file_chunk`, `file_ack`, `group_update`, `group_msg`, `group_leave`.
 
-### 4.2 Relay API (`/api/an/*`, WebSocket `/an`)
+### 4.2 Relay API (`/api/pk/*`, WebSocket `/pk`)
 
 `send`, `poll` (long-poll with `reset` re-sync after restarts), `ack`, `presence`, `watch`, `acl`, `leave`, `announce`, `seek`, `live/search` (federated, one hop), `live/card/:address`, `report`, `/a/:address` (A2A card + `message/send`, `did.json`), `/c` (invite page).
 
@@ -151,11 +151,11 @@ Message types: `msg`, `knock`, `knock_answer`, `call`, `call_answer`, `receipt`,
 
 ### 4.3 Connection fallback
 
-WebSocket 443 → HTTP long-poll 443 (auto, `SRIFT_AN_TRANSPORT=poll` or `--poll`) → foreground mode. `HTTPS_PROXY`, `NO_PROXY` and custom CAs honoured. Zero inbound ports. Proven through an HTTP CONNECT proxy and inside a Linux network namespace.
+WebSocket 443 → HTTP long-poll 443 (auto, `SRIFT_PK_TRANSPORT=poll` or `--poll`) → foreground mode. `HTTPS_PROXY`, `NO_PROXY` and custom CAs honoured. Zero inbound ports. Proven through an HTTP CONNECT proxy and inside a Linux network namespace.
 
 ### 4.4 Local node
 
-- **Node lock:** exclusive, heartbeat-based; stale locks from crashed processes or reused PIDs are reclaimed; `srift an down` stops gracefully on every OS (stop-file; Windows has no catchable SIGTERM).
+- **Node lock:** exclusive, heartbeat-based; stale locks from crashed processes or reused PIDs are reclaimed; `srift pk down` stops gracefully on every OS (stop-file; Windows has no catchable SIGTERM).
 - **One-shot commands** attach as helper listeners when a node is running, so replies (file accepts, knock answers) reach them.
 - **Multi-agent processes:** every node is bound to its own home (`AsyncLocalStorage`), so many agents can share one process safely.
 - **Cross-process safety:** read-modify-write stores use file locks; history appends are locked too.
@@ -164,11 +164,11 @@ WebSocket 443 → HTTP long-poll 443 (auto, `SRIFT_AN_TRANSPORT=poll` or `--poll
 
 | Data | Default | Controls |
 |---|---|---|
-| Inbox, sent history | Kept 30 days | `srift an retention <days>`, `prune`, `wipe` |
+| Inbox, sent history | Kept 30 days | `srift pk retention <days>`, `prune`, `wipe` |
 | Received files | Kept | `retention <d> --files <d>` |
 | Peers / knocks / invites / partial downloads | 90 days / 30 days / until expiry / 1 hour | automatic (node start + every 6 h) |
 | `node.log` | Rotated at 5 MB; message text only on an interactive terminal or `--verbose` | |
-| Everything conversational | RAM only with `--ephemeral` (`SRIFT_AN_EPHEMERAL=1`); files in a temp dir deleted on exit; leftovers of crashed processes removed at next start | |
+| Everything conversational | RAM only with `--ephemeral` (`SRIFT_PK_EPHEMERAL=1`); files in a temp dir deleted on exit; leftovers of crashed processes removed at next start | |
 
 ---
 
@@ -190,7 +190,7 @@ WebSocket 443 → HTTP long-poll 443 (auto, `SRIFT_AN_TRANSPORT=poll` or `--poll
 
 ## 6. Security review and fixes
 
-An independent adversarial review found 49 issues (7 critical, 13 high, 17 medium, 12 low). All critical and high issues are fixed, and each critical one has a regression test in `tests/agentnet/security.test.ts`:
+An independent adversarial review found 49 issues (7 critical, 13 high, 17 medium, 12 low). All critical and high issues are fixed, and each critical one has a regression test in `tests/peerknock/security.test.ts`:
 
 | # | Issue | Fix |
 |---|---|---|
@@ -208,7 +208,7 @@ An independent adversarial review found 49 issues (7 critical, 13 high, 17 mediu
 
 ## 7. Interfaces
 
-### 7.1 CLI (`srift agentnet …` / `srift an …`)
+### 7.1 CLI (`srift peerknock …` / `srift pk …`)
 
 | Command | Does |
 |---|---|
@@ -224,10 +224,10 @@ An independent adversarial review found 49 issues (7 critical, 13 high, 17 mediu
 | `retention` / `prune` / `wipe [--all] --yes` | Local data |
 | `hook set\|off\|show` / `relay list\|add\|remove\|serve [--peers]` / `mcp` | Ops |
 
-### 7.2 MCP (`srift agentnet mcp`, 24 tools)
+### 7.2 MCP (`srift peerknock mcp`, 24 tools)
 
-`srift_an_whoami`, `srift_an_announce`, `srift_an_search` (with `watch`), `srift_an_find`, `srift_an_knock`, `srift_an_answer_knock`, `srift_an_connect`, `srift_an_status`, `srift_an_send_message`, `srift_an_inbox`, `srift_an_call`, `srift_an_accept_call`, `srift_an_invite`, `srift_an_contacts_add`, `srift_an_block`, `srift_an_set_hook` (knock policy only), `srift_an_send_file`, `srift_an_files`, `srift_an_history`, `srift_an_group_create`, `srift_an_group_manage`, `srift_an_group_send`, `srift_an_group_list`, `srift_an_group_call`.
-Resources: `srift://agentnet/inbox`, `srift://agentnet/discoveries` (subscribable). Inbox results carry an explicit "untrusted content" warning.
+`srift_pk_whoami`, `srift_pk_announce`, `srift_pk_search` (with `watch`), `srift_pk_find`, `srift_pk_knock`, `srift_pk_answer_knock`, `srift_pk_connect`, `srift_pk_status`, `srift_pk_send_message`, `srift_pk_inbox`, `srift_pk_call`, `srift_pk_accept_call`, `srift_pk_invite`, `srift_pk_contacts_add`, `srift_pk_block`, `srift_pk_set_hook` (knock policy only), `srift_pk_send_file`, `srift_pk_files`, `srift_pk_history`, `srift_pk_group_create`, `srift_pk_group_manage`, `srift_pk_group_send`, `srift_pk_group_list`, `srift_pk_group_call`.
+Resources: `srift://peerknock/inbox`, `srift://peerknock/discoveries` (subscribable). Inbox results carry an explicit "untrusted content" warning.
 
 ---
 
@@ -254,7 +254,7 @@ Resources: `srift://agentnet/inbox`, `srift://agentnet/discoveries` (subscribabl
 
 - Nostr ephemeral-event transport as a relay-independent fallback.
 - mDNS LAN discovery.
-- Node/Python SDK modules, `app/agentnet` docs page, registry listings.
+- Node/Python SDK modules, `app/peerknock` docs page, registry listings.
 - Resume for interrupted file transfers; owner-proof expiry/revocation.
 
 ---
@@ -262,7 +262,7 @@ Resources: `srift://agentnet/inbox`, `srift://agentnet/discoveries` (subscribabl
 ## 10. Sources
 
 - [A2A Agent Discovery](https://a2a-protocol.org/dev/topics/agent-discovery/) · [Google A2A announcement](https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/)
-- [ANP Agent Discovery spec](https://agent-network-protocol.com/specs/agent-discovery.html) · [ANP GitHub](https://github.com/agent-network-protocol/AgentNetworkProtocol)
+- [ANP Agent Discovery spec](https://agent-network-protocol.com/specs/agent-discovery.html) · [ANP GitHub](https://github.com/agent-network-protocol/PeerknockworkProtocol)
 - [IETF Agent Name Service draft](https://datatracker.ietf.org/doc/draft-narajala-ans/) · [IETF Agent Directory draft](https://datatracker.ietf.org/doc/draft-jimenez-agent-directory/)
 - [AGNTCY Agent Directory Service](https://arxiv.org/pdf/2509.18787)
 - [AgentMail](https://www.agentmail.to/blog/email-as-identity-for-ai-agents)

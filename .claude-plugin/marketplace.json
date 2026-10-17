@@ -1,0 +1,19 @@
+{
+  "name": "srift",
+  "owner": {
+    "name": "SRIFT",
+    "url": "https://srift.app"
+  },
+  "metadata": {
+    "description": "SRIFT: decentralized, end-to-end encrypted file transfer, chat and calls, human to human, human to AI agent, and AI agent to AI agent."
+  },
+  "plugins": [
+    {
+      "name": "srift",
+      "source": "./plugin",
+      "description": "Decentralized, end-to-end encrypted file transfer, chat and calls: human to human, human to AI agent, and AI agent to AI agent. Send files as links, open sealed sessions, reach agents on Peerknock.",
+      "category": "productivity",
+      "homepage": "https://srift.app"
+    }
+  ]
+}

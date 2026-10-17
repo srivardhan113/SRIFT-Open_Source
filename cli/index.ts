@@ -52,7 +52,7 @@ const __dirname = path.dirname(__filename);
 
 const DAEMON_PORT = parseInt(process.env.SRIFT_DAEMON_PORT || '3822', 10);
 const DAEMON_URL = `http://127.0.0.1:${DAEMON_PORT}`;
-const CLI_VERSION = '4.1.0';
+const CLI_VERSION = '4.4.0';
 
 // Parse "30s", "15m", "2h", "1d" → milliseconds. Returns 0 on invalid input.
 function parseDuration(s: string | undefined): number {
@@ -106,18 +106,22 @@ function flagValues(args: string[], name: string): string[] {
 
 const OUTBOX_DIR = path.join(os.homedir(), '.srift', 'outbox');
 
-/** Files shared by path must outlive this process (relay links read them later). */
-function outboxPath(name: string): string {
-  fs.mkdirSync(OUTBOX_DIR, { recursive: true, mode: 0o700 });
-  // Staged copies of folders/stdin must outlive relay links (which may have no
-  // TTL). Sweep after 30 days.
+/** Staged copies of folders/stdin must outlive relay links (which may have no TTL): swept after 30 days,
+ *  on every CLI run (not only when something new is staged). */
+function sweepOutbox(): void {
   try {
     const cutoff = Date.now() - 30 * 86_400_000;
     for (const f of fs.readdirSync(OUTBOX_DIR)) {
       const p = path.join(OUTBOX_DIR, f);
       try { if (fs.statSync(p).mtimeMs < cutoff) fs.rmSync(p, { recursive: true, force: true }); } catch { /* ignore */ }
     }
-  } catch { /* ignore */ }
+  } catch { /* no outbox yet */ }
+}
+
+/** Files shared by path must outlive this process (relay links read them later). */
+function outboxPath(name: string): string {
+  fs.mkdirSync(OUTBOX_DIR, { recursive: true, mode: 0o700 });
+  sweepOutbox();
   const dir = path.join(OUTBOX_DIR, `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`);
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   return path.join(dir, name);
@@ -323,20 +327,25 @@ async function handleSelfUpdate(isJson: boolean): Promise<void> {
 
   // Binary install path
   const archMap: Record<string, string> = {
-    x64: 'x64', arm64: 'arm64', ia32: 'x86'
+    x64: 'x64', arm64: 'arm64'
   };
   const osMap: Record<string, string> = {
     linux: 'linux', darwin: 'darwin', win32: 'win'
   };
   const osKey = osMap[process.platform];
-  const archKey = archMap[process.arch];
+  // Windows on ARM runs the x64 build (emulated); there is no win-arm64 build.
+  const archKey = process.platform === 'win32' && process.arch === 'arm64' ? 'x64' : archMap[process.arch];
   if (!osKey || !archKey) {
     console.error(`[srift] Unsupported platform: ${process.platform}/${process.arch}`);
     process.exit(1);
   }
-  const target = `${osKey}-${archKey}`;
+  // Alpine & other musl systems need the -musl build (the default Linux build links glibc).
+  const musl = process.platform === 'linux' && ['/lib/ld-musl-x86_64.so.1', '/lib/ld-musl-aarch64.so.1'].some((f) => fs.existsSync(f));
+  const target = `${osKey}-${archKey}${musl ? '-musl' : ''}`;
   const binaryUrl = `${SRIFT_BASE_DL_URL}/${latest}/${target}/${binName}`;
-  const sumsUrl   = `${SRIFT_BASE_DL_URL}/${latest}/SHA256SUMS`;
+  // Per-target file ("<sha256>  srift"): the combined one lists every target's binary under the
+  // same file name, so matching by name there picks another platform's hash.
+  const sumsUrl   = `${SRIFT_BASE_DL_URL}/${latest}/${target}/SHA256SUMS`;
 
   const tmpPath = binPath + '.new';
 
@@ -373,7 +382,7 @@ async function handleSelfUpdate(isJson: boolean): Promise<void> {
   try {
     const sumsContent = await fetchRaw(sumsUrl);
     const lines = sumsContent.split('\n');
-    const line = lines.find((l: string) => l.trim().endsWith(binName));
+    const line = lines.find((l: string) => l.trim().split(/\s+/)[1] === binName);
     if (line) {
       const expected = line.trim().split(/\s+/)[0].toLowerCase();
       const actual = crypto.createHash('sha256').update(fs.readFileSync(tmpPath)).digest('hex');
@@ -387,10 +396,14 @@ async function handleSelfUpdate(isJson: boolean): Promise<void> {
       }
       console.log(`[srift] Checksum verified.`);
     } else {
-      console.log(`[srift] No checksum entry for ${binName} in SHA256SUMS (continuing without verification).`);
+      throw new Error(`no checksum entry for ${binName} in ${sumsUrl}`);
     }
   } catch (err: any) {
-    console.log(`[srift] Could not download checksum (${err?.message || err}). Continuing without verification.`);
+    // Never swap in an unverified binary.
+    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
+    console.error(`[srift] Could not verify the download (${err?.message || err}). Aborting update; nothing was changed.`);
+    if (isJson) console.log(JSON.stringify({ ok: false, error: 'checksum unavailable' }));
+    process.exit(1);
   }
 
   // Atomic replace.
@@ -1458,7 +1471,7 @@ const ALL_COMMANDS = [
   'pubshare', 'links', 'get', 'download', 'history', 'completion',
   'install-mcp', 'install', 'info', 'version', 'self-update', 'update',
   'doctor', 'config', 'status', 'reset', 'logs', 'uninstall',
-  'agentnet', 'an', 'bootstrap',
+  'peerknock', 'pk', 'bootstrap',
 ];
 
 function suggestCommand(input: string): string | null {
@@ -1490,7 +1503,7 @@ async function main() {
   }
 
   const isJson = args.includes('--json');
-  const noDaemon = args.includes('--no-daemon');
+  sweepOutbox();
 
   switch (command) {
     case 'status': {
@@ -1914,7 +1927,7 @@ async function main() {
         await handlePubshareRevoke(token, isJson);
       } else if (sub === 'add') {
         const fp = args[2];
-        if (!fp) { console.error('Usage: srift pubshare add <filepath> [--max-downloads N] [--ttl dur] [--once] [--json]'); process.exit(1); }
+        if (!fp) { console.error('Usage: srift links add <filepath> [--max-downloads N] [--ttl dur] [--once] [--json]'); process.exit(1); }
         const maxIdx = args.indexOf('--max-downloads');
         let maxDownloads = maxIdx !== -1 ? parseInt(args[maxIdx + 1], 10) : 0;
         if (args.includes('--once')) maxDownloads = 1;
@@ -1924,7 +1937,7 @@ async function main() {
         const encrypt = !!password || args.includes('--encrypt');
         await handlePubshareAdd(fp, isJson, { maxDownloads, ttlMs, encrypt, password, qr: args.includes('--qr') });
       } else {
-        console.error('Usage: srift pubshare [list|add <file>|revoke <token>]');
+        console.error('Usage: srift links [list|add <file>|revoke <token>]');
         process.exit(1);
       }
       break;
@@ -1982,10 +1995,10 @@ async function main() {
       break;
     }
 
-    case 'agentnet':
-    case 'an': {
-      // AgentNet: agent-to-agent addresses, presence, messaging, calls (isolated module — see "A2A Plan.md").
-      const { run } = await import('./agentnet/cli.ts');
+    case 'peerknock':
+    case 'pk': {
+      // Peerknock: agent-to-agent addresses, presence, messaging, calls (isolated module — see "A2A Plan.md").
+      const { run } = await import('./peerknock/cli.ts');
       await run(args, { ensureDaemon: () => ensureDaemonOrEmbedded({ quiet: true }), callDaemon: callDaemonApi });
       break;
     }
@@ -2059,7 +2072,8 @@ Docs:     https://srift.app/ai-agents
   srift get <link|token>… [-o <path|dir|->]     Download link(s), several in parallel (works where curl is
         [--password <pw>] [--force] [--json]    blocked; decrypts #k= links; resumes)
   srift links list [--json]                     Active links from this daemon
-  srift links add <filepath> [...quick-share flags]
+  srift links add <filepath> [--once] [--ttl <d>] [--max-downloads <n>]
+        [--encrypt] [--password <pw>] [--qr] [--json]
   srift links revoke <token> [--json]           Invalidate a link immediately
   srift history [--limit N] [--clear] [--json]  Links you created (stored locally, 0600)
   srift send <filepath> [--json]                In-session offer for joined peers
@@ -2084,6 +2098,14 @@ Docs:     https://srift.app/ai-agents
         [--agents]                                Only bootstrap AGENTS.md
   srift info                                      Zero-config quick reference
 
+─── Peerknock (agent-to-agent) ─────────────────────────────────────
+  srift peerknock <command>   (alias: srift pk)   Addresses, live discovery, knocks,
+        E2EE messages, files, groups and calls between agents.
+        Full list: srift pk help    MCP: srift pk mcp (25 srift_pk_* tools)
+
+─── Aliases ───────────────────────────────────────────────────────
+  share = quick-share · download = get · pubshare = links · install = install-mcp · update = self-update
+
 ─── MCP Server ────────────────────────────────────────────────────
   srift mcp                                       stdio transport (all 15 tools)
   HTTP: POST http://127.0.0.1:${DAEMON_PORT}/mcp  streamable HTTP (MCP 2026-07-28; older clients OK)
@@ -2101,15 +2123,15 @@ Docs:     https://srift.app/ai-agents
 
 Flags (global):
   --json                        Machine-readable JSON output
-  --no-daemon                   Skip auto-starting daemon (status-only commands)
 
 Env vars:
   SRIFT_DAEMON_PORT=3822        Change daemon port
   SRIFT_NO_UPDATE_CHECK=1       Disable background update checks
-  HTTPS_PROXY / NO_PROXY        Proxy (http://, https://, socks5://) — honoured everywhere
+  HTTPS_PROXY / NO_PROXY        Proxy (http://, https://, socks5://) — honored everywhere
   NODE_EXTRA_CA_CERTS=<pem>     Trust a TLS-inspecting proxy's root CA (never disable TLS checks)
   SRIFT_LINK_PASSWORD           Password for quick-share/get without putting it in shell history
   SRIFT_NO_HISTORY=1            Don't record created links in ~/.srift/history.jsonl
+  SRIFT_HISTORY_DAYS=30         Days to keep ~/.srift/history.jsonl (0 = up to 500 links)
 `);
 }
 
@@ -2215,7 +2237,7 @@ Everything below works without tokens, OAuth, or API keys.
   srift quick-share /abs/path/to/file
     → prints a direct download URL: https://srift.app/d/<token>
     → the user opens it in any browser, or downloads via:
-        curl -OJ https://srift.app/d/<token>
+        curl -fLOJ https://srift.app/d/<token>
         wget --content-disposition https://srift.app/d/<token>
     → the daemon keeps serving in the background after this command exits,
       and nothing is stored server-side. If the daemon stops (srift daemon
@@ -2243,7 +2265,7 @@ Everything below works without tokens, OAuth, or API keys.
   ./public/llms.txt           — for LLM crawlers
   ./public/.well-known/       — MCP card, AI plugin manifest, A2A, etc.
 
-Crypto: AES-256-GCM + PBKDF2-SHA256 (100k iter). Keys never leave the device.
+Crypto: AES-256-GCM, keys from ECDH P-256 + HKDF-SHA256 made on each device (PBKDF2-SHA256 100k for link passwords). Keys never leave the device.
 `);
 }
 

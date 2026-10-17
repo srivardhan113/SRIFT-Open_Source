@@ -23,7 +23,7 @@ set -eu
 
 # Remember whether the user pinned a version BEFORE the default fills it in.
 _SRIFT_USER_PINNED="${SRIFT_VERSION:+1}"
-SRIFT_VERSION="${SRIFT_VERSION:-4.3.0}"
+SRIFT_VERSION="${SRIFT_VERSION:-4.4.0}"
 SRIFT_BASE_URL="https://srift.app/dl"
 SRIFT_INSTALL_DIR="${SRIFT_INSTALL_DIR:-$HOME/.srift/bin}"
 SRIFT_BIN="$SRIFT_INSTALL_DIR/srift"

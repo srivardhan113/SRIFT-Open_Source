@@ -47,8 +47,8 @@ const manifest = {
     `SRIFT gives any MCP-capable agent ${tools.length} tools to start/join encrypted P2P sessions, ` +
     'send and receive files, exchange encrypted chat, and share a file with a single ' +
     'public download link — all via a local zero-auth daemon on 127.0.0.1:3822 that this ' +
-    'bundle launches on demand. AES-256-GCM + PBKDF2-SHA256 (100,000 iterations), keys ' +
-    'derived client-side, zero central retention.',
+    'bundle launches on demand. AES-256-GCM under keys generated on each device (ECDH P-256 + ' +
+    'HKDF-SHA256), no database, zero central retention.',
   author: {
     name: 'SRIFT',
     url: 'https://srift.app',
@@ -85,15 +85,20 @@ fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 console.log(`[mcpb] wrote ${path.relative(repoRoot, manifestPath)} (${tools.length} tools, v${manifest.version})`);
 
 // ─── Stage the bundle contents ──────────────────────────────────────────────
-const cliDist = path.join(repoRoot, 'packages', 'cli', 'dist');
-if (!fs.existsSync(cliDist)) {
-  console.error(`[mcpb] ${path.relative(repoRoot, cliDist)} does not exist — run \`node packages/cli/build.mjs\` first.`);
+// A .mcpb ships no node_modules, so it needs the SELF-CONTAINED bundle (express, ws, cors, dotenv, uuid
+// inlined; ESM with a real `require` shim) — the one the PyPI wrapper uses — not packages/cli/dist,
+// which leaves those as imports for npm to resolve. Rebuilt from cli/ on every run, so it is never stale.
+execFileSync(process.execPath, [path.join(repoRoot, 'packages', 'pypi', 'scripts', 'bundle.mjs')], { cwd: repoRoot, stdio: 'inherit' });
+const vendor = path.join(repoRoot, 'packages', 'pypi', 'src', 'srift_cli', '_vendor');
+const built = fs.readFileSync(path.join(vendor, 'index.js'), 'utf8');
+if (!built.includes(`"${cliPkg.version}"`)) {
+  console.error(`[mcpb] the bundled CLI does not carry version ${cliPkg.version}; refusing to stage a mismatched bundle.`);
   process.exit(1);
 }
 
 fs.rmSync(stagingDir, { recursive: true, force: true });
-fs.mkdirSync(stagingDir, { recursive: true });
-fs.cpSync(cliDist, path.join(stagingDir, 'dist'), { recursive: true });
+fs.mkdirSync(path.join(stagingDir, 'dist'), { recursive: true });
+for (const f of ['index.js', 'daemon.js', 'package.json']) fs.copyFileSync(path.join(vendor, f), path.join(stagingDir, 'dist', f));
 fs.copyFileSync(manifestPath, path.join(stagingDir, 'manifest.json'));
 
 const iconSrc = path.join(repoRoot, 'public', 'Favicon', 'apple-touch-icon.png');

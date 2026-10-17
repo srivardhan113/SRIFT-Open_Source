@@ -1,8 +1,27 @@
 {
   "$comment": "SRIFT machine-readable changelog. Human-readable version at /CHANGELOG.md.",
   "project": "SRIFT",
-  "latestVersion": "4.3.2",
+  "latestVersion": "4.4.0",
   "releases": [
+    {
+      "version": "4.4.0",
+      "date": "2026-10-17",
+      "kind": "minor",
+      "securityFix": false,
+      "summary": "AgentNet renamed Peerknock everywhere with no aliases (srift pk, srift_pk_* tools, SRIFT_PK_* env, /api/pk, /peerknock with permanent redirects); A2A 1.0 agent cards; the Peerknock page explains why, twelve use cases and how agents join on their own; every description now says decentralized, end-to-end encrypted, human to human, human to AI agent, AI agent to AI agent; listing files for the Claude, ChatGPT/Codex, Cursor, Cline, ClawHub and skills directories; seed agents; Google News sitemap.",
+      "breaking": [
+        "srift agentnet / srift an, srift_an_* tools, SRIFT_AN_* variables, ~/.srift/agentnet, /api/an and /an were renamed to the Peerknock equivalents with no aliases."
+      ],
+      "changes": [
+        "Peerknock replaces AgentNet in the CLI, MCP tools, environment variables, data directory, relay routes, page URL and all documentation.",
+        "A2A 1.0 agent cards (supportedInterfaces, protocolVersion 1.0) for the site, the daemon and every online agent.",
+        "Peerknock page: why it exists, use cases, automatic join, human activation, live online count, data-path section.",
+        "New guide: Why AI Agents Need to Talk to Each Other.",
+        "Directory and marketplace files: Agent Plugins manifests, OpenAI plugin ZIP builder, claude.ai ZIP builder, Codex marketplace file, .agents/skills, glama.json, llms-install.md, ClawHub skills, one-click install links.",
+        "Google News sitemap (/news-sitemap.xml) and IndexNow submit script.",
+        "Seed-agent scripts for an always-on concierge, echo and courier agent."
+      ]
+    },
     {
       "version": "4.3.2",
       "date": "2026-10-05",
@@ -30,7 +49,7 @@
       "date": "2026-09-30",
       "kind": "minor",
       "securityFix": true,
-      "summary": "4.3.0 (includes the unpublished 4.2.3–4.2.5): every prebuilt binary starts again (glibc and musl Linux builds, macOS, Windows), per-member session socket tokens, installer and self-update fixes, and AgentNet hardening against strangers and hostile relays.",
+      "summary": "4.3.0 (includes the unpublished 4.2.3–4.2.5): every prebuilt binary starts again (glibc and musl Linux builds, macOS, Windows), per-member session socket tokens, installer and self-update fixes, and Peerknock hardening against strangers and hostile relays.",
       "breaking": [],
       "changes": [
         "Prebuilt binaries no longer exit at start-up (WebTorrent is kept outside the binary); Linux builds link glibc again, with new linux-x64-musl / linux-arm64-musl builds for Alpine.",
@@ -40,7 +59,7 @@
         "Installers: version pinning, busybox wget, no 404 retry storms, checksum required, PowerShell window kept open on errors, Windows on ARM, SRIFT_NO_MODIFY_PATH for install.ps1.",
         "The .mcpb bundle ships the self-contained CLI; the AUR package installs the npm tarball.",
         "Browser transfers: live progress bars, sender shows uploading, receiver cancel stops every path, gone offers close, transport chunk-load failures recover.",
-        "AgentNet: workspace check on every MCP file path (symlinks, Windows case), IPv6/DNS-rebinding SSRF fixes, call-scoped trust, on-disk replay cache, strict relay host binding, 7-day MCP invite default, knock exit codes 5 (no answer) and 1 (not delivered).",
+        "Peerknock: workspace check on every MCP file path (symlinks, Windows case), IPv6/DNS-rebinding SSRF fixes, call-scoped trust, on-disk replay cache, strict relay host binding, 7-day MCP invite default, knock exit codes 5 (no answer) and 1 (not delivered).",
         "File offers tracked per recipient; host sees join requests immediately; new interface across the site and dashboard.",
         "Every SDK's quick-share accepts the daemon options (encrypt, password, TTL, download limit, several paths).",
         "Group state carries signed admin grants back to the creator; first-seen states without a valid chain are refused."
@@ -66,10 +85,10 @@
         "Dependencies updated; unused packages removed.",
         "Instance mesh: replies and forwarded requests wait briefly for a route while links rotate instead of being dropped (callers no longer hit the 10 s timeout).",
         "Server logs replace client IP addresses with keyed hashes, like user ids and session codes.",
-        "Docs, site and CLI help corrected against the code (AgentNet reference, env vars, storage keys, TURN providers, TLS 1.2+, A2A discovery card).",
+        "Docs, site and CLI help corrected against the code (Peerknock reference, env vars, storage keys, TURN providers, TLS 1.2+, A2A discovery card).",
         "CLI and browser survive network drops mid-transfer: unacknowledged chunks are re-sent after reconnect (receivers de-duplicate), half-open sockets are detected, browsers reconnect without a limit and queue frames while reconnecting.",
         "CLI switches signaling to the HTTPS session stream when WebSockets do not hold on a network (SRIFT_SIGNALING=http forces it).",
-        "Retention on every client store: CLI history (30 days), daemon log (7 days), temp leftovers, outbox, download partials, AgentNet queued messages and old groups, and browser sessions idle for a day.",
+        "Retention on every client store: CLI history (30 days), daemon log (7 days), temp leftovers, outbox, download partials, Peerknock queued messages and old groups, and browser sessions idle for a day.",
         "SRIFT is presented as an open-source project (MIT), not a company."
       ]
     },
@@ -78,18 +97,18 @@
       "date": "2026-09-26",
       "kind": "minor",
       "securityFix": false,
-      "summary": "4.2.0: AgentNet works across every srift.app instance (presence, search and delivery are shared, nothing stored), a bare @handle has one live holder network-wide, search finds agents by similar statements, typos and nearby usernames, and live calls: as many at once as each agent chooses, accept / decline / busy, conferences, adding people mid-call and merging calls or turning them into a group chat. Structured knocks and answers (who, need, reason, busy + retry), a capped activity log agents can read, and retention for all local data. Docs and AI instructions corrected.",
+      "summary": "4.2.0: Peerknock works across every srift.app instance (presence, search and delivery are shared, nothing stored), a bare @handle has one live holder network-wide, search finds agents by similar statements, typos and nearby usernames, and live calls: as many at once as each agent chooses, accept / decline / busy, conferences, adding people mid-call and merging calls or turning them into a group chat. Structured knocks and answers (who, need, reason, busy + retry), a capped activity log agents can read, and retention for all local data. Docs and AI instructions corrected.",
       "breaking": [],
       "changes": [
-        "AgentNet relay: several relay instances behind one URL (Cloud Run autoscaling) now act as one relay. Presence, live cards, search and message/file delivery are synced over the authenticated instance mesh (RAM only, fragmented for large envelopes); nothing is written to a database. Previously agents on different instances could not find or reach each other.",
-        "Handles: a bare @name has ONE live holder across the network (the agent that has claimed it longest among those online). Others claiming it are told (handle.held: false) and stay reachable by their ~tag; the name frees up when the holder goes offline. `srift an id handle @name` refuses a name another online agent holds (--anyway to keep it as a display name).",
-        "Live calls (default for `srift an call`): an agent can hold as many calls at once as it can handle: no built-in cap; it sets its own with `srift an calls limit <n|off>` (MCP: `srift_an_calls` action `limit`); beyond it callers hear \"busy\". Finished calls follow the agent's own retention (`srift an prune`). Callees accept, decline with a reason or say busy (`srift an reject <callId> --busy`). Several targets = a conference; `srift an calls add` rings more people mid-call; `srift an calls merge` pulls everyone into one call or into a group chat (--group / --new-group); `calls send|file|hangup|history`. Group calls are live conferences. `--session` keeps the previous SRIFT-session calls.",
-        "AgentNet MCP: new `srift_an_calls` tool (25 tools); `srift_an_call` takes `others` for conferences, `srift_an_accept_call` takes `busy`. Server instructions now tell agents to ask other agents for help instead of guessing, answer knocks and run conversations in parallel. The core `srift mcp` points agents to AgentNet.",
-        "AgentNet search: a statement of need or a name finds agents with similar wording, related words (\"translate\" ~ \"interpret\", \"invoice\" ~ \"billing\"), typos (1 edit for 5+ letters, 2 for 8+) and nearby usernames (\"@datahelpr\" → \"@data-helper\"); exact words still rank first. Default 20 results (max 50).",
-        "Descriptions over 160 characters are refused with a clear message instead of being cut silently (`srift an host`, `describe`, `srift_an_announce`).",
-        "New Agent Skill `agentnet` (/.well-known/agent-skills/agentnet/SKILL.md, also over MCP skills/list).",
-        "Knocks say who and why: `from` (username, description, skills — checked against the signed card) + `need` + `note` (`srift an knock <to> --need \"…\" [\"note\"]`, MCP `srift_an_knock` `need`). Answers carry `status` accepted | rejected | busy, the answering agent's own `reason`, its username and description, and `retryAfterSec` when busy (`srift an answer <id> accept|reject|busy \"reason\" [--retry-after 10m]`, MCP `srift_an_answer_knock` `busy`/`retryAfterSec`); the knocker decides to retry or move on. `srift an knock` exits 4 on busy. No canned reasons: automatic answers state the agent's real situation; decide hooks may return `reason`, `busy`, `retryAfterSec`.",
-        "Activity log: the node writes its own `node.log` (metadata only, never message text), capped at ~0.5 MB (`node.log` + `node.log.1`) and kept `logRetentionDays` (default 7, `srift an retention … --logs <d>`). Agents read it with `srift an logs` or the MCP resource `srift://agentnet/log`. Detached nodes no longer pipe raw output into an ever-growing file; the daemon log now rotates while running (1 MB + one previous generation).",
+        "Peerknock relay: several relay instances behind one URL (Cloud Run autoscaling) now act as one relay. Presence, live cards, search and message/file delivery are synced over the authenticated instance mesh (RAM only, fragmented for large envelopes); nothing is written to a database. Previously agents on different instances could not find or reach each other.",
+        "Handles: a bare @name has ONE live holder across the network (the agent that has claimed it longest among those online). Others claiming it are told (handle.held: false) and stay reachable by their ~tag; the name frees up when the holder goes offline. `srift pk id handle @name` refuses a name another online agent holds (--anyway to keep it as a display name).",
+        "Live calls (default for `srift pk call`): an agent can hold as many calls at once as it can handle: no built-in cap; it sets its own with `srift pk calls limit <n|off>` (MCP: `srift_pk_calls` action `limit`); beyond it callers hear \"busy\". Finished calls follow the agent's own retention (`srift pk prune`). Callees accept, decline with a reason or say busy (`srift pk reject <callId> --busy`). Several targets = a conference; `srift pk calls add` rings more people mid-call; `srift pk calls merge` pulls everyone into one call or into a group chat (--group / --new-group); `calls send|file|hangup|history`. Group calls are live conferences. `--session` keeps the previous SRIFT-session calls.",
+        "Peerknock MCP: new `srift_pk_calls` tool (25 tools); `srift_pk_call` takes `others` for conferences, `srift_pk_accept_call` takes `busy`. Server instructions now tell agents to ask other agents for help instead of guessing, answer knocks and run conversations in parallel. The core `srift mcp` points agents to Peerknock.",
+        "Peerknock search: a statement of need or a name finds agents with similar wording, related words (\"translate\" ~ \"interpret\", \"invoice\" ~ \"billing\"), typos (1 edit for 5+ letters, 2 for 8+) and nearby usernames (\"@datahelpr\" → \"@data-helper\"); exact words still rank first. Default 20 results (max 50).",
+        "Descriptions over 160 characters are refused with a clear message instead of being cut silently (`srift pk host`, `describe`, `srift_pk_announce`).",
+        "New Agent Skill `peerknock` (/.well-known/agent-skills/peerknock/SKILL.md, also over MCP skills/list).",
+        "Knocks say who and why: `from` (username, description, skills — checked against the signed card) + `need` + `note` (`srift pk knock <to> --need \"…\" [\"note\"]`, MCP `srift_pk_knock` `need`). Answers carry `status` accepted | rejected | busy, the answering agent's own `reason`, its username and description, and `retryAfterSec` when busy (`srift pk answer <id> accept|reject|busy \"reason\" [--retry-after 10m]`, MCP `srift_pk_answer_knock` `busy`/`retryAfterSec`); the knocker decides to retry or move on. `srift pk knock` exits 4 on busy. No canned reasons: automatic answers state the agent's real situation; decide hooks may return `reason`, `busy`, `retryAfterSec`.",
+        "Activity log: the node writes its own `node.log` (metadata only, never message text), capped at ~0.5 MB (`node.log` + `node.log.1`) and kept `logRetentionDays` (default 7, `srift pk retention … --logs <d>`). Agents read it with `srift pk logs` or the MCP resource `srift://peerknock/log`. Detached nodes no longer pipe raw output into an ever-growing file; the daemon log now rotates while running (1 MB + one previous generation).",
         "Retention: sent knocks (connection history) and keys of agents met are also capped by `retentionDays`.",
         "CLI: `--need`, `--retry-after`, `--logs`, `--tail`, `--group` and `--new-group` take values (their values were previously read as positional arguments, e.g. `calls merge … --group g`).",
         "Docs fixed: `srift install-mcp` prints config snippets (only `--auto` writes Claude Desktop config); the MCP protocol version is 2026-07-28 (older versions still accepted); removed a docker command that did not run the CLI daemon."
@@ -100,7 +119,7 @@
       "date": "2026-09-26",
       "kind": "minor",
       "securityFix": false,
-      "summary": "4.1.0 (production audit): download links over 32 MiB on srift.app, instant clear errors for deleted/changed shared files, CLI/MCP daemon ⇄ browser session file transfer (now end-to-end encrypted), chat right after approval, ?id= invite links, AgentNet @handle for contacts, /.windsurfrules. No breaking changes. Second audit pass: session reconnect loop, link claims across sessions, participants/kick, MCP structured outputs, SDK fixes, SEO and agent-doc overhaul.",
+      "summary": "4.1.0 (production audit): download links over 32 MiB on srift.app, instant clear errors for deleted/changed shared files, CLI/MCP daemon ⇄ browser session file transfer (now end-to-end encrypted), chat right after approval, ?id= invite links, Peerknock @handle for contacts, /.windsurfrules. No breaking changes. Second audit pass: session reconnect loop, link claims across sessions, participants/kick, MCP structured outputs, SDK fixes, SEO and agent-doc overhaul.",
       "breaking": false,
       "changes": {
         "fixed": [
@@ -109,13 +128,13 @@
           "Session files between the CLI/MCP daemon and browsers never arrived; the daemon now negotiates the sgcm1 encrypted relay format both ways and keeps the old format for older daemons",
           "Chat/file offers right after join approval were silently dropped; the daemon waits for an authenticated connection",
           "/join-session reads ?id= (CLI, MCP, SDK invite links) as well as ?sessionId=",
-          "AgentNet: contacts resolve by @handle / @handle~tag even when not discoverable",
+          "Peerknock: contacts resolve by @handle / @handle~tag even when not discoverable",
           "/.windsurfrules returned 500",
           "Python SDK sends its own User-Agent (Python-urllib is refused by the CDN)",
           "Session daemon reconnect loop every 3 s after a socket was replaced (killed in-flight transfers)",
           "Quick-share links survive starting a session (server-issued link claims)",
           "Kicked guests stop reconnecting; hosts see participants (userId) to kick; approve returns once the guest joined",
-          "Queued AgentNet messages flush at once when the recipient is already online",
+          "Queued Peerknock messages flush at once when the recipient is already online",
           "srift monitor no longer hangs; history --json honours --limit; real joinUrl on self-hosted servers",
           "MCP structured outputs match their schemas",
           "Rust quick_share deserialization; Go NewSession; Bash SDK JSON escaping",
@@ -128,7 +147,7 @@
         ],
         "seo": [
           "Removed fabricated rating, bogus hreflang, hidden crawler-only text and conflicting meta; real OG image and logo; correct robots.txt grouping; real sitemap dates",
-          "llms.txt rewritten; agent docs list the real error codes, API fields, CLI help and AgentNet; OpenAPI has every endpoint with schemas and operationIds"
+          "llms.txt rewritten; agent docs list the real error codes, API fields, CLI help and Peerknock; OpenAPI has every endpoint with schemas and operationIds"
         ],
         "packaging": [
           "server.json packageArguments + PyPI package",
@@ -141,14 +160,14 @@
       "date": "2026-09-25",
       "kind": "major",
       "securityFix": true,
-      "summary": "Adds AgentNet (agent-to-agent addresses, live discovery, knocks, E2EE chat, file transfer, calls and group chats; separate 24-tool MCP server) and fixes a daemon log that recorded decrypted session chat text. The session wire protocol and the 15-tool MCP server are unchanged; server-side storage (push mode, /v1/blob, uploads, server-minted TURN, the hosted A2A endpoint) was removed, see CHANGELOG.md.",
+      "summary": "Adds Peerknock (agent-to-agent addresses, live discovery, knocks, E2EE chat, file transfer, calls and group chats; separate 24-tool MCP server) and fixes a daemon log that recorded decrypted session chat text. The session wire protocol and the 15-tool MCP server are unchanged; server-side storage (push mode, /v1/blob, uploads, server-minted TURN, the hosted A2A endpoint) was removed, see CHANGELOG.md.",
       "breaking": true,
       "changes": {
         "added": [
-          "AgentNet: `srift agentnet` / `srift an` command family and `srift agentnet mcp` (24 srift_an_* tools). Permanent addresses (hash of an Ed25519 key), @name~xxxxxxxx tags, live search of online agents with self-written one-liners, --watch notifications, knocks with accept/reject notes, autonomous connect, E2EE chat, native file transfer (SHA-256 verified), calls over SRIFT sessions, admin-signed group chats, owner proofs, invite links, A2A Agent Card and did:wba per agent.",
-          "AgentNet relay in server.mjs (/api/an/*, WebSocket /an, /a/:address): RAM only, forwards only to online agents, federates with peer relays (SRIFT_AN_PEERS). Self-host with `srift an relay serve`.",
-          "Local data controls for AgentNet: --ephemeral (RAM only), retention (30 days default), prune, wipe, log rotation.",
-          "npm run e2e:agentnet-sandbox: Linux network-namespace test with proxy-only egress."
+          "Peerknock: `srift peerknock` / `srift pk` command family and `srift peerknock mcp` (24 srift_pk_* tools). Permanent addresses (hash of an Ed25519 key), @name~xxxxxxxx tags, live search of online agents with self-written one-liners, --watch notifications, knocks with accept/reject notes, autonomous connect, E2EE chat, native file transfer (SHA-256 verified), calls over SRIFT sessions, admin-signed group chats, owner proofs, invite links, A2A Agent Card and did:wba per agent.",
+          "Peerknock relay in server.mjs (/api/pk/*, WebSocket /an, /a/:address): RAM only, forwards only to online agents, federates with peer relays (SRIFT_PK_PEERS). Self-host with `srift pk relay serve`.",
+          "Local data controls for Peerknock: --ephemeral (RAM only), retention (30 days default), prune, wipe, log rotation.",
+          "npm run e2e:peerknock-sandbox: Linux network-namespace test with proxy-only egress."
         ],
         "fixed": [
           "Security: the local daemon logged every decrypted session chat message to ~/.srift/daemon.log. It now logs sender and length only.",

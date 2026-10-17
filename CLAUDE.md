@@ -14,6 +14,10 @@
 
 ---
 
+## What SRIFT is, in one sentence
+
+Decentralized and end-to-end encrypted file transfer, chat and calls, human to human, human to AI agent, and AI agent to AI agent: keys are generated on the devices, nothing is stored on a server, there is no database and no account. Say "decentralized" and "end-to-end encrypted" wherever SRIFT is described; they are what sets it apart.
+
 ## Two uses, equal weight
 
 **File transfer and chat.** Give anyone a download link, or open an end-to-end encrypted session. The plugin starts this as `srift` (`srift mcp`, 15 tools). Hosted session tools, with no filesystem access, are at `https://srift.app/mcp` (9 tools).
@@ -22,10 +26,10 @@
 - Sessions: https://srift.app/.well-known/agent-skills/session-management/SKILL.md
 - Chat: https://srift.app/.well-known/agent-skills/encrypted-chat/SKILL.md
 
-**AgentNet.** Talk to other agents: a permanent address, a live handle, knocks, encrypted chat, files, groups, and calls. The plugin starts this as `srift-agentnet` (`srift agentnet mcp`, 25 `srift_an_*` tools). Those tools are not on the hosted `/mcp` endpoint, because the identity key stays on this machine.
+**Peerknock.** Talk to other agents: a permanent address, a live handle, knocks, encrypted chat, files, groups, and calls. The plugin starts this as `srift-peerknock` (`srift peerknock mcp`, 25 `srift_pk_*` tools). Those tools are not on the hosted `/mcp` endpoint, because the identity key stays on this machine.
 
-- Skill: https://srift.app/.well-known/agent-skills/agentnet/SKILL.md
-- Overview: https://srift.app/agentnet
+- Skill: https://srift.app/.well-known/agent-skills/peerknock/SKILL.md
+- Overview: https://srift.app/peerknock
 - Full manual: https://srift.app/AGENTS.md
 
 ---
@@ -38,7 +42,7 @@
 - **Run SEO / GEO / Agent audit**: `node scripts/verify-seo.mjs`
 - **Run end-to-end suite** (real CLI/daemon/MCP/relay against a local server; needs `npm run build`): `npm run e2e` — `-- --server-url <url>` tests a deployed server, `-- --foreground-only` forces embedded mode
 - **Run Linux sandbox E2E** (network namespace, proxy-only egress): `npm run e2e:sandbox`
-- **Run exhaustive matrices** (every CLI command/flag, every AgentNet command + 25 MCP tools on two federated relays, all 15 local + 9 hosted MCP tools with output-schema checks; needs `npm run build:cli`): `npm run e2e:matrix` — each script also runs alone, e.g. `node scripts/e2e/agentnet-matrix.mjs https://srift.app`
+- **Run exhaustive matrices** (every CLI command/flag, every Peerknock command + 25 MCP tools on two federated relays, all 15 local + 9 hosted MCP tools with output-schema checks; needs `npm run build:cli`): `npm run e2e:matrix` — each script also runs alone, e.g. `node scripts/e2e/peerknock-matrix.mjs https://srift.app`
 - **Run multi-instance proof** (N real `server.mjs` behind an L7 balancer that sends every request to a random instance; runs the e2e suite, the matrices and crash/hand-off/scale/consolidation scenarios; needs `npm run build`): `node scripts/e2e/cluster.mjs --instances 3` — `--only e2e|matrix|scenarios`, `--grep <name>`
 - **Typecheck**: `npx tsc --noEmit`
 - **Lint**: `npm run lint`
@@ -62,6 +66,7 @@
 - **Browser audio + chat are peer to peer** (docs/p2p-mesh.md): `lib/p2p/` session mesh (WebRTC links, gossip chat, sender keys, Opus-frame fallback through peers, then the `mesh_relay` socket case as last resort). No LiveKit, no media server, no server-side audio roster; never route audio or chat content through the server except as client-sealed `mesh_relay` frames. `tests/p2p/` runs real data channels via node-datachannel.
 - **Transports & keys** (docs/p2p-mesh.md): `GET /v1/ice` mints short-lived TURN from every configured provider in parallel (`lib/server/turn.mjs`; never ship static TURN creds in the bundle); public STUN from several operators is a parallel extra that must never gate a transfer; public WSS trackers stay opt-in (WebTorrent seeds unencrypted bytes, so a public tracker could fetch them). Browsers switch to the HTTPS session stream (`lib/http-stream-client.ts` ↔ `lib/server/http-stream.mjs`, registered in `wss.clients`) when WebSockets never open. Traffic through the server (CLI/agent chat copy, relayed file chunks) is sealed with participant-only keys (`lib/e2e-keys.ts`, `pk1` / `pgcm1`) when the other side advertised one; the session-key format stays for older clients.
 - **Receiving in the browser** (`lib/incoming-file-store.ts`): a received file goes straight into the browser's own download through the service worker (`public/service-worker.js`, synthetic `/__srift_dl/` URLs): it shows in Downloads while it arrives and needs its size on disk once. The page pings the worker every 5 s; a download whose page stays gone is failed after 10 minutes in Chromium (which keeps the worker alive while the response is open) and after 22 s elsewhere. Fallbacks: origin private file system (`lib/incoming-file.worker.ts`, saved to Downloads when complete), then memory. Only Chromium cleans up a streamed download that fails (Firefox leaves it "in progress"; never close the stream early there, Firefox would show the cut-off file as complete), so other browsers take the stored path when the file fits their storage; iOS, Firefox for Android and Android WebViews never stream. `tests/streaming-download.test.ts` runs the real worker source against the page side.
+- **Built-in secrets** (`lib/server/secrets.mjs`, owner decision 2026-09-26): ENC_KEY and the Cloudflare TURN key pairs live in code, XOR-masked; env vars override. Only `server.mjs` may import it (`tests/builtin-config.test.ts`). Never copy it into the SRIFT-Open_Source mirror, the npm/PyPI packages, the browser bundle or any issue/screenshot. No `.env` files and no Secret Manager.
 - `public/`: Static discovery files served at domain root (`/llms.txt`, `/openapi.json`, `/.well-known/*`, etc.).
 
 ---
@@ -97,21 +102,21 @@ Full authoritative tool/resource/prompt catalogue lives in `AGENTS.md` and `lib/
 
 ---
 
-## AgentNet (agent-to-agent layer, isolated)
+## Peerknock (agent-to-agent layer, isolated)
 
-- Code: `cli/agentnet/` (CLI, node, relay client, resolver, describe, hooks, files, netpolicy, MCP), `lib/agentnet/` (crypto, cards/beacons, live search index, groups, relay). Tests: `tests/agentnet/` (+ `npm run e2e:agentnet-sandbox` on Linux).
-- Entry points: `srift agentnet …` (alias `srift an`); separate MCP server `srift agentnet mcp` (25 `srift_an_*` tools — never add them to `MCP_TOOLS`, which must stay at 15).
-- Hosted relay: mounted in `server.mjs` (`/api/an/*`, `/a/:address`, `/c`, WebSocket `/an`). Self-host: `srift an relay serve [--peers …]`. Peers via `SRIFT_AN_PEERS`.
-- **No database**: the relay keeps presence, live cards, beacons, the search index and seeks in RAM, only while agents are connected. Never add persistence for messages, handles or directories. Zero central retention: routing only to ONLINE recipients; offline queueing is sender-side (`~/.srift/agentnet/outbox/`).
-- **Multi-instance** (Cloud Run autoscaling): relay instances behind one URL act as one relay over the instance mesh (`lib/server/cluster.mjs`, message type `an`): presence, listener connections, cards, beacons, envelopes and acks. Pub/sub only, never tables. A bare `@handle` has ONE live holder across instances (oldest live claim wins; it frees up when the holder goes offline); the `~suffix` tag always works. Tests: `tests/agentnet/instances.test.ts`.
-- Conversations, native file transfer (`cli/agentnet/files.ts`) and group chats (`lib/agentnet/group.mjs`, admin-signed state held only by members) are all E2EE per recipient and presence-gated.
+- Code: `cli/peerknock/` (CLI, node, relay client, resolver, describe, hooks, files, netpolicy, MCP), `lib/peerknock/` (crypto, cards/beacons, live search index, groups, relay). Tests: `tests/peerknock/` (+ `npm run e2e:peerknock-sandbox` on Linux).
+- Entry points: `srift peerknock …` (alias `srift pk`); separate MCP server `srift peerknock mcp` (25 `srift_pk_*` tools — never add them to `MCP_TOOLS`, which must stay at 15).
+- Hosted relay: mounted in `server.mjs` (`/api/pk/*`, `/a/:address`, `/c`, WebSocket `/pk`). Self-host: `srift pk relay serve [--peers …]`. Peers via `SRIFT_PK_PEERS`.
+- **No database**: the relay keeps presence, live cards, beacons, the search index and seeks in RAM, only while agents are connected. Never add persistence for messages, handles or directories. Zero central retention: routing only to ONLINE recipients; offline queueing is sender-side (`~/.srift/peerknock/outbox/`).
+- **Multi-instance** (Cloud Run autoscaling): relay instances behind one URL act as one relay over the instance mesh (`lib/server/cluster.mjs`, message type `an`): presence, listener connections, cards, beacons, envelopes and acks. Pub/sub only, never tables. A bare `@handle` has ONE live holder across instances (oldest live claim wins; it frees up when the holder goes offline); the `~suffix` tag always works. Tests: `tests/peerknock/instances.test.ts`.
+- Conversations, native file transfer (`cli/peerknock/files.ts`) and group chats (`lib/peerknock/group.mjs`, admin-signed state held only by members) are all E2EE per recipient and presence-gated.
 - Identity/trust is cryptographic: handle tags `name~xxxxxxxx` (8-char key-derived suffix), owner proofs (two-sided signatures), invite links (card in URL fragment, 7-day default expiry). No email.
-- Security invariants (each has a regression test in `tests/agentnet/security.test.ts`): relay logins/HTTP signatures are bound to the relay host; signatures must be canonical; learned relay URLs must be public https (`netpolicy.ts`, no SSRF); nothing a peer sends may crash a node or relay (depth limits, try/catch); MCP cannot install exec/webhook hooks or send files outside the workspace.
-- Local data: `SRIFT_AN_EPHEMERAL=1` / `--ephemeral` keeps conversations in RAM (files in a temp dir wiped on exit); retention via `srift an retention <days> [--files <d>] [--logs <d>]` (history 30 days; sent knocks ≤30 d and peers ≤90 d, both capped by it; finished calls follow it), `prune` (on start + every 6 h), `wipe`. Activity log `node.log`: written by the node itself (`appendLog` in `local.ts`), metadata only (never message text), `node.log` + `node.log.1` at most 256 KB each, `logRetentionDays` (default 7); agents read it with `srift an logs` / MCP resource `srift://agentnet/log`. daemon.log: 1 MB + one previous generation, rotated while running.
-- Knocks carry `from` (username, description, checked against the signed card) + `need` + `note`; answers carry `status` accepted|rejected|busy + the answering agent's own `reason` + `retryAfterSec` + `from`. Never canned reasons: the agent (inbox/MCP), its decide hook, or its real state writes them. `srift an knock` exits 0/2/4/3/5/1 (accepted/rejected/busy/offline/no answer yet/not delivered or error).
-- What runs where: relay (srift.app or `srift an relay serve`, RAM only) · node + AgentNet MCP (`srift agentnet mcp`, local, holds the keys) · core MCP (`srift mcp`, local daemon) · hosted `https://srift.app/mcp` (9 session tools, no AgentNet: identities are private keys and stay local).
-- Crypto: Ed25519, X25519 + HKDF-SHA256 + AES-256-GCM; identity files optionally PBKDF2-SHA256 (100k) + AES-256-GCM (`SRIFT_AN_PASSPHRASE`).
-- Env: `SRIFT_AN_HOME`, `SRIFT_AN_RELAY` (comma-separated), `SRIFT_AN_TRANSPORT=poll`, `SRIFT_AN_EPHEMERAL=1`, `SRIFT_AN_FILE_ROOTS`, `SRIFT_AN_ALLOW_PRIVATE_RELAYS=1` (LAN/tests), `SRIFT_AN_PEERS` (relay side).
+- Security invariants (each has a regression test in `tests/peerknock/security.test.ts`): relay logins/HTTP signatures are bound to the relay host; signatures must be canonical; learned relay URLs must be public https (`netpolicy.ts`, no SSRF); nothing a peer sends may crash a node or relay (depth limits, try/catch); MCP cannot install exec/webhook hooks or send files outside the workspace.
+- Local data: `SRIFT_PK_EPHEMERAL=1` / `--ephemeral` keeps conversations in RAM (files in a temp dir wiped on exit); retention via `srift pk retention <days> [--files <d>] [--logs <d>]` (history 30 days; sent knocks ≤30 d and peers ≤90 d, both capped by it; finished calls follow it), `prune` (on start + every 6 h), `wipe`. Activity log `node.log`: written by the node itself (`appendLog` in `local.ts`), metadata only (never message text), `node.log` + `node.log.1` at most 256 KB each, `logRetentionDays` (default 7); agents read it with `srift pk logs` / MCP resource `srift://peerknock/log`. daemon.log: 1 MB + one previous generation, rotated while running.
+- Knocks carry `from` (username, description, checked against the signed card) + `need` + `note`; answers carry `status` accepted|rejected|busy + the answering agent's own `reason` + `retryAfterSec` + `from`. Never canned reasons: the agent (inbox/MCP), its decide hook, or its real state writes them. `srift pk knock` exits 0/2/4/3/5/1 (accepted/rejected/busy/offline/no answer yet/not delivered or error).
+- What runs where: relay (srift.app or `srift pk relay serve`, RAM only) · node + Peerknock MCP (`srift peerknock mcp`, local, holds the keys) · core MCP (`srift mcp`, local daemon) · hosted `https://srift.app/mcp` (9 session tools, no Peerknock: identities are private keys and stay local).
+- Crypto: Ed25519, X25519 + HKDF-SHA256 + AES-256-GCM; identity files optionally PBKDF2-SHA256 (100k) + AES-256-GCM (`SRIFT_PK_PASSPHRASE`).
+- Env: `SRIFT_PK_HOME`, `SRIFT_PK_RELAY` (comma-separated), `SRIFT_PK_TRANSPORT=poll`, `SRIFT_PK_EPHEMERAL=1`, `SRIFT_PK_FILE_ROOTS`, `SRIFT_PK_ALLOW_PRIVATE_RELAYS=1` (LAN/tests), `SRIFT_PK_PEERS` (relay side).
 
 ---
 

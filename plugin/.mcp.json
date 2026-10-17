@@ -1,0 +1,14 @@
+{
+  "srift": {
+    "command": "node",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/claude-mcp.mjs", "mcp"]
+  },
+  "srift-peerknock": {
+    "command": "node",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/claude-mcp.mjs", "peerknock", "mcp"]
+  },
+  "srift-hosted": {
+    "type": "http",
+    "url": "https://srift.app/mcp"
+  }
+}

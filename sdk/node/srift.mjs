@@ -16,7 +16,7 @@
 const DEFAULT_BASE = "http://127.0.0.1:3822";
 
 /** SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs. */
-export const VERSION = "4.1.0";
+export const VERSION = "4.4.0";
 
 export class SriftError extends Error {
   constructor(message, code) { super(message); this.name = "SriftError"; this.code = code; }
@@ -54,6 +54,8 @@ export class Srift {
   isAlive() { return this._call("/status").then(() => true, () => false); }
   status() { return this._call("/status"); }
   state() { return this._call("/state"); }
+  /** Which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes. */
+  diagnose({ fresh = false } = {}) { return this._call(fresh ? "/v1/diag?fresh=1" : "/v1/diag"); }
 
   // Session
   startSession({ name, roomSecret } = {}) {
@@ -71,8 +73,13 @@ export class Srift {
   sendFile(filePath, { protocol } = {}) { return this._call("/send", "POST", { filePath, protocol }); }
   acceptTransfer(fileId, { saveDir } = {}) { return this._call("/receive", "POST", { fileId, saveDir }); }
   async listTransfers() { return (await this.status()).activeTransfers || []; }
-  quickShare(filePath, { sessionName } = {}) {
-    return this._call("/quick-share", "POST", { filePath, sessionName });
+  /**
+   * Options (all optional): sessionName, encrypt (end-to-end: key in the #k= fragment), password,
+   * ttlMs, maxDownloads, filePaths (several files/folders), bundle (default true: one .tar.gz link),
+   * bundleName, exclude (glob patterns).
+   */
+  quickShare(filePath, options = {}) {
+    return this._call("/quick-share", "POST", { filePath, ...options });
   }
 
   // Chat

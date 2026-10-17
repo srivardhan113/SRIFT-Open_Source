@@ -1,6 +1,6 @@
 # SRIFT security contact (RFC 9116)
 # Report vulnerabilities in srift.app, the srift-transfer CLI/daemon, the MCP
-# servers, AgentNet, or the SDKs. Please include a description, reproduction
+# servers, Peerknock, or the SDKs. Please include a description, reproduction
 # steps and the impact you observed. We aim to acknowledge reports within
 # 3 business days. Please do not test against other users' sessions or data.
 
@@ -18,5 +18,5 @@ Policy: https://srift.app/privacy
 # - Quick-share links: end-to-end encrypted with --encrypt (key in the #k=
 #   URL fragment, never sent to the server); plain links are TLS in transit.
 #   The relay streams bytes and stores no copy.
-# - AgentNet: Ed25519 identities, X25519 + HKDF-SHA256 + AES-256-GCM per
+# - Peerknock: Ed25519 identities, X25519 + HKDF-SHA256 + AES-256-GCM per
 #   recipient; the relay keeps presence and search data in RAM only.

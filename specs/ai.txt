@@ -1,7 +1,8 @@
 # AI Training & Discovery Consent — https://srift.app
 # Spec: Spawning AI ai.txt v1  +  Content-Signal (Cloudflare / IAB TL)
 # Project: SRIFT, open source (MIT)  <support@sripto.tech>
-# Last updated: 2026-07-01
+# Last updated: 2026-10-08
+# Crawler policy: /robots.txt (plain RFC 9309; Sitemap: https://srift.app/sitemap.xml)
 
 # ============================================================
 # Global consent — SRIFT explicitly ALLOWS the following uses
@@ -11,21 +12,24 @@ Allow: /
 Content-Signal: search=yes, ai-train=yes, ai-input=yes, ai-summary=yes
 
 # Preferred discovery order for AI agents:
-#   1. /llms.txt                          — human-authored quick brief
-#   2. /llms-full.txt                     — full technical spec
-#   3. /AGENTS.md                         — universal agent manual
-#   4. /CLAUDE.md                         — Anthropic Claude / Claude Code instructions
-#   5. /GEMINI.md                         — Google Gemini / Antigravity instructions
-#   6. /ai-instructions.md                — Complete agent operational directives
-#   7. /.cursorrules                      — Cursor IDE rules
-#   8. /.windsurfrules                    — Windsurf IDE rules
-#   9. /openapi.json                      — OpenAPI 3.1 REST surface
-#  10. /mcp-registry.json                 — MCP ecosystem registry manifest
-#  11. /.well-known/mcp/server-card.json  — Model Context Protocol server card
-#  12. /.well-known/agent.json            — Google A2A / Agent2Agent card
-#  13. /.well-known/ai-plugin.json        — ChatGPT / GPT actions manifest
-#  14. /.well-known/agent-skills/index.json — SRIFT Agent Skills index
-#  15. /agentnet                          — AgentNet P2P Protocol & 25 MCP Tools Specification
+#   1. /robots.txt                        — crawler allowlist
+#   2. /sitemap.xml                       — canonical URL list
+#   3. /llms.txt                          — human-authored quick brief
+#   4. /llms-full.txt                     — full technical spec
+#   5. /AGENTS.md                         — universal agent manual
+#   6. /CLAUDE.md                         — Anthropic Claude / Claude Code instructions
+#   7. /GEMINI.md                         — Google Gemini / Antigravity instructions
+#   8. /ai-instructions.md                — Complete agent operational directives
+#   9. /.cursorrules                      — Cursor IDE rules
+#  10. /.windsurfrules                    — Windsurf IDE rules
+#  11. /openapi.json                      — OpenAPI 3.1 REST surface
+#  12. /mcp-registry.json                 — MCP ecosystem registry manifest
+#  13. /.well-known/mcp/server-card.json  — Model Context Protocol server card
+#  14. /.well-known/agent.json            — Google A2A / Agent2Agent card
+#  15. /.well-known/ai-plugin.json        — ChatGPT / GPT actions manifest
+#  16. /.well-known/agent-skills/index.json — SRIFT Agent Skills index
+#  17. /peerknock                          — Peerknock P2P Protocol & 25 MCP Tools Specification
+#  18. /resources                         — technical guides: P2P, WebRTC, encryption, MCP, servers
 
 # ============================================================
 # Per-crawler explicit allow — no ambiguity
@@ -64,6 +68,9 @@ User-Agent: Applebot-Extended
 Allow: /
 
 User-Agent: DeepSeekBot
+Allow: /
+
+User-Agent: GrokBot
 Allow: /
 
 User-Agent: Amazonbot

@@ -12,7 +12,9 @@ import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
 import { handleMcpMessage, MCP_TOOLS, MCP_RESOURCES, MCP_PROMPTS } from './mcp.ts';
 import { PROTOCOL_VERSION } from '../lib/mcp/core.mjs';
+import { Keyring, isPk1, isPublicKey, relaySender, relayReceiver, RELAY_PK_SCHEME } from '../lib/e2e-keys.ts';
 import { agentFor, requestJson, formatNetError } from './net.ts';
+import { NodeHttpStreamSocket } from './http-stream.ts';
 import { runDiagnostics, type DiagReport } from './probe.ts';
 type ShareResult = {
   success: true;
@@ -77,14 +79,49 @@ const STATE_PATH = path.join(SRIFT_HOME, EMBEDDED ? 'state-embedded.json' : 'sta
 
 // Redirect console logs to ~/.srift/daemon.log in the daemon itself to protect from parent process exit crashes
 const logPath = path.join(SRIFT_HOME, 'daemon.log');
-// Keep the log bounded (one previous generation) and private to the user.
-try {
-  if (fs.statSync(logPath).size > 5 * 1024 * 1024) fs.renameSync(logPath, `${logPath}.1`);
-} catch { /* no log yet */ }
-const logStream = fs.createWriteStream(logPath, { flags: 'a', mode: 0o600 });
+// Keep the log bounded while the daemon runs (daemon.log + one previous generation, each
+// at most DAEMON_LOG_MAX bytes) and private to the user. Only the latest activity is kept.
+const DAEMON_LOG_MAX = 1024 * 1024;
+const openLog = () => fs.createWriteStream(logPath, { flags: 'a', mode: 0o600 });
+let logBytes = 0;
+try { logBytes = fs.statSync(logPath).size; } catch { /* no log yet */ }
+// Age limit on top of the size cap: a generation older than a week is dropped
+// (checked at start and every 6 hours), matching Peerknock's log retention.
+const DAEMON_LOG_MAX_AGE_MS = 7 * 24 * 3600_000;
+const pruneOldLogs = (): void => {
+  for (const f of [`${logPath}.1`, logPath]) {
+    try {
+      if (Date.now() - fs.statSync(f).mtimeMs > DAEMON_LOG_MAX_AGE_MS) {
+        if (f === logPath) { fs.truncateSync(f, 0); logBytes = 0; } else fs.rmSync(f, { force: true });
+      }
+    } catch { /* missing */ }
+  }
+};
+pruneOldLogs();
+setInterval(pruneOldLogs, 6 * 3600_000).unref();
+let logStream = openLog();
 try { fs.chmodSync(logPath, 0o600); } catch { /* not supported (Windows ACLs) */ }
+let logRotating = false;
+const logPending: string[] = [];
+const writeLogLine = (line: string): void => {
+  if (logRotating) { if (logPending.length < 1000) logPending.push(line); return; }
+  if (logBytes + line.length > DAEMON_LOG_MAX) {
+    logRotating = true;
+    logPending.push(line);
+    logStream.end(() => {
+      try { fs.rmSync(`${logPath}.1`, { force: true }); fs.renameSync(logPath, `${logPath}.1`); } catch { /* keep appending */ }
+      logStream = openLog();
+      logBytes = 0;
+      logRotating = false;
+      for (const l of logPending.splice(0)) writeLogLine(l);
+    });
+    return;
+  }
+  logStream.write(line);
+  logBytes += Buffer.byteLength(line);
+};
 const logMessage = (level: string, message: string) => {
-  logStream.write(`[${new Date().toISOString()}] [${level}] ${message}\n`);
+  writeLogLine(`[${new Date().toISOString()}] [${level}] ${String(message).slice(0, 4000)}\n`);
 };
 // Errors serialize to {} with JSON.stringify; keep their message (and code).
 const fmtLogArg = (arg: any): string => arg instanceof Error ? `${arg.name}: ${arg.message}${(arg as any).code ? ` [${(arg as any).code}]` : ''}` : typeof arg === 'object' ? (() => { try { return JSON.stringify(arg); } catch { return String(arg); } })() : String(arg);
@@ -127,8 +164,14 @@ async function selectSignalerUrl(): Promise<void> {
       const id = setTimeout(() => controller.abort(), 3000);
       // Probe a static file, not '/': the home page is a full render that can
       // exceed the timeout under load and silently send us to production.
-      await fetch(`${DEFAULT_SIGNALER_URL.replace(/\/+$/, '')}/compat.json`, { signal: controller.signal }); // loopback only: never proxied
+      const probe = await fetch(`${DEFAULT_SIGNALER_URL.replace(/\/+$/, '')}/compat.json`, { signal: controller.signal }); // loopback only: never proxied
       clearTimeout(id);
+      // Port 8080 is a common port. Only a server that answers with SRIFT's own
+      // compatibility document is a local signaler; anything else listening there is not.
+      const compat: any = probe.ok ? await probe.json().catch(() => null) : null;
+      if (!compat || typeof compat.wireVersion !== 'number' || typeof compat.daemon !== 'string') {
+        throw new Error('not a SRIFT server');
+      }
       console.log(`[DAEMON] Local signaler detected at ${DEFAULT_SIGNALER_URL}`);
     } catch (e) {
       console.log(`[DAEMON] Local signaler at ${DEFAULT_SIGNALER_URL} is unreachable. Falling back to production signaler: https://srift.app`);
@@ -192,6 +235,8 @@ let session: {
   tempUserId?: string | null;
   wsToken?: string | null;
   roomSecret?: string | null;
+  /** The name this daemon joined with (sent again on every request_join). */
+  username?: string | null;
 } = {
   id: null,
   name: null,
@@ -210,15 +255,17 @@ let activeTransfers: Array<{
   protocol: 'websocket' | 'webtorrent';
   status: 'pending' | 'uploading' | 'downloading' | 'completed' | 'cancelled' | 'error';
   direction: 'upload' | 'download';
+  /** Upload to several people: the outcome per recipient. `status` is derived from these. */
+  recipients?: Record<string, 'uploading' | 'completed' | 'cancelled' | 'error'>;
   filePath?: string;
   saveDir?: string;
   peerId?: string;
-  /** Upload: the receiver advertised sealed relay chunks ('sgcm1') in file_accept. */
-  peerRelayEnc?: 'sgcm1';
-  /** Download: 'plain' or 'sealed' — a transfer never mixes the two (downgrade guard). */
-  relayMode?: 'plain' | 'sealed';
+/** Download: 'plain' or the scheme ('sgcm1' / 'pgcm1') — a transfer never mixes them (downgrade guard). */
+  relayMode?: string;
   bytesTransferred: number;
   chunksCount: number;
+  /** Set once assembly starts (file_complete, or every chunk received and file_complete lost). */
+  assembling?: boolean;
   totalChunks: number;
   startTime: number;
 }> = [];
@@ -239,7 +286,15 @@ let pendingJoins: Array<{
 let participants: Array<{ userId: string; username: string; isHost: boolean; online: boolean }> = [];
 
 let sseClients: any[] = [];
-let wsConn: WebSocket | null = null;
+let wsConn: WebSocket | NodeHttpStreamSocket | null = null;
+// Signaling transport: WebSocket first. Two WebSocket attempts in a row that never open, or are cut
+// before the session authenticates (proxies that strip Upgrade or kill upgraded connections), switch
+// to the HTTPS session stream; a WebSocket is tried again every 10 minutes after that.
+// SRIFT_SIGNALING=http forces the HTTPS stream.
+let signalingMode: 'ws' | 'http' = process.env.SRIFT_SIGNALING === 'http' ? 'http' : 'ws';
+let wsFailures = 0;
+let httpModeSince = 0;
+const WS_RETRY_AFTER_MS = 10 * 60_000;
 let wsUrl: string | null = null;
 let csrfToken: string | null = null;
 let heartbeatInterval: NodeJS.Timeout | null = null;
@@ -288,7 +343,10 @@ const pubshareRegResolvers: Map<string, (entry: PubshareEntry) => void> = new Ma
 async function getWtClient() {
   if (!wtClient) {
     const WTCtor = await loadWebTorrent();
-    wtClient = new WTCtor();
+    // Peers come only from SRIFT's session-scoped tracker. The public BitTorrent DHT and local service
+    // discovery would announce the transfer's infohash to anyone, and WebTorrent seeds the file bytes as
+    // they are, so a stranger who saw the hash could download the file.
+    wtClient = new WTCtor({ dht: false, lsd: false, utPex: false });
   }
   return wtClient;
 }
@@ -304,9 +362,20 @@ if (!fs.existsSync(TEMP_DIR)) {
 }
 // Pre-encrypted relay copies (*.sre1) only live as long as this daemon's
 // in-memory link table; anything left from a previous run is orphaned.
+// Leftovers of a crashed or killed process are swept by age, so files a live
+// process (e.g. an embedded `quick-share --keep-alive`) still serves are kept:
+// transfer chunks after 24 h, packed archives and anything else after 7 days.
+const TMP_CHUNK_MAX_AGE_MS = 24 * 3600_000;
+const TMP_FILE_MAX_AGE_MS = 7 * 24 * 3600_000;
 try {
+  const now = Date.now();
   for (const f of fs.readdirSync(TEMP_DIR)) {
-    if (f.endsWith('.sre1')) { try { fs.unlinkSync(path.join(TEMP_DIR, f)); } catch {} }
+    const fp = path.join(TEMP_DIR, f);
+    try {
+      if (f.endsWith('.sre1')) { fs.unlinkSync(fp); continue; }
+      const age = now - fs.statSync(fp).mtimeMs;
+      if (age > (f.includes('_chunk_') ? TMP_CHUNK_MAX_AGE_MS : TMP_FILE_MAX_AGE_MS)) fs.rmSync(fp, { recursive: true, force: true });
+    } catch { /* in use or already gone */ }
   }
 } catch {}
 
@@ -412,9 +481,20 @@ async function openRelayChunk(p: { fileId: string; chunk: unknown; chunkIndex: n
     if (Array.isArray(p.chunk)) return Buffer.from(p.chunk as number[]);
     throw new Error('relay chunk is neither base64 nor a byte array');
   }
+  if (p.enc === RELAY_PK_SCHEME) {
+    const rx = relayReceivers.get(p.fileId);
+    const sealed = typeof p.chunk === 'string' ? new Uint8Array(Buffer.from(p.chunk, 'base64')) : Array.isArray(p.chunk) ? Uint8Array.from(p.chunk as number[]) : null;
+    if (!rx || !sealed) throw new Error(`relay chunk ${p.chunkIndex} of ${p.fileId} is sealed for a key this daemon does not hold`);
+    try {
+      return Buffer.from(await (await rx).open(sealed, p.chunkIndex, p.totalChunks));
+    } catch {
+      throw new Error(`relay chunk ${p.chunkIndex} of ${p.fileId} failed authentication (tampered data or wrong key)`);
+    }
+  }
   if (p.enc !== RELAY_ENC) throw new Error(`unsupported relay encryption scheme: ${String(p.enc)}`);
-  if (!Array.isArray(p.chunk)) throw new Error('sealed relay chunk is not a byte array');
-  const data = Uint8Array.from(p.chunk as number[]);
+  if (!Array.isArray(p.chunk) && typeof p.chunk !== 'string') throw new Error('sealed relay chunk is not a byte array');
+  // A base64 string (fast relay format) or the legacy JSON number array.
+  const data = typeof p.chunk === 'string' ? new Uint8Array(Buffer.from(p.chunk, 'base64')) : Uint8Array.from(p.chunk as number[]);
   if (data.length < IV_LEN + 16) throw new Error('sealed relay chunk too short');
   try {
     return Buffer.from(await crypto.subtle.decrypt(
@@ -425,17 +505,65 @@ async function openRelayChunk(p: { fileId: string; chunk: unknown; chunkIndex: n
   }
 }
 
+// ─── Participant-only keys (lib/e2e-keys.ts) ───
+// Chat copies and relayed chunks sealed with keys the server never sees. Used only with members
+// that advertised support; everything else keeps the session-key path above.
+let keyring: { sessionId: string; ring: Promise<Keyring> } | null = null;
+function sessionKeyring(): Promise<Keyring> {
+  if (!session.id) return Promise.reject(new Error('No active session'));
+  if (keyring?.sessionId !== session.id) keyring = { sessionId: session.id, ring: Keyring.create(session.id, session.roomSecret) };
+  return keyring.ring;
+}
+async function announceKey(to?: string) {
+  try {
+    const ring = await sessionKeyring();
+    wsConn?.send(JSON.stringify({ type: 'e2e_key', payload: { pk: ring.publicKey, ...(to ? { to } : {}) } }));
+  } catch (e: any) { console.warn(`[DAEMON] Could not announce the member key: ${e?.message || e}`); }
+}
+/** pk1 when every other online member advertised a key; the session-key format otherwise. */
+async function sealChatContent(message: string): Promise<string> {
+  try {
+    const ring = await sessionKeyring();
+    const to = participants.filter((p) => p.online && p.userId !== session.userId).map((p) => p.userId);
+    if (to.length && ring.covers(to)) {
+      const sealed = await ring.sealChat(message, to);
+      if (sealed.length <= 200 * 1024) { console.log(`[DAEMON] Chat sealed pk1 for ${to.length} member(s)`); return sealed; }
+    }
+  } catch (e: any) { console.warn(`[DAEMON] pk1 sealing failed, using the session key: ${e?.message || e}`); }
+  console.log(`[DAEMON] Chat sealed with the session key (members online: ${participants.filter((p) => p.online && p.userId !== session.userId).length}, keys known: ${keyring?.sessionId === session.id ? (await keyring.ring).peers.size : 0})`);
+  return encrypt(message);
+}
+const relayReceivers = new Map<string, Promise<Awaited<ReturnType<typeof relayReceiver>>>>();
+const relaySenders = new Map<string, Promise<Awaited<ReturnType<typeof relaySender>>>>();
+/** Per-transfer keys live as long as recent transfers; the oldest go first. */
+function remember<V>(m: Map<string, V>, k: string, v: V) {
+  m.set(k, v);
+  while (m.size > 256) m.delete(m.keys().next().value as string);
+}
+
 // ─── Tracker list for WebTorrent ───
+const PUBLIC_TRACKERS = [
+  'wss://tracker.openwebtorrent.com',
+  'wss://tracker.webtorrent.dev',
+  'wss://tracker.btorrent.xyz',
+  'wss://tracker.files.fm:7073/announce',
+];
 function getTrackers(sessionId: string): string[] {
   const list: string[] = [];
   try {
     const signalerUrl = wsUrl || activeSignalerUrl;
     const trackerUrl = signalerUrl.replace(/^http/, 'ws').replace(/\/(ws|v1\/stream)$/, '/v1/peers');
-    if (trackerUrl) list.push(trackerUrl);
+    // ?s= lets a multi-instance server route every peer of this session to the section's home tracker.
+    if (trackerUrl) list.push(/^[A-Z]{3}\d{4}$/.test(sessionId || '') ? `${trackerUrl}?s=${sessionId}` : trackerUrl);
   } catch {}
-  // Third-party trackers are opt-in: SRIFT_EXTRA_TRACKERS=wss://a,wss://b
+  // Extra trackers: SRIFT_EXTRA_TRACKERS=wss://a,wss://b
   for (const t of (process.env.SRIFT_EXTRA_TRACKERS || '').split(',').map((x) => x.trim()).filter(Boolean)) {
-    if (/^wss?:\/\//.test(t)) list.push(t);
+    if (/^wss?:\/\//.test(t) && !list.includes(t)) list.push(t);
+  }
+  // Public trackers only when opted in (SRIFT_PUBLIC_TRACKERS=1): the file is seeded as is, so a public tracker's
+  // operator could join the swarm and fetch it. SRIFT's own tracker only serves the session's members.
+  if (/^(1|true|on)$/i.test(process.env.SRIFT_PUBLIC_TRACKERS || '')) {
+    for (const t of PUBLIC_TRACKERS) if (!list.includes(t)) list.push(t);
   }
   return list;
 }
@@ -544,10 +672,21 @@ function connectWebSocket(wsTargetUrl: string) {
   // A new socket is unauthenticated until init_host_ack arrives again.
   csrfToken = null;
 
-  console.log(`[DAEMON] Connecting to Signaler WS: ${wsTargetUrl}`);
+  if (signalingMode === 'http' && process.env.SRIFT_SIGNALING !== 'http' && Date.now() - httpModeSince > WS_RETRY_AFTER_MS) {
+    signalingMode = 'ws';
+    wsFailures = 0;
+  }
+  const viaHttp = signalingMode === 'http';
+  console.log(`[DAEMON] Connecting to Signaler ${viaHttp ? 'HTTPS stream' : 'WS'}: ${wsTargetUrl}`);
   // `ws` ignores HTTPS_PROXY; pass an explicit tunnelling agent when one applies.
-  const sock = new WebSocket(wsTargetUrl, { agent: agentFor(wsTargetUrl) });
+  const sock = viaHttp
+    ? new NodeHttpStreamSocket(wsTargetUrl, session.id || '')
+    : new WebSocket(wsTargetUrl, { agent: agentFor(wsTargetUrl) });
   wsConn = sock;
+  let opened = false;
+  let openedAt = 0;
+  // A WebSocket swallowed by a middlebox (no open, no error) counts as a failed attempt.
+  const openTimer = viaHttp ? null : setTimeout(() => { if (!opened && wsConn === sock) { try { sock.terminate(); } catch {} } }, 10_000);
   // Events from a socket this function already replaced must be ignored: the
   // old socket's 'close' used to schedule another reconnect, which closed the
   // current socket, whose 'close' scheduled another… a reconnect every 3 s
@@ -556,7 +695,10 @@ function connectWebSocket(wsTargetUrl: string) {
 
   sock.on('open', () => {
     if (!current()) return;
-    console.log('[DAEMON] WebSocket connection open');
+    opened = true;
+    openedAt = Date.now();
+    if (openTimer) clearTimeout(openTimer);
+    console.log(`[DAEMON] ${viaHttp ? 'HTTPS stream' : 'WebSocket'} connection open`);
     session.isConnected = true;
     writeStateFile();
     broadcastSSE('connection_state', {
@@ -570,19 +712,20 @@ function connectWebSocket(wsTargetUrl: string) {
       if (session.role === 'host') {
         wsConn?.send(JSON.stringify({
           type: 'init_host',
-          payload: { userId: session.userId, sessionId: session.id }
+          payload: { userId: session.userId, sessionId: session.id, wsToken: session.wsToken }
         }));
       } else if (session.role === 'guest') {
         if (session.userId) {
           wsConn?.send(JSON.stringify({
             type: 'init_joiner',
-            payload: { userId: session.userId, sessionId: session.id }
+            payload: { userId: session.userId, sessionId: session.id, wsToken: session.wsToken }
           }));
         } else {
-          const username = process.env.SRIFT_USERNAME || 'CLI-Agent';
+          // The name given to `session join` (the join request over the socket must match it).
+          const username = session.username || process.env.SRIFT_USERNAME || 'CLI-Agent';
           wsConn?.send(JSON.stringify({
             type: 'request_join',
-            payload: { sessionId: session.id, tempUserId: session.tempUserId, username }
+            payload: { sessionId: session.id, tempUserId: session.tempUserId, username, wsToken: session.wsToken }
           }));
         }
       }
@@ -593,6 +736,13 @@ function connectWebSocket(wsTargetUrl: string) {
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     heartbeatInterval = setInterval(() => {
       if (wsConn?.readyState === WebSocket.OPEN) {
+        // A half-open socket (NAT or proxy dropped it silently) never errors on its own: with no
+        // heartbeat_ack for 75 s, drop it so the close handler reconnects and uploads resume.
+        if (Date.now() - lastHeartbeatAckAt > 75_000) {
+          console.warn('[DAEMON] No heartbeat ack for 75 s: reconnecting the signaling socket');
+          try { wsConn.terminate(); } catch { /* already closing */ }
+          return;
+        }
         wsConn.send(JSON.stringify({ type: 'heartbeat', payload: { ts: Date.now() } }));
       }
     }, 30000);
@@ -609,10 +759,12 @@ function connectWebSocket(wsTargetUrl: string) {
           if (payload.status === 'ok') {
             csrfToken = payload.csrfToken;
             console.log('[DAEMON] Host authentication OK, CSRF Token obtained');
+            announceKey();
             // After (re)auth, replay any public-share registrations so the
             // existing download URLs keep working across transient WS drops.
             reregisterPubsharesAfterReconnect().catch((e) =>
               console.warn('[DAEMON] pubshare replay failed:', e?.message));
+            resumeRelayUploads();
           }
           break;
 
@@ -626,7 +778,7 @@ function connectWebSocket(wsTargetUrl: string) {
           // Re-auth as approved joiner
           wsConn?.send(JSON.stringify({
             type: 'init_joiner',
-            payload: { userId: session.userId, sessionId: session.id }
+            payload: { userId: session.userId, sessionId: session.id, wsToken: session.wsToken }
           }));
           writeStateFile();
           break;
@@ -635,6 +787,8 @@ function connectWebSocket(wsTargetUrl: string) {
           if (payload.status === 'ok') {
             csrfToken = payload.csrfToken;
             console.log('[DAEMON] Approved joiner authentication OK');
+            announceKey();
+            resumeRelayUploads();
           }
           break;
 
@@ -702,13 +856,31 @@ function connectWebSocket(wsTargetUrl: string) {
 
         case 'join_request':
           console.log(`[DAEMON] Peer join request: tempUserId=${payload.tempUserId}, username=${payload.username}`);
-          pendingJoins.push({ tempUserId: payload.tempUserId, username: payload.username });
+          // The server may repeat a request (host reconnected); keep one entry per tempUserId.
+          if (!pendingJoins.some((p: any) => p.tempUserId === payload.tempUserId)) pendingJoins.push({ tempUserId: payload.tempUserId, username: payload.username });
           broadcastSSE('join_request', payload);
+          break;
+
+        case 'e2e_key':
+          try {
+            const ring = await sessionKeyring();
+            // A new or changed key: answer with ours so both sides can seal for each other.
+            const learned = ring.setPeer(String(payload?.from || ''), payload?.pk);
+            if (learned) console.log(`[DAEMON] Member key received (${ring.peers.size} known)`);
+            if (learned && !payload?.reply) announceKey(String(payload.from));
+          } catch (e: any) { console.warn(`[DAEMON] Member key ignored: ${e?.message || e}`); }
           break;
 
         case 'chat':
           try {
-            const decContent = await decrypt(payload.content);
+            let decContent: string;
+            if (isPk1(payload.content)) {
+              const opened = await (await sessionKeyring()).openChat(payload.content, String(payload.senderId || ''));
+              if (opened === null) { console.log('[DAEMON] Chat sealed before this device joined; skipped'); break; }
+              decContent = opened;
+            } else {
+              decContent = await decrypt(payload.content);
+            }
             const chatMsg = {
               messageId: payload.messageId || uuidv4(),
               sender: payload.username || 'Peer',
@@ -718,7 +890,7 @@ function connectWebSocket(wsTargetUrl: string) {
             chatHistory.push(chatMsg);
             broadcastSSE('chat_received', chatMsg);
             // Never log decrypted message text (it would defeat E2EE on disk): metadata only.
-            console.log(`[DAEMON] Chat from ${chatMsg.sender} (${String(chatMsg.content ?? "").length} chars)`);
+            console.log(`[DAEMON] Chat from ${chatMsg.sender} (${String(chatMsg.content ?? "").length} chars, ${isPk1(payload.content) ? 'pk1' : 'session key'})`);
           } catch (decErr) {
             console.error('[DAEMON] Decryption failed for chat message:', decErr);
           }
@@ -757,9 +929,14 @@ function connectWebSocket(wsTargetUrl: string) {
           console.log(`[DAEMON] File offer accepted by peer! ID: ${payload.fileId}`);
           {
             const acceptedTx = activeTransfers.find((t) => t.fileId === payload.fileId);
-            if (acceptedTx) acceptedTx.peerRelayEnc = payload.relayEnc === RELAY_ENC ? RELAY_ENC : undefined;
+            if (acceptedTx && acceptedTx.protocol === 'webtorrent' && (acceptedTx.status === 'completed' || acceptedTx.status === 'uploading')) break;
           }
-          startUpload(payload.fileId, payload.userId);
+          // What this receiver can read: sealed chunks (sgcm1), its own per-transfer key (pgcm1), base64 frames.
+          startUpload(payload.fileId, payload.userId, {
+            relayEnc: payload.relayEnc === RELAY_ENC ? RELAY_ENC : undefined,
+            relayPk: isPublicKey(payload.relayPk) ? payload.relayPk : undefined,
+            fast: payload.relayFmt === RELAY_FORMAT,
+          });
           break;
 
         case 'webtorrent_info_hash':
@@ -781,11 +958,21 @@ function connectWebSocket(wsTargetUrl: string) {
         case 'file_cancelled_all': {
           // The other side cancelled: stop sending / stop waiting for chunks.
           const gone = activeTransfers.find((t) => t.fileId === payload?.fileId);
-          activeUploads.delete(payload?.fileId);
-          if (gone && gone.status !== 'completed') {
-            gone.status = 'cancelled';
+          // A receiver that cancels stops its own stream only; the other recipients keep receiving.
+          const stopped = type === 'file_cancelled_by_receiver' && payload?.receiverId
+            ? [activeUploads.get(uploadKey(payload.fileId, payload.receiverId))].filter(Boolean) as RelayUpload[]
+            : uploadsOf(payload?.fileId);
+          for (const u of stopped) stopUpload(u);
+          // One recipient stopping its own copy is that recipient's outcome, not the file's.
+          const oneRecipient = !!gone && gone.direction === 'upload' && type === 'file_cancelled_by_receiver' && !!payload?.receiverId;
+          if (gone && oneRecipient) { markRecipient(gone, payload.receiverId, 'cancelled'); writeStateFile(); }
+          if (gone && gone.direction === 'upload' && uploadsOf(payload?.fileId).length > 0) break;
+          if (gone && gone.direction === 'download') dropRelayDownload(gone.fileId, true);
+          if (gone && (gone.status !== 'completed' || oneRecipient)) {
+            if (oneRecipient) settleUploadStatus(gone);
+            else gone.status = 'cancelled';
             writeStateFile();
-            broadcastSSE('transfer_progress', { fileId: gone.fileId, fileName: gone.name, size: gone.size, bytesTransferred: gone.bytesTransferred, progress: gone.progress, status: 'cancelled' });
+            broadcastSSE('transfer_progress', { fileId: gone.fileId, fileName: gone.name, size: gone.size, bytesTransferred: gone.bytesTransferred, progress: gone.progress, status: gone.status });
           }
           break;
         }
@@ -841,8 +1028,18 @@ function connectWebSocket(wsTargetUrl: string) {
   });
 
   sock.on('close', () => {
+    if (openTimer) clearTimeout(openTimer);
     if (!current()) return;
     console.log('[DAEMON] WebSocket connection closed');
+    const wasAuthed = !!csrfToken;
+    if (!viaHttp) {
+      if (wasAuthed) wsFailures = 0;
+      else if ((!opened || Date.now() - openedAt < 10_000) && ++wsFailures >= 2) {
+        signalingMode = 'http';
+        httpModeSince = Date.now();
+        console.log('[DAEMON] WebSocket does not hold on this network: switching signaling to the HTTPS stream');
+      }
+    }
     session.isConnected = false;
     csrfToken = null; // waitForHostAuth must wait for re-auth after a reconnect
     writeStateFile();
@@ -873,14 +1070,14 @@ function connectWebSocket(wsTargetUrl: string) {
 }
 
 // ─── File Upload Dispatcher ───
-function startUpload(fileId: string, targetUserId: string) {
+function startUpload(fileId: string, targetUserId: string, caps: { relayEnc?: 'sgcm1'; relayPk?: string; fast?: boolean } = {}) {
   const tx = activeTransfers.find((t) => t.fileId === fileId);
   if (!tx) return;
 
   if (tx.protocol === 'webtorrent') {
     startWebTorrentUpload(fileId, targetUserId);
   } else {
-    startWebSocketUpload(fileId, targetUserId);
+    void startWebSocketUpload(fileId, targetUserId, caps);
   }
 }
 
@@ -906,7 +1103,8 @@ async function startWebTorrentUpload(fileId: string, targetUserId: string) {
   }
   const trackers = getTrackers(session.id || '');
 
-  client.seed(tx.filePath, { announce: trackers }, (torrent: any) => {
+  // private (BEP 27): the torrent itself forbids DHT and peer exchange, for any client that joins it.
+  client.seed(tx.filePath, { announce: trackers, private: true }, (torrent: any) => {
     console.log(`[DAEMON] WebTorrent seeding active. Info Hash: ${torrent.infoHash}`);
     activeTorrents.set(fileId, torrent);
 
@@ -1025,116 +1223,209 @@ async function handleWebTorrentInfoHash(payload: any) {
 }
 
 // ─── WebSocket Fallback File Transfer Handlers ───
-const activeUploads: Map<string, {
-  filePath: string;
-  totalChunks: number;
-  chunkSize: number;
+// One upload per (file, recipient): several members can accept the same offer and each gets its own
+// windowed stream, sealed for its own key.
+interface RelayUpload {
+  fileId: string;
   targetUserId: string;
-  currentChunk: number;
-  bytesSent: number;
+  filePath: string;
+  size: number;
+  fd: number;
+  chunkSize: number;
+  totalChunks: number;
+  /** Fast frames: one base64 string per chunk (lib/relay-crypto.ts RELAY_FORMAT), else number arrays / legacy base64. */
+  fast: boolean;
+  relayEnc?: 'sgcm1';
+  relayPk?: string;
+  /** Next chunk index that was never sent. */
+  next: number;
+  acked: Set<number>;
+  /** Sent and not yet acknowledged: index → time of the last send. */
+  inFlight: Map<number, number>;
+  lastAckAt: number;
   startTime: number;
-}> = new Map();
+  pumping: boolean;
+  timer?: ReturnType<typeof setInterval>;
+  lastStateAt: number;
+}
+const activeUploads: Map<string, RelayUpload> = new Map();
+const uploadKey = (fileId: string, userId: string) => `${fileId}|${userId}`;
+const uploadsOf = (fileId: string) => [...activeUploads.values()].filter((u) => u.fileId === fileId);
 
-async function startWebSocketUpload(fileId: string, targetUserId: string) {
+// One file can go to several recipients, and each ends on its own: delivered, cancelled by that
+// recipient, or failed. The file's status says what happened overall: still uploading while anyone
+// is being served; afterwards "completed" if at least one recipient has the whole file (the others
+// are listed in `recipients`), otherwise "error" or "cancelled".
+function markRecipient(tx: (typeof activeTransfers)[number], userId: string | undefined, outcome: 'uploading' | 'completed' | 'cancelled' | 'error'): void {
+  if (!userId) return;
+  if (!tx.recipients) tx.recipients = {};
+  // A recipient that has the file keeps it, whatever arrives later.
+  if (tx.recipients[userId] === 'completed' && outcome !== 'uploading') return;
+  tx.recipients[userId] = outcome;
+}
+
+function settleUploadStatus(tx: (typeof activeTransfers)[number]): void {
+  if (uploadsOf(tx.fileId).length > 0) { tx.status = 'uploading'; return; }
+  const outcomes = Object.values(tx.recipients || {});
+  tx.status = outcomes.includes('completed') ? 'completed' : outcomes.includes('error') ? 'error' : 'cancelled';
+  tx.speedKBps = 0;
+  tx.etaSeconds = 0;
+  if (tx.status === 'completed') { tx.progress = 100; tx.bytesTransferred = tx.size; }
+}
+
+// Windowed relay: up to RELAY_WINDOW chunks in flight, the acknowledgments set the pace. A chunk not
+// acknowledged within RELAY_ACK_TIMEOUT_MS is sent again (receivers de-duplicate and re-ack), across
+// reconnects; with no acknowledgment at all for RELAY_STALL_MS the transfer is reported as failed
+// instead of hanging.
+const RELAY_ACK_TIMEOUT_MS = Number(process.env.SRIFT_RELAY_ACK_TIMEOUT_MS) || 15_000;
+const RELAY_STALL_MS = RELAY_ACK_TIMEOUT_MS * 40;
+const RELAY_WINDOW = 16;
+const RELAY_LEGACY_CHUNK = 64 * 1024;   // number-array / base64 frames older receivers read (JSON stays under the 256 KB cap)
+const RELAY_FAST_CHUNK = 256 * 1024;    // must equal RELAY_CHUNK_BYTES in lib/relay-crypto.ts
+const RELAY_FORMAT = 'b64';
+const RELAY_SOCKET_HIGH_BYTES = 8 * 1024 * 1024;
+
+function stopUpload(u: RelayUpload): void {
+  activeUploads.delete(uploadKey(u.fileId, u.targetUserId));
+  if (u.timer) clearInterval(u.timer);
+  try { fs.closeSync(u.fd); } catch { /* already closed */ }
+}
+
+function failUpload(u: RelayUpload, why: string): void {
+  console.error(`[DAEMON] Relay upload ${u.fileId} to ${u.targetUserId} failed: ${why}`);
+  stopUpload(u);
+  const tx = activeTransfers.find((t) => t.fileId === u.fileId);
+  if (tx) { markRecipient(tx, u.targetUserId, 'error'); settleUploadStatus(tx); writeStateFile(); }
+}
+
+/** After a reconnect, send every unacknowledged chunk again at once instead of waiting for the watchdog. */
+function resumeRelayUploads(): void {
+  if (!activeUploads.size) return;
+  console.log(`[DAEMON] Reconnected: resuming ${activeUploads.size} relay upload(s) from their unacknowledged chunks`);
+  for (const u of activeUploads.values()) {
+    u.lastAckAt = Date.now();
+    for (const index of u.inFlight.keys()) u.inFlight.set(index, 0);
+    pumpUpload(u);
+  }
+}
+
+async function startWebSocketUpload(fileId: string, targetUserId: string, caps: { relayEnc?: 'sgcm1'; relayPk?: string; fast?: boolean } = {}) {
   const tx = activeTransfers.find((t) => t.fileId === fileId);
   if (!tx || !tx.filePath) return;
+  const key = uploadKey(fileId, targetUserId);
+  const running = activeUploads.get(key);
+  if (running) {
+    // A repeated accept (the receiver reconnected or reloaded): keep what was acknowledged, adopt the
+    // key it holds now and send the unacknowledged chunks again under it.
+    if (caps.relayPk !== running.relayPk) relaySenders.delete(`${key}|${running.relayPk}`);
+    running.relayEnc = caps.relayEnc;
+    running.relayPk = caps.relayPk;
+    console.log(`[DAEMON] Repeated accept for ${fileId} from ${targetUserId}: ${running.acked.size}/${running.totalChunks} chunks acknowledged, continuing`);
+    for (const index of running.inFlight.keys()) running.inFlight.set(index, 0);
+    running.lastAckAt = Date.now();
+    pumpUpload(running);
+    return;
+  }
 
-  const chunkSize = 64 * 1024; // 64KB
-  const stat = fs.statSync(tx.filePath);
-  const totalChunks = Math.max(1, Math.ceil(stat.size / chunkSize));
+  let fd: number;
+  let size: number;
+  try {
+    fd = fs.openSync(tx.filePath, 'r');
+    size = fs.fstatSync(fd).size;
+  } catch (e: any) {
+    console.error(`[DAEMON] Cannot read ${tx.filePath}: ${e?.message || e}`);
+    tx.status = 'error';
+    writeStateFile();
+    return;
+  }
+  const fast = !!caps.fast;
+  const chunkSize = fast ? RELAY_FAST_CHUNK : RELAY_LEGACY_CHUNK;
+  const totalChunks = Math.max(1, Math.ceil(size / chunkSize));
 
   tx.status = 'uploading';
+  markRecipient(tx, targetUserId, 'uploading');
   tx.startTime = Date.now();
   tx.totalChunks = totalChunks;
   writeStateFile();
 
-  activeUploads.set(fileId, {
-    filePath: tx.filePath,
-    totalChunks,
-    chunkSize,
-    targetUserId,
-    currentChunk: 0,
-    bytesSent: 0,
-    startTime: Date.now(),
-  });
-
-  // Stream first chunk
-  sendNextChunk(fileId);
+  const upload: RelayUpload = {
+    fileId, targetUserId, filePath: tx.filePath, size, fd, chunkSize, totalChunks, fast,
+    relayEnc: caps.relayEnc, relayPk: caps.relayPk,
+    next: 0, acked: new Set(), inFlight: new Map(), lastAckAt: Date.now(), startTime: Date.now(),
+    pumping: false, lastStateAt: 0,
+  };
+  activeUploads.set(key, upload);
+  upload.timer = setInterval(() => pumpUpload(upload), Math.min(1000, Math.max(100, RELAY_ACK_TIMEOUT_MS / 4)));
+  upload.timer.unref?.();
+  pumpUpload(upload);
 }
 
-function sendNextChunk(fileId: string) {
-  sendNextChunkAsync(fileId).catch((e) => {
-    console.error(`[DAEMON] Relay upload failed for ${fileId}: ${e?.message || e}`);
-    activeUploads.delete(fileId);
-    const failed = activeTransfers.find((t) => t.fileId === fileId);
-    if (failed) { failed.status = 'error'; writeStateFile(); }
-  });
-}
-
-async function sendNextChunkAsync(fileId: string) {
-  const upload = activeUploads.get(fileId);
-  if (!upload) return;
-
-  const tx = activeTransfers.find((t) => t.fileId === fileId);
-  if (!tx) return;
-
-  if (upload.currentChunk >= upload.totalChunks) {
-    // Done
-    wsConn?.send(JSON.stringify({
-      type: 'file_complete',
-      payload: { fileId, targetUserId: upload.targetUserId }
-    }));
-    tx.status = 'completed';
-    tx.progress = 100;
-    tx.speedKBps = 0;
-    tx.etaSeconds = 0;
-    writeStateFile();
-    activeUploads.delete(fileId);
-    console.log(`[DAEMON] File upload complete: ${tx.name}`);
-    return;
+async function sendRelayChunk(u: RelayUpload, chunkIndex: number): Promise<void> {
+  const start = chunkIndex * u.chunkSize;
+  const end = Math.min(start + u.chunkSize, u.size);
+  const buffer = Buffer.alloc(Math.max(0, end - start));
+  let read = 0;
+  while (read < buffer.length) {
+    const n = fs.readSync(u.fd, buffer, read, buffer.length - read, start + read);
+    if (n <= 0) throw new Error('file ended early (was it changed while sending?)');
+    read += n;
   }
 
-  const start = upload.currentChunk * upload.chunkSize;
-  const stat = fs.statSync(upload.filePath);
-  const end = Math.min(start + upload.chunkSize, stat.size);
-  const buffer = Buffer.alloc(end - start);
-
-  const fd = fs.openSync(upload.filePath, 'r');
-  fs.readSync(fd, buffer, 0, end - start, start);
-  fs.closeSync(fd);
-
-  // Sealed number array for receivers that advertised it; legacy base64 otherwise.
-  const frame = tx.peerRelayEnc === RELAY_ENC
-    ? { chunk: await sealRelayChunk(buffer, fileId, upload.currentChunk, upload.totalChunks), enc: RELAY_ENC }
-    : { chunk: buffer.toString('base64') };
-
-  wsConn?.send(JSON.stringify({
+  // Sealed for the receiver's key when it advertised one, else for the session key, else plaintext
+  // (receivers that advertise nothing). Fast frames carry the bytes as one base64 string.
+  let frame: { chunk: number[] | string; enc?: string };
+  if (u.relayPk && session.id) {
+    const sk = `${uploadKey(u.fileId, u.targetUserId)}|${u.relayPk}`;
+    let sender = relaySenders.get(sk);
+    if (!sender) { sender = relaySender(session.id, u.fileId, u.relayPk, session.roomSecret); remember(relaySenders, sk, sender); }
+    const s = await sender;
+    frame = u.fast
+      ? { chunk: Buffer.from(await s.sealBytes(buffer, chunkIndex, u.totalChunks)).toString('base64'), enc: RELAY_PK_SCHEME }
+      : await s.seal(buffer, chunkIndex, u.totalChunks);
+  } else if (u.relayEnc === RELAY_ENC) {
+    const sealed = await sealRelayChunk(buffer, u.fileId, chunkIndex, u.totalChunks);
+    frame = { chunk: u.fast ? Buffer.from(sealed).toString('base64') : sealed, enc: RELAY_ENC };
+  } else {
+    frame = { chunk: buffer.toString('base64') };
+  }
+  if (!activeUploads.has(uploadKey(u.fileId, u.targetUserId)) || u.acked.has(chunkIndex)) return;
+  u.inFlight.set(chunkIndex, Date.now());
+  if (!wsConn || wsConn.readyState !== WebSocket.OPEN) return; // goes out again after the reconnect
+  wsConn.send(JSON.stringify({
     type: 'file_chunk',
     payload: {
-      fileId,
+      fileId: u.fileId,
       ...frame,
-      chunkIndex: upload.currentChunk,
-      totalChunks: upload.totalChunks,
-      targetUserId: upload.targetUserId,
+      chunkIndex,
+      totalChunks: u.totalChunks,
+      chunkSize: u.chunkSize,
+      targetUserId: u.targetUserId,
     }
   }));
+}
 
-  tx.bytesTransferred = end;
-  tx.progress = (end / stat.size) * 100;
-
-  // Calculate speed
-  const elapsed = (Date.now() - upload.startTime) / 1000;
+function reportUpload(u: RelayUpload, force = false): void {
+  const tx = activeTransfers.find((t) => t.fileId === u.fileId);
+  if (!tx) return;
+  const now = Date.now();
+  if (!force && now - u.lastStateAt < 250) return;
+  u.lastStateAt = now;
+  // With several recipients the transfer is as far as its slowest one.
+  const all = uploadsOf(u.fileId);
+  const slowest = all.reduce((m, x) => Math.min(m, x.acked.size >= x.totalChunks ? x.size : Math.min(x.size, x.acked.size * x.chunkSize)), u.size);
+  tx.bytesTransferred = Math.max(tx.bytesTransferred || 0, slowest);
+  tx.progress = u.size > 0 ? (tx.bytesTransferred / u.size) * 100 : 100;
+  const elapsed = (now - u.startTime) / 1000;
   if (elapsed > 0) {
-    tx.speedKBps = (end / 1024) / elapsed;
-    tx.etaSeconds = (stat.size - end) / (tx.speedKBps * 1024);
+    tx.speedKBps = (tx.bytesTransferred / 1024) / elapsed;
+    tx.etaSeconds = tx.speedKBps > 0 ? (u.size - tx.bytesTransferred) / (tx.speedKBps * 1024) : 0;
   }
-
   writeStateFile();
   broadcastSSE('transfer_progress', {
-    fileId,
+    fileId: u.fileId,
     fileName: tx.name,
     size: tx.size,
-    bytesTransferred: end,
+    bytesTransferred: tx.bytesTransferred,
     progress: tx.progress,
     speedBytesPerSecond: tx.speedKBps * 1024,
     timeRemainingSeconds: tx.etaSeconds,
@@ -1142,90 +1433,167 @@ async function sendNextChunkAsync(fileId: string) {
   });
 }
 
-function handleChunkAck(payload: any) {
-  const { fileId, chunkIndex } = payload;
-  const upload = activeUploads.get(fileId);
-  if (!upload) return;
+function pumpUpload(u: RelayUpload): void {
+  if (u.pumping) return;
+  u.pumping = true;
+  pumpUploadAsync(u)
+    .catch((e) => failUpload(u, e?.message || String(e)))
+    .finally(() => { u.pumping = false; });
+}
 
-  if (upload.currentChunk === chunkIndex) {
-    upload.currentChunk++;
-    sendNextChunk(fileId);
+async function pumpUploadAsync(u: RelayUpload): Promise<void> {
+  const key = uploadKey(u.fileId, u.targetUserId);
+  while (activeUploads.get(key) === u) {
+    if (u.acked.size >= u.totalChunks) {
+      wsConn?.send(JSON.stringify({ type: 'file_complete', payload: { fileId: u.fileId, targetUserId: u.targetUserId } }));
+      stopUpload(u);
+      const tx = activeTransfers.find((t) => t.fileId === u.fileId);
+      if (tx) {
+        markRecipient(tx, u.targetUserId, 'completed');
+        settleUploadStatus(tx);
+        writeStateFile();
+        if (uploadsOf(u.fileId).length === 0) console.log(`[DAEMON] File upload complete: ${tx.name}`);
+      }
+      return;
+    }
+    const now = Date.now();
+    if (now - u.lastAckAt > RELAY_STALL_MS) throw new Error(`no acknowledgment for ${Math.round(RELAY_STALL_MS / 1000)}s (${u.acked.size}/${u.totalChunks} chunks delivered)`);
+    const open = !!wsConn && wsConn.readyState === WebSocket.OPEN && wsConn.bufferedAmount < RELAY_SOCKET_HIGH_BYTES;
+    if (!open) return; // the interval (or the reconnect) calls again
+
+    // 1. a chunk whose acknowledgment is overdue
+    let overdue = -1;
+    for (const [index, sentAt] of u.inFlight) {
+      if (now - sentAt > RELAY_ACK_TIMEOUT_MS) { overdue = index; break; }
+    }
+    if (overdue >= 0) {
+      if (u.inFlight.get(overdue)) console.log(`[DAEMON] Relay upload ${u.fileId}: no ack for chunk ${overdue}, sending it again`);
+      await sendRelayChunk(u, overdue);
+      continue;
+    }
+    // 2. the next new chunk while the window has room
+    while (u.next < u.totalChunks && u.acked.has(u.next)) u.next++;
+    if (u.next < u.totalChunks && u.inFlight.size < RELAY_WINDOW) {
+      const index = u.next++;
+      u.inFlight.set(index, now);
+      await sendRelayChunk(u, index);
+      continue;
+    }
+    return; // window full: the next acknowledgment pumps again
   }
+}
+
+function handleChunkAck(payload: any) {
+  const { fileId, chunkIndex, userId } = payload || {};
+  if (!Number.isInteger(chunkIndex)) return;
+  // The server names the acknowledging receiver; without it (older servers) there is one upload per file.
+  const u = userId ? activeUploads.get(uploadKey(fileId, userId)) : uploadsOf(fileId)[0];
+  if (!u || chunkIndex < 0 || chunkIndex >= u.totalChunks) return;
+  u.inFlight.delete(chunkIndex);
+  if (!u.acked.has(chunkIndex)) {
+    u.acked.add(chunkIndex);
+    u.lastAckAt = Date.now();
+    reportUpload(u, u.acked.size >= u.totalChunks);
+  }
+  pumpUpload(u);
+}
+
+// ── receiving ──
+// Chunks are written at their offset into one part file (no file per chunk, nothing to assemble).
+const relayDownloads: Map<string, { fd: number; partPath: string; got: Set<number>; totalChunks: number; lastStateAt: number }> = new Map();
+const partPathOf = (fileId: string) => path.join(TEMP_DIR, `${fileId.replace(/[^A-Za-z0-9_.-]/g, '_')}_chunk_part`);
+
+function dropRelayDownload(fileId: string, removePart: boolean): void {
+  const d = relayDownloads.get(fileId);
+  relayDownloads.delete(fileId);
+  if (d) { try { fs.closeSync(d.fd); } catch { /* closed */ } }
+  if (removePart) { try { fs.rmSync(partPathOf(fileId), { force: true }); } catch { /* gone */ } }
 }
 
 async function handleIncomingChunk(payload: any) {
   const { fileId, chunkIndex, totalChunks, from } = payload;
   const tx = activeTransfers.find((t) => t.fileId === fileId);
-  if (!tx) return;
+  if (!tx || tx.direction !== 'download' || tx.status === 'cancelled') return;
+  if (!Number.isInteger(chunkIndex) || !Number.isInteger(totalChunks) || chunkIndex < 0 || chunkIndex >= totalChunks) return;
+  const ack = () => wsConn?.send(JSON.stringify({ type: 'file_chunk_ack', payload: { fileId, chunkIndex, status: 'received' } }));
+  // A chunk sent again after the file was already finished here: confirm it, nothing to write.
+  if (tx.status === 'completed' || tx.assembling) { ack(); return; }
 
   // A transfer is sealed or plaintext end to end; switching mid-transfer is a downgrade.
-  const mode = payload.enc === undefined || payload.enc === null ? 'plain' : 'sealed';
+  const mode = payload.enc === undefined || payload.enc === null ? 'plain' : String(payload.enc);
   if (tx.relayMode && tx.relayMode !== mode) throw new Error(`transfer ${fileId} mixed sealed and plaintext chunks`);
+  if (!tx.relayMode) console.log(`[DAEMON] Relay transfer ${fileId}: ${mode}`);
   tx.relayMode = mode;
   const chunkBuffer = await openRelayChunk(payload);
+  if ((tx.status as string) === 'completed' || tx.assembling || (tx.status as string) === 'cancelled') { ack(); return; }
 
   tx.status = 'downloading';
   tx.totalChunks = totalChunks;
   tx.peerId = from;
 
-  tx.bytesTransferred += chunkBuffer.length;
-  tx.chunksCount++;
+  let d = relayDownloads.get(fileId);
+  if (!d) {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+    const partPath = partPathOf(fileId);
+    d = { fd: fs.openSync(partPath, 'w+'), partPath, got: new Set(), totalChunks, lastStateAt: 0 };
+    relayDownloads.set(fileId, d);
+  }
+  // Every chunk but the last is a full chunk (its length is the chunk size); the last one ends the file.
+  const isLast = chunkIndex === totalChunks - 1;
+  const at = isLast && tx.size > 0 ? tx.size - chunkBuffer.length : chunkIndex * chunkBuffer.length;
+  if (at < 0 || (tx.size > 0 && at + chunkBuffer.length > tx.size)) throw new Error(`relay chunk ${chunkIndex} of ${fileId} does not fit the file`);
 
-  // Save chunk to temp folder
-  const chunkPath = path.join(TEMP_DIR, `${fileId}_chunk_${chunkIndex}`);
-  fs.writeFileSync(chunkPath, chunkBuffer);
+  // A chunk sent again after a lost ack is written once and acknowledged again.
+  if (!d.got.has(chunkIndex)) {
+    let written = 0;
+    while (written < chunkBuffer.length) written += fs.writeSync(d.fd, chunkBuffer, written, chunkBuffer.length - written, at + written);
+    d.got.add(chunkIndex);
+    tx.bytesTransferred += chunkBuffer.length;
+    tx.chunksCount = d.got.size;
+  }
 
-  tx.progress = (tx.bytesTransferred / tx.size) * 100;
+  tx.progress = tx.size > 0 ? Math.min(100, (tx.bytesTransferred / tx.size) * 100) : 100;
   const elapsed = (Date.now() - tx.startTime) / 1000;
   if (elapsed > 0) {
     tx.speedKBps = (tx.bytesTransferred / 1024) / elapsed;
-    tx.etaSeconds = (tx.size - tx.bytesTransferred) / (tx.speedKBps * 1024);
+    tx.etaSeconds = tx.speedKBps > 0 ? (tx.size - tx.bytesTransferred) / (tx.speedKBps * 1024) : 0;
+  }
+  const done = d.got.size >= totalChunks;
+  const now = Date.now();
+  if (done || now - d.lastStateAt >= 250) {
+    d.lastStateAt = now;
+    writeStateFile();
+    broadcastSSE('transfer_progress', {
+      fileId,
+      fileName: tx.name,
+      size: tx.size,
+      bytesTransferred: tx.bytesTransferred,
+      progress: tx.progress,
+      speedBytesPerSecond: tx.speedKBps * 1024,
+      timeRemainingSeconds: tx.etaSeconds,
+      status: 'downloading',
+    });
   }
 
-  writeStateFile();
-  broadcastSSE('transfer_progress', {
-    fileId,
-    fileName: tx.name,
-    size: tx.size,
-    bytesTransferred: tx.bytesTransferred,
-    progress: tx.progress,
-    speedBytesPerSecond: tx.speedKBps * 1024,
-    timeRemainingSeconds: tx.etaSeconds,
-    status: 'downloading',
-  });
+  // Acknowledged after the write: what the sender counts as delivered is on disk.
+  ack();
 
-  // Ack
-  wsConn?.send(JSON.stringify({
-    type: 'file_chunk_ack',
-    payload: { fileId, chunkIndex, status: 'received' }
-  }));
+  // Every chunk is here: the file is complete whether or not the sender's file_complete arrives.
+  if (done) handleFileComplete({ fileId });
 }
 
 function handleFileComplete(payload: any) {
   const { fileId } = payload;
   const tx = activeTransfers.find((t) => t.fileId === fileId);
-  if (!tx) return;
+  if (!tx || tx.direction !== 'download' || tx.assembling || tx.status === 'completed') return;
+  const d = relayDownloads.get(fileId);
+  // file_complete follows the last acknowledgment, so every chunk is here. If not (a stray or
+  // repeated signal), keep waiting for the chunks instead of saving a truncated file.
+  if (tx.size > 0 && (!d || d.got.size < d.totalChunks)) return;
+  tx.assembling = true;
 
-  // Assemble file
-  const destDir = tx.saveDir || process.cwd();
-  const destPath = path.join(destDir, tx.name);
-
-  // Ensure destination directory exists
-  try {
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
-    }
-  } catch (err: any) {
-    console.error(`[DAEMON] Failed to create destination directory ${destDir}:`, err);
-    tx.status = 'error';
-    writeStateFile();
-    return;
-  }
-
-  const writeStream = fs.createWriteStream(destPath);
-
-  writeStream.on('error', (err) => {
-    console.error(`[DAEMON] Write stream error for ${destPath}:`, err);
+  const fail = (err: any) => {
+    console.error(`[DAEMON] Could not save ${tx.name}:`, err?.message || err);
     tx.status = 'error';
     writeStateFile();
     broadcastSSE('transfer_progress', {
@@ -1238,42 +1606,47 @@ function handleFileComplete(payload: any) {
       timeRemainingSeconds: 0,
       status: 'error',
     });
-  });
+  };
 
-  writeStream.on('finish', () => {
-    console.log(`[DAEMON] File successfully downloaded and assembled: ${destPath}`);
-    tx.status = 'completed';
-    tx.progress = 100;
-    tx.speedKBps = 0;
-    tx.etaSeconds = 0;
-    writeStateFile();
-    broadcastSSE('transfer_progress', {
-      fileId,
-      fileName: tx.name,
-      size: tx.size,
-      bytesTransferred: tx.size,
-      progress: 100,
-      speedBytesPerSecond: 0,
-      timeRemainingSeconds: 0,
-      status: 'completed',
-    });
-  });
-
-  for (let i = 0; i < tx.totalChunks; i++) {
-    const chunkPath = path.join(TEMP_DIR, `${fileId}_chunk_${i}`);
-    if (fs.existsSync(chunkPath)) {
+  const destDir = tx.saveDir || process.cwd();
+  const destPath = path.join(destDir, tx.name);
+  try {
+    fs.mkdirSync(destDir, { recursive: true });
+    if (d) {
+      fs.fsyncSync(d.fd);
+      dropRelayDownload(fileId, false);
       try {
-        const chunkBuf = fs.readFileSync(chunkPath);
-        writeStream.write(chunkBuf);
-        fs.unlinkSync(chunkPath); // delete chunk
-      } catch (err: any) {
-        console.error(`[DAEMON] Error reading/writing chunk ${i}:`, err);
-        writeStream.emit('error', err);
-        return;
+        fs.renameSync(d.partPath, destPath);
+      } catch {
+        // Another volume: copy, then remove the part file.
+        fs.copyFileSync(d.partPath, destPath);
+        fs.rmSync(d.partPath, { force: true });
       }
+    } else {
+      fs.writeFileSync(destPath, Buffer.alloc(0)); // an empty file
     }
+  } catch (err) {
+    fail(err);
+    return;
   }
-  writeStream.end();
+
+  console.log(`[DAEMON] File successfully downloaded: ${destPath}`);
+  tx.status = 'completed';
+  tx.progress = 100;
+  tx.bytesTransferred = tx.size;
+  tx.speedKBps = 0;
+  tx.etaSeconds = 0;
+  writeStateFile();
+  broadcastSSE('transfer_progress', {
+    fileId,
+    fileName: tx.name,
+    size: tx.size,
+    bytesTransferred: tx.size,
+    progress: 100,
+    speedBytesPerSecond: 0,
+    timeRemainingSeconds: 0,
+    status: 'completed',
+  });
 }
 
 // ─── Express App Setup ───
@@ -1302,7 +1675,7 @@ app.use(cors({ origin: '*', maxAge: 600 }));
 app.use(express.json());
 
 const DAEMON_START_TIME = Date.now();
-const PACKAGE_VERSION = '4.1.0';
+const PACKAGE_VERSION = '4.4.0';
 
 // ─── GET /health — liveness probe ───
 app.get('/health', (req: Request, res: Response) => {
@@ -1405,6 +1778,7 @@ app.post('/session/join', async (req: Request, res: Response) => {
       tempUserId: data.tempUserId,
       wsToken: data.wsToken,
       roomSecret: roomSecret || null,
+      username: uName,
     };
 
     encryptionKey = await deriveKey(data.sessionId, roomSecret);
@@ -1580,7 +1954,10 @@ app.post('/send', async (req: Request, res: Response) => {
     const stat = fs.statSync(absPath);
     const filename = path.basename(absPath);
     const fileId = `cli_file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const targetProtocol = (webTorrentAllowed() && (protocol === 'webtorrent' || (stat.size > 10 * 1024 * 1024 && protocol !== 'websocket'))
+    // The end-to-end sealed relay carries every size by default: it always gets through (outbound 443) and is
+    // sealed for the receiver's own key. WebTorrent only on request: CLI-to-CLI swarms need a WebRTC path that
+    // many networks lack, with no fallback once a transfer has started.
+    const targetProtocol = (webTorrentAllowed() && protocol === 'webtorrent'
       ? 'webtorrent'
       : 'websocket') as 'websocket' | 'webtorrent';
 
@@ -1628,7 +2005,7 @@ app.post('/send', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/receive', (req: Request, res: Response) => {
+app.post('/receive', async (req: Request, res: Response) => {
   const { fileId, saveDir } = req.body;
   if (!fileId) {
     return res.status(400).json({ success: false, error: 'fileId is required' });
@@ -1644,10 +2021,16 @@ app.post('/receive', (req: Request, res: Response) => {
   tx.startTime = Date.now();
 
   console.log(`[DAEMON] Accepting file offer ${fileId}, saving to ${tx.saveDir}`);
+  // relayEnc: this daemon opens sgcm1 chunks; relayPk: new senders seal for this per-transfer key (pgcm1).
+  let relayPk: string | undefined;
+  try {
+    const rx = relayReceiver(session.id!, fileId, session.roomSecret);
+    remember(relayReceivers, fileId, rx);
+    relayPk = (await rx).publicKey;
+  } catch (e: any) { console.warn(`[DAEMON] No per-transfer relay key for ${fileId}: ${e?.message || e}`); }
   wsConn?.send(JSON.stringify({
     type: 'file_accept',
-    // relayEnc: this daemon decrypts sealed relay chunks (see openRelayChunk)
-    payload: { fileId, relayEnc: RELAY_ENC }
+    payload: { fileId, relayEnc: RELAY_ENC, relayFmt: RELAY_FORMAT, ...(relayPk ? { relayPk } : {}) }
   }));
 
   res.json({ success: true });
@@ -1665,7 +2048,7 @@ app.post('/chat/send', async (req: Request, res: Response) => {
     const notReady = await waitSignalReady();
     if (notReady) return res.status(notReady.status).json(notReady.body);
 
-    const encContent = await encrypt(message);
+    const encContent = await sealChatContent(message);
     wsConn!.send(JSON.stringify({
       type: 'chat',
       payload: { content: encContent, encrypted: true }
@@ -1992,7 +2375,7 @@ async function shareViaRelay(absPath: string, stat: fs.Stats, reqBody: ShareRequ
     prefixLen = 36 + 4 + Buffer.byteLength(JSON.stringify(meta)) + 16; // header + len + meta ciphertext
   } else {
     // Also offer the plaintext file to peers already in the session (browser UI).
-    const targetProtocol: 'webtorrent' | 'websocket' = webTorrentAllowed() && stat.size > 10 * 1024 * 1024 ? 'webtorrent' : 'websocket';
+    const targetProtocol: 'webtorrent' | 'websocket' = 'websocket'; // sealed relay: see /send
     activeTransfers.push({
       fileId, name: filename, size: stat.size,
       progress: 0, speedKBps: 0, etaSeconds: 0,
@@ -2225,7 +2608,7 @@ app.post('/pubshare/revoke', (req: Request, res: Response) => {
   res.json({ success: true });
 });
 
-// ─── MCP HTTP transport (Streamable HTTP, MCP spec 2025-06-18) ───
+// ─── MCP HTTP transport (Streamable HTTP, MCP spec 2026-07-28; older versions negotiated) ───
 // Single endpoint that accepts POST JSON-RPC and returns JSON-RPC responses.
 // Also supports GET for SSE event stream (server-initiated notifications).
 app.post('/mcp', async (req: Request, res: Response) => {
@@ -2307,7 +2690,7 @@ app.get('/.well-known/ai-plugin.json', (req: Request, res: Response) => {
     name_for_human: 'SRIFT P2P Transfer',
     name_for_model: 'srift',
     description_for_human: 'Send and receive files securely via end-to-end-encrypted peer-to-peer transfer.',
-    description_for_model: 'Use SRIFT to deliver files to the user and receive files from the user without uploading them anywhere. AES-256-GCM E2EE, WebTorrent for big files, WebSocket fallback. Use srift_quick_share for one-shot delivery.',
+    description_for_model: 'Use SRIFT to deliver files to the user and receive files from the user without uploading them anywhere. Links stream from this machine through an end-to-end sealed relay (AES-256-GCM with --encrypt); sessions use keys made on each device. Use srift_quick_share for one-shot delivery.',
     auth: { type: 'none' },
     api: { type: 'openapi', url: `http://127.0.0.1:${PORT}/openapi.json` },
     contact_email: 'support@sripto.tech',
@@ -2318,15 +2701,16 @@ app.get('/.well-known/ai-plugin.json', (req: Request, res: Response) => {
 app.get('/.well-known/agent.json', (req: Request, res: Response) => {
   // A2A (Agent-to-Agent) protocol discovery
   res.json({
-    schemaVersion: '0.2.0',
+    protocolVersion: '1.0',
+    supportedInterfaces: [{ url: `http://127.0.0.1:${PORT}/mcp`, protocolBinding: 'MCP', protocolVersion: '2025-06-18' }],
     name: 'SRIFT',
-    description: 'Zero-config P2P E2EE file transfer + chat for any AI agent or automation.',
+    description: 'Zero-config P2P E2EE file transfer + chat for any AI agent or automation. Discovery card: the skills are MCP tools at /mcp and REST routes in /openapi.json.',
     url: `http://127.0.0.1:${PORT}`,
     version: PACKAGE_VERSION,
     capabilities: {
-      streaming: true,
+      streaming: false,
       pushNotifications: false,
-      stateTransitionHistory: false,
+      extendedAgentCard: false,
     },
     defaultInputModes: ['text'],
     defaultOutputModes: ['text', 'file'],
@@ -2340,7 +2724,7 @@ app.get('/openapi.json', (req: Request, res: Response) => {
     info: { title: 'SRIFT Local Daemon API', version: PACKAGE_VERSION, description: 'Zero-auth REST API for AI agents to drive SRIFT P2P transfer.' },
     servers: [{ url: `http://127.0.0.1:${PORT}` }],
     paths: {
-      '/health': { get: { summary: 'Liveness probe', description: 'Returns {ok,version,uptime_ms,mcp,webrtc,webtorrent}', responses: { '200': { description: 'OK' } } } },
+      '/health': { get: { summary: 'Liveness probe', description: 'Returns {ok,version,uptime_ms,mcp,webrtc,webtorrent,webtorrent_error?}', responses: { '200': { description: 'OK' } } } },
       '/status': { get: { summary: 'Get session, transfers, pending joins and participants (members with userId, for /session/kick)', responses: { '200': { description: 'OK' } } } },
       '/state': { get: { summary: 'Workspace state snapshot (.srift-state.json)', responses: { '200': { description: 'OK' } } } },
       '/transfers': { get: { summary: 'Live transfer list with speed and ETA. Optional ?fileId= to filter.', responses: { '200': { description: 'OK' } } } },
@@ -2351,7 +2735,7 @@ app.get('/openapi.json', (req: Request, res: Response) => {
       '/reset': { post: { summary: 'Wipe all state and flush encryption keys', responses: { '200': { description: '{ok:true}' } } } },
       '/v1/diag': { get: { summary: 'Network diagnosis (same as `srift doctor --json`); ?fresh=1 re-probes', responses: { '200': { description: 'Diagnosis report' } } } },
       '/daemon/stop': { post: { summary: 'Stop this daemon', responses: { '200': { description: 'OK' } } } },
-      '/session/start': { post: { summary: 'Create new session (becomes host); returns sessionId and joinUrl', requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { sessionName: { type: 'string' }, roomSecret: { type: 'string' } } } } } }, responses: { '200': { description: '{success:true,sessionId}' } } } },
+      '/session/start': { post: { summary: 'Create new session (becomes host); returns sessionId and joinUrl', requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { sessionName: { type: 'string' }, username: { type: 'string' }, roomSecret: { type: 'string' } } } } } }, responses: { '200': { description: '{success:true,sessionId,joinUrl}' } } } },
       '/session/join': { post: { summary: 'Join existing session', requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['sessionId'], properties: { sessionId: { type: 'string' }, username: { type: 'string' }, roomSecret: { type: 'string' } } } } } }, responses: { '200': { description: 'OK' }, '400': { description: 'Missing sessionId' }, '404': { description: 'Session not found' } } } },
       '/session/approve': { post: { summary: 'Host approves a pending join request; returns {success, joined, userId} once the guest is in the room (max 8 s)', requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['tempUserId'], properties: { tempUserId: { type: 'string' } } } } } }, responses: { '200': { description: 'OK' }, '400': { description: 'tempUserId required' }, '403': { description: 'Not host' }, '404': { description: 'No such pending request' } } } },
       '/session/reject': { post: { summary: 'Host rejects a pending join request', requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['tempUserId'], properties: { tempUserId: { type: 'string' }, reason: { type: 'string' } } } } } }, responses: { '200': { description: 'OK' }, '400': { description: 'tempUserId required' }, '403': { description: 'Not host' } } } },
@@ -2359,11 +2743,18 @@ app.get('/openapi.json', (req: Request, res: Response) => {
       '/session/close': { post: { summary: 'Tear down the session and flush keys', responses: { '200': { description: 'OK' } } } },
       '/send': { post: { summary: 'Offer a file to peers (requires active session)', requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['filePath'], properties: { filePath: { type: 'string' } } } } } }, responses: { '200': { description: '{success:true,fileId}' } } } },
       '/receive': { post: { summary: 'Accept an incoming file offer', requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['fileId'], properties: { fileId: { type: 'string' }, saveDir: { type: 'string' } } } } } }, responses: { '200': { description: 'OK' }, '404': { description: 'No offer for this fileId' } } } },
-      '/quick-share': { post: { summary: 'ONE-SHOT: create session if needed and return a direct downloadUrl (https://srift.app/d/<token>) streamed from this machine (nothing stored on a server). Pass filePaths for several files/folders: one .tar.gz link (bundle, default) or one link per path (bundle:false, created in parallel).', requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { filePath: { type: 'string', description: 'Absolute path to a file or folder (folders are sent as .tar.gz)' }, filePaths: { type: 'array', items: { type: 'string' }, maxItems: 500, description: 'Several absolute paths (use instead of filePath)' }, bundle: { type: 'boolean', description: 'filePaths: true (default) = one .tar.gz link; false = one link per path' }, bundleName: { type: 'string' }, exclude: { type: 'array', items: { type: 'string' } }, encrypt: { type: 'boolean' }, password: { type: 'string' }, maxDownloads: { type: 'number' }, ttlMs: { type: 'number' }, sessionName: { type: 'string' } } } } } }, responses: { '200': { description: 'Single/bundle: {success,downloadUrl,token,fileName,fileSize,encrypted,expiresAt,bundle?,files?}. bundle:false: {success,bundle:false,links:[...],errors:[...]}' } } } },
+      '/quick-share': { post: { summary: 'ONE-SHOT: create session if needed and return a direct downloadUrl (https://srift.app/d/<token>) streamed from this machine (nothing stored on a server). Pass filePaths for several files/folders: one .tar.gz link (bundle, default) or one link per path (bundle:false, created in parallel).', requestBody: { content: { 'application/json': { schema: { type: 'object', properties: { filePath: { type: 'string', description: 'Absolute path to a file or folder (folders are sent as .tar.gz)' }, filePaths: { type: 'array', items: { type: 'string' }, maxItems: 500, description: 'Several absolute paths (use instead of filePath)' }, bundle: { type: 'boolean', description: 'filePaths: true (default) = one .tar.gz link; false = one link per path' }, bundleName: { type: 'string' }, exclude: { type: 'array', items: { type: 'string' } }, encrypt: { type: 'boolean' }, password: { type: 'string' }, maxDownloads: { type: 'number' }, ttlMs: { type: 'number' }, sessionName: { type: 'string' }, name: { type: 'string', description: 'Recipient-visible file name' } } } } } }, responses: { '200': { description: 'Single/bundle: {success,downloadUrl,token,fileName,fileSize,encrypted,expiresAt,bundle?,files?}. bundle:false: {success,bundle:false,links:[...],errors:[...]}' } } } },
       '/chat/send': { post: { summary: 'Send E2EE chat message', requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['message'], properties: { message: { type: 'string' } } } } } }, responses: { '200': { description: 'OK' }, '400': { description: 'message required' }, '409': { description: 'No session' }, '503': { description: 'WS not ready — retry in 1–2s' } } } },
       '/chat/history': { get: { summary: 'Decrypted chat log', responses: { '200': { description: 'Array of {messageId,sender,content,timestamp}' } } } },
       '/api/v1/monitor/events': { get: { summary: 'SSE event stream: connection_state, join_request, file_offer, transfer_progress, chat_received', responses: { '200': { description: 'text/event-stream' } } } },
-      '/mcp': { post: { summary: 'MCP JSON-RPC (Streamable HTTP, spec 2025-06-18)', responses: { '200': { description: 'JSON-RPC response' } } }, get: { summary: 'SSE stream for server→client MCP notifications', responses: { '200': { description: 'text/event-stream' } } } },
+      '/pubshare': { post: { summary: 'Create a public download link for one file inside the active session (409 without one; /quick-share creates it)', requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['filePath'], properties: { filePath: { type: 'string' }, maxDownloads: { type: 'number' }, ttlMs: { type: 'number' }, encrypt: { type: 'boolean' }, password: { type: 'string' }, name: { type: 'string' } } } } } }, responses: { '200': { description: '{success,downloadUrl,token,...}' } } } },
+      '/pubshare/list': { get: { summary: 'Active links with download counters', responses: { '200': { description: '{items:[...]}' } } } },
+      '/pubshare/revoke': { post: { summary: 'Invalidate a link immediately', requestBody: { content: { 'application/json': { schema: { type: 'object', required: ['token'], properties: { token: { type: 'string' } } } } } }, responses: { '200': { description: '{success:true}' } } } },
+      '/openapi.json': { get: { summary: 'This document', responses: { '200': { description: 'OpenAPI 3.1' } } } },
+      '/.well-known/mcp/server-card.json': { get: { summary: 'MCP server card', responses: { '200': { description: 'OK' } } } },
+      '/.well-known/ai-plugin.json': { get: { summary: 'AI plugin manifest', responses: { '200': { description: 'OK' } } } },
+      '/.well-known/agent.json': { get: { summary: 'A2A discovery card', responses: { '200': { description: 'OK' } } } },
+      '/mcp': { post: { summary: 'MCP JSON-RPC (Streamable HTTP, spec 2026-07-28; older versions negotiated)', responses: { '200': { description: 'JSON-RPC response' } } }, get: { summary: 'SSE stream for server→client MCP notifications', responses: { '200': { description: 'text/event-stream' } } } },
       '/mcp/sse': { get: { summary: 'Legacy SSE MCP endpoint (older clients)', responses: { '200': { description: 'text/event-stream' } } } },
       '/mcp/messages': { post: { summary: 'Legacy SSE MCP message submission endpoint', responses: { '200': { description: 'OK' } } } },
     },
@@ -2466,7 +2857,7 @@ app.post('/reset', (req: Request, res: Response) => {
   if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
   if (wtClient) { try { wtClient.destroy(); } catch {} wtClient = null; }
   activeTorrents.clear();
-  activeUploads.clear();
+  for (const u of [...activeUploads.values()]) stopUpload(u);
 
   // 2. In-memory session + crypto
   session = { id: null, name: null, role: null, isConnected: false, userId: null };
@@ -2522,7 +2913,7 @@ app.post('/daemon/stop', (req: Request, res: Response) => {
   try { if (wsConn) { wsConn.close(); wsConn = null; } } catch {}
   try { if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; } } catch {}
   try { if (wtClient) { wtClient.destroy(); wtClient = null; } } catch {}
-  try { activeTorrents.clear(); activeUploads.clear(); } catch {}
+  try { activeTorrents.clear(); for (const u of [...activeUploads.values()]) stopUpload(u); } catch {}
   try { pubshares.clear(); pubsharesByToken.clear(); } catch {}
   try {
     session = { id: null, name: null, role: null, isConnected: false, userId: null };

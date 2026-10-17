@@ -18,7 +18,7 @@ class Client {
     public int $timeout;
 
     /** SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs. */
-    const VERSION = '4.1.0';
+    const VERSION = '4.4.0';
 
     public function __construct(?string $baseUrl = null, int $timeout = 30) {
         $this->baseUrl = rtrim($baseUrl ?? getenv('SRIFT_BASE_URL') ?: 'http://127.0.0.1:3822', '/');
@@ -48,8 +48,11 @@ class Client {
 
     public function status()  { return $this->call('/status'); }
     public function state()   { return $this->call('/state'); }
-    public function quickShare(string $filePath, ?string $sessionName = null) {
-        return $this->call('/quick-share', 'POST', ['filePath' => $filePath, 'sessionName' => $sessionName]);
+    /** Which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes. */
+    public function diagnose($fresh = false) { return $this->call($fresh ? '/v1/diag?fresh=1' : '/v1/diag'); }
+    /** $options: encrypt, password, ttlMs, maxDownloads, filePaths, bundle, bundleName, exclude (daemon field names). */
+    public function quickShare(string $filePath, ?string $sessionName = null, array $options = []) {
+        return $this->call('/quick-share', 'POST', array_merge($options, ['filePath' => $filePath, 'sessionName' => $sessionName]));
     }
     public function startSession(?string $name = null, ?string $roomSecret = null) {
         return $this->call('/session/start', 'POST', ['sessionName' => $name, 'roomSecret' => $roomSecret]);

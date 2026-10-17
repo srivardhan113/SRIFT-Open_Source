@@ -21,7 +21,7 @@ import java.util.Map;
 
 public class Srift {
     /** SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs. */
-    public static final String VERSION = "4.1.0";
+    public static final String VERSION = "4.4.0";
 
     public final String baseUrl;
     private final HttpClient http;
@@ -48,6 +48,12 @@ public class Srift {
             Object v = e.getValue();
             if (v instanceof String) sb.append(esc((String) v));
             else if (v instanceof Number || v instanceof Boolean) sb.append(v);
+            else if (v instanceof java.util.Collection) {
+                sb.append("[");
+                boolean f = true;
+                for (Object item : (java.util.Collection<?>) v) { if (!f) sb.append(","); sb.append(esc(String.valueOf(item))); f = false; }
+                sb.append("]");
+            }
             else sb.append(esc(v.toString()));
             first = false;
         }
@@ -255,8 +261,16 @@ public class Srift {
 
     public Map<String, String> status() { return call("/status", "GET", null); }
     public Map<String, String> state() { return call("/state", "GET", null); }
+    /** Which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes. */
+    public Map<String, String> diagnose(boolean fresh) { return call(fresh ? "/v1/diag?fresh=1" : "/v1/diag", "GET", null); }
     public Map<String, String> quickShare(String filePath, String sessionName) {
         return call("/quick-share", "POST", Map.of("filePath", filePath, "sessionName", sessionName == null ? "" : sessionName));
+    }
+    /** Daemon options as-is: encrypt (Boolean), password, ttlMs, maxDownloads, filePaths (List), bundle, bundleName, exclude (List). */
+    public Map<String, String> quickShare(String filePath, Map<String, Object> options) {
+        var body = new HashMap<String, Object>(options == null ? Map.of() : options);
+        if (filePath != null) body.put("filePath", filePath);
+        return call("/quick-share", "POST", body);
     }
     public Map<String, String> startSession(String name, String roomSecret) {
         var b = new HashMap<String, Object>(); b.put("sessionName", name); b.put("roomSecret", roomSecret);

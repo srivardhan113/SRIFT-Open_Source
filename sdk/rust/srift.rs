@@ -21,7 +21,7 @@ use std::env;
 const DEFAULT_BASE: &str = "http://127.0.0.1:3822";
 
 /// SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
-pub const VERSION: &str = "4.1.0";
+pub const VERSION: &str = "4.4.0";
 
 #[derive(Debug, thiserror::Error)]
 pub enum SriftError {
@@ -179,8 +179,16 @@ pub mod blocking {
         pub fn quick_share(&self, file_path: &str, session_name: Option<&str>) -> Result<QuickShareResult, SriftError> {
             self.post("/quick-share", &QuickShareBody { file_path, session_name })
         }
+        /// Daemon options as JSON: encrypt, password, ttlMs, maxDownloads, filePaths, bundle, bundleName, exclude.
+        pub fn quick_share_with(&self, file_path: &str, options: serde_json::Value) -> Result<QuickShareResult, SriftError> {
+            let mut body = if options.is_object() { options } else { serde_json::json!({}) };
+            if !file_path.is_empty() { body["filePath"] = serde_json::Value::String(file_path.to_string()); }
+            self.post("/quick-share", &body)
+        }
         pub fn status(&self) -> Result<Status, SriftError> { self.get("/status") }
         pub fn state(&self) -> Result<serde_json::Value, SriftError> { self.get("/state") }
+        /// Which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes.
+        pub fn diagnose(&self, fresh: bool) -> Result<serde_json::Value, SriftError> { self.get(if fresh { "/v1/diag?fresh=1" } else { "/v1/diag" }) }
         pub fn start_session(&self, name: Option<&str>, room_secret: Option<&str>) -> Result<serde_json::Value, SriftError> {
             self.post("/session/start", &SessionStartBody { session_name: name, room_secret })
         }
@@ -256,8 +264,16 @@ pub mod r#async {
         pub async fn quick_share(&self, file_path: &str, session_name: Option<&str>) -> Result<QuickShareResult, SriftError> {
             self.post("/quick-share", &QuickShareBody { file_path, session_name }).await
         }
+        /// Daemon options as JSON: encrypt, password, ttlMs, maxDownloads, filePaths, bundle, bundleName, exclude.
+        pub async fn quick_share_with(&self, file_path: &str, options: serde_json::Value) -> Result<QuickShareResult, SriftError> {
+            let mut body = if options.is_object() { options } else { serde_json::json!({}) };
+            if !file_path.is_empty() { body["filePath"] = serde_json::Value::String(file_path.to_string()); }
+            self.post("/quick-share", &body).await
+        }
         pub async fn status(&self) -> Result<Status, SriftError> { self.get("/status").await }
         pub async fn state(&self) -> Result<serde_json::Value, SriftError> { self.get("/state").await }
+        /// Which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes.
+        pub async fn diagnose(&self, fresh: bool) -> Result<serde_json::Value, SriftError> { self.get(if fresh { "/v1/diag?fresh=1" } else { "/v1/diag" }).await }
         pub async fn start_session(&self, name: Option<&str>, room_secret: Option<&str>) -> Result<serde_json::Value, SriftError> {
             self.post("/session/start", &SessionStartBody { session_name: name, room_secret }).await
         }

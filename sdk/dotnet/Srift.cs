@@ -20,7 +20,7 @@ namespace Srift
     {
         public readonly string BaseUrl;
         /// <summary>SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.</summary>
-        public const string Version = "4.1.0";
+        public const string Version = "4.4.0";
         private readonly HttpClient _http;
 
         public Client(string? baseUrl = null, HttpClient? http = null)
@@ -73,8 +73,17 @@ namespace Srift
 
         public Task<Dictionary<string, JsonElement>> StatusAsync() => CallAsync("/status", HttpMethod.Get);
         public Task<Dictionary<string, JsonElement>> StateAsync() => CallAsync("/state", HttpMethod.Get);
+        /// <summary>Which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes.</summary>
+        public Task<Dictionary<string, JsonElement>> DiagnoseAsync(bool fresh = false) => CallAsync(fresh ? "/v1/diag?fresh=1" : "/v1/diag", HttpMethod.Get);
         public Task<Dictionary<string, JsonElement>> QuickShareAsync(string filePath, string? sessionName = null) =>
             CallAsync("/quick-share", HttpMethod.Post, new { filePath, sessionName });
+        /// <summary>Daemon options as-is: encrypt, password, ttlMs, maxDownloads, filePaths, bundle, bundleName, exclude.</summary>
+        public Task<Dictionary<string, JsonElement>> QuickShareAsync(string? filePath, IDictionary<string, object?> options)
+        {
+            var body = new Dictionary<string, object?>(options);
+            if (filePath != null) body["filePath"] = filePath;
+            return CallAsync("/quick-share", HttpMethod.Post, body);
+        }
         public Task<Dictionary<string, JsonElement>> StartSessionAsync(string? name = null, string? roomSecret = null) =>
             CallAsync("/session/start", HttpMethod.Post, new { sessionName = name, roomSecret });
         public Task<Dictionary<string, JsonElement>> JoinSessionAsync(string sessionId, string? username = null, string? roomSecret = null) =>

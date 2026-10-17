@@ -10,7 +10,7 @@
 $Script:SriftBase = if ($env:SRIFT_BASE_URL) { $env:SRIFT_BASE_URL } else { "http://127.0.0.1:3822" }
 
 # SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
-$Script:SriftSdkVersion = "4.1.0"
+$Script:SriftSdkVersion = "4.4.0"
 
 function Invoke-SriftCall {
     param(
@@ -45,8 +45,16 @@ function Invoke-SriftCall {
 
 function Invoke-SriftStatus       { Invoke-SriftCall -Path "/status" }
 function Invoke-SriftState        { Invoke-SriftCall -Path "/state" }
-function Invoke-SriftQuickShare   { param([Parameter(Mandatory)][string]$FilePath, [string]$SessionName = "AI-QuickShare")
-    Invoke-SriftCall -Path "/quick-share" -Method POST -Body @{ filePath = $FilePath; sessionName = $SessionName } }
+# Which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes.
+function Invoke-SriftDiagnose     { param([switch]$Fresh) Invoke-SriftCall -Path $(if ($Fresh) { "/v1/diag?fresh=1" } else { "/v1/diag" }) }
+function Invoke-SriftQuickShare   { param([Parameter(Mandatory)][string]$FilePath, [string]$SessionName = "AI-QuickShare",
+        [switch]$Encrypt, [string]$Password, [long]$TtlMs = 0, [int]$MaxDownloads = 0)
+    $body = @{ filePath = $FilePath; sessionName = $SessionName }
+    if ($Encrypt) { $body.encrypt = $true }
+    if ($Password) { $body.password = $Password }
+    if ($TtlMs -gt 0) { $body.ttlMs = $TtlMs }
+    if ($MaxDownloads -gt 0) { $body.maxDownloads = $MaxDownloads }
+    Invoke-SriftCall -Path "/quick-share" -Method POST -Body $body }
 function New-SriftSession         { param([string]$Name, [string]$RoomSecret)
     Invoke-SriftCall -Path "/session/start" -Method POST -Body @{ sessionName = $Name; roomSecret = $RoomSecret } }
 function Join-SriftSession        { param([Parameter(Mandatory)][string]$SessionId, [string]$Username, [string]$RoomSecret)
@@ -74,11 +82,12 @@ if ($MyInvocation.InvocationName -ne $null -and $args.Count -ge 1) {
         "quick-share" { Invoke-SriftQuickShare -FilePath $rest[0] -SessionName $rest[1] | ConvertTo-Json -Depth 10 }
         "status"      { Invoke-SriftStatus | ConvertTo-Json -Depth 10 }
         "state"       { Invoke-SriftState | ConvertTo-Json -Depth 10 }
+        "diagnose"    { Invoke-SriftDiagnose -Fresh:($rest -contains "fresh") | ConvertTo-Json -Depth 10 }
         "send"        { Send-SriftFile -FilePath $rest[0] | ConvertTo-Json -Depth 10 }
         "receive"     { Receive-SriftFile -FileId $rest[0] -SaveDir $rest[1] | ConvertTo-Json -Depth 10 }
         "chat"        { Send-SriftChat -Message $rest[0] | ConvertTo-Json -Depth 10 }
         "history"     { Get-SriftChatHistory | ConvertTo-Json -Depth 10 }
         "list"        { Get-SriftTransfers | ConvertTo-Json -Depth 10 }
-        default       { Write-Host "Usage: srift.ps1 {quick-share|status|state|send|receive|chat|history|list} [args]" }
+        default       { Write-Host "Usage: srift.ps1 {quick-share|status|state|diagnose|send|receive|chat|history|list} [args]" }
     }
 }

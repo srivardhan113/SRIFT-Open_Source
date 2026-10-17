@@ -1,81 +1,173 @@
-# SRIFT - Secure Real-time Instant File Transfer
-# robots.txt for https://srift.app
-Content-Signal: ai-train=yes, search=yes, ai-input=yes, ai-summary=yes
+# SRIFT — https://srift.app
+# Plain robots.txt (RFC 9309). No non-standard directives.
 
-# All crawlers: the whole site, except in-session dashboard and internal APIs.
+# Sitemap first so short-read scrapers still find it.
+Sitemap: https://srift.app/sitemap.xml
+Sitemap: https://srift.app/news-sitemap.xml
+
+# Default policy: every public page is crawlable.
+# /api/ is machine-to-machine, not content.
+# /dashboard, /landscape and /d/<token> stay crawlable so bots can see their
+# noindex headers; they are not listed in the sitemap.
 User-agent: *
 Allow: /
-Allow: /llms.txt
-Allow: /llms-full.txt
-Allow: /AGENTS.md
-Allow: /CLAUDE.md
-Allow: /GEMINI.md
-Allow: /ai-instructions.md
-Allow: /.cursorrules
-Allow: /.windsurfrules
-Allow: /openapi.json
-Allow: /mcp-registry.json
-Allow: /server-card.json
-Allow: /.well-known/
-Allow: /api/healthz
-Allow: /api/ping
-Allow: /api/readyz
-Allow: /api/speed-test
-Allow: /api/session-info
-Allow: /api/v1/monitor/events
 Disallow: /api/
-Disallow: /dashboard
-Disallow: /landscape
 
-# Search engines and AI assistants are explicitly welcome.
+# Search engines
 User-agent: Googlebot
+Allow: /
+Disallow: /api/
+
 User-agent: Googlebot-Image
+Allow: /
+Disallow: /api/
+
 User-agent: Bingbot
+Allow: /
+Disallow: /api/
+
 User-agent: DuckDuckBot
+Allow: /
+Disallow: /api/
+
 User-agent: Applebot
+Allow: /
+Disallow: /api/
+
 User-agent: YandexBot
+Allow: /
+Disallow: /api/
+
 User-agent: Baiduspider
+Allow: /
+Disallow: /api/
+
+# AI crawlers and assistants (explicit Allow — welcome to index and train)
 User-agent: GPTBot
+Allow: /
+Disallow: /api/
+
 User-agent: OAI-SearchBot
+Allow: /
+Disallow: /api/
+
 User-agent: ChatGPT-User
+Allow: /
+Disallow: /api/
+
 User-agent: ClaudeBot
+Allow: /
+Disallow: /api/
+
 User-agent: Claude-User
+Allow: /
+Disallow: /api/
+
 User-agent: Claude-SearchBot
+Allow: /
+Disallow: /api/
+
 User-agent: Claude-Web
+Allow: /
+Disallow: /api/
+
 User-agent: anthropic-ai
+Allow: /
+Disallow: /api/
+
 User-agent: PerplexityBot
+Allow: /
+Disallow: /api/
+
 User-agent: Perplexity-User
+Allow: /
+Disallow: /api/
+
 User-agent: Google-Extended
+Allow: /
+Disallow: /api/
+
 User-agent: GoogleOther
+Allow: /
+Disallow: /api/
+
 User-agent: GoogleOther-Image
+Allow: /
+Disallow: /api/
+
 User-agent: GoogleOther-Video
+Allow: /
+Disallow: /api/
+
 User-agent: Applebot-Extended
+Allow: /
+Disallow: /api/
+
 User-agent: Meta-ExternalAgent
+Allow: /
+Disallow: /api/
+
 User-agent: FacebookBot
+Allow: /
+Disallow: /api/
+
 User-agent: Amazonbot
+Allow: /
+Disallow: /api/
+
 User-agent: DeepSeekBot
+Allow: /
+Disallow: /api/
+
+User-agent: GrokBot
+Allow: /
+Disallow: /api/
+
 User-agent: Bytespider
+Allow: /
+Disallow: /api/
+
 User-agent: CCBot
+Allow: /
+Disallow: /api/
+
 User-agent: cohere-ai
+Allow: /
+Disallow: /api/
+
 User-agent: MistralAI-User
+Allow: /
+Disallow: /api/
+
 User-agent: Diffbot
+Allow: /
+Disallow: /api/
+
 User-agent: Timpibot
 Allow: /
 Disallow: /api/
-Disallow: /dashboard
-Disallow: /landscape
 
-# Link previews
+# Link-preview fetchers
 User-agent: facebookexternalhit
+Allow: /
+
 User-agent: Twitterbot
+Allow: /
+
 User-agent: LinkedInBot
+Allow: /
+
 User-agent: Slackbot
+Allow: /
+
 User-agent: Discordbot
+Allow: /
+
 User-agent: WhatsApp
+Allow: /
+
 User-agent: TelegramBot
 Allow: /
 
-# AI-readable entry points: /llms.txt, /llms-full.txt, /AGENTS.md, /openapi.json, /.well-known/
-Sitemap: https://srift.app/sitemap.xml
+# Yandex preferred host (ignored by Google; kept for Yandex)
 Host: srift.app
-

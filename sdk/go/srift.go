@@ -25,7 +25,7 @@ import (
 const DefaultBase = "http://127.0.0.1:3822"
 
 // Version is the SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
-const Version = "4.1.0"
+const Version = "4.4.0"
 
 type Client struct {
 	BaseURL string
@@ -85,7 +85,10 @@ type QuickShareResult struct {
 	DownloadURL string `json:"downloadUrl"`
 	Token       string `json:"token"`
 	Encrypted   bool   `json:"encrypted"`
+	// Mode is "relay" (current daemons); Protocol is only set by daemons older than 4.0.
+	Mode        string `json:"mode"`
 	Protocol    string `json:"protocol"`
+	ExpiresAt   *int64 `json:"expiresAt"`
 	FileName    string `json:"fileName"`
 	FileSize    int64  `json:"fileSize"`
 }
@@ -134,8 +137,21 @@ func (c *Client) Status(ctx context.Context) (*Status, error) {
 }
 
 func (c *Client) QuickShare(ctx context.Context, filePath, sessionName string) (*QuickShareResult, error) {
+	return c.QuickShareWith(ctx, filePath, map[string]any{"sessionName": sessionName})
+}
+
+// QuickShareWith passes daemon options as-is: "encrypt" (bool, end-to-end link), "password",
+// "ttlMs", "maxDownloads", "filePaths" ([]string), "bundle" (bool), "bundleName", "exclude" ([]string).
+func (c *Client) QuickShareWith(ctx context.Context, filePath string, options map[string]any) (*QuickShareResult, error) {
+	body := map[string]any{}
+	for k, v := range options {
+		body[k] = v
+	}
+	if filePath != "" {
+		body["filePath"] = filePath
+	}
 	var out QuickShareResult
-	return &out, c.call(ctx, "/quick-share", "POST", map[string]any{"filePath": filePath, "sessionName": sessionName}, &out)
+	return &out, c.call(ctx, "/quick-share", "POST", body, &out)
 }
 
 func (c *Client) StartSession(ctx context.Context, name, roomSecret string) error {
@@ -204,6 +220,16 @@ func (c *Client) ChatHistory(ctx context.Context) ([]ChatMessage, error) {
 func (c *Client) State(ctx context.Context) (map[string]any, error) {
 	var out map[string]any
 	return out, c.call(ctx, "/state", "GET", nil, &out)
+}
+
+// Diagnose reports which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes.
+func (c *Client) Diagnose(ctx context.Context, fresh bool) (map[string]any, error) {
+	var out map[string]any
+	path := "/v1/diag"
+	if fresh {
+		path += "?fresh=1"
+	}
+	return out, c.call(ctx, path, "GET", nil, &out)
 }
 
 func (c *Client) ListTransfers(ctx context.Context) ([]Transfer, error) {

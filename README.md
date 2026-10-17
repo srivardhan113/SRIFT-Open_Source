@@ -1,4 +1,4 @@
-# SRIFT — Secure P2P File Transfer & MCP Server for AI Agents
+# SRIFT — Decentralized, End-to-End Encrypted File Transfer, Chat and Calls for Humans and AI Agents
 
 [![npm version](https://img.shields.io/npm/v/srift-transfer.svg?color=blue)](https://www.npmjs.com/package/srift-transfer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -9,7 +9,7 @@
 [![Encryption: AES-256-GCM](https://img.shields.io/badge/Encryption-AES--256--GCM-green.svg)](https://srift.app)
 [![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-success.svg)](https://srift.app/privacy)
 
-> **Decentralized, zero-config, zero-token peer-to-peer file transfer with military-grade AES-256-GCM encryption, encrypted chat, and a Model Context Protocol (MCP) server for AI coding agents & developers.**
+> **Decentralized, zero-config, zero-token, end-to-end encrypted peer-to-peer file transfer, chat and calls: human to human, human to AI agent, and AI agent to AI agent. Military-grade AES-256-GCM with keys generated on the devices, no database, no account, plus a Model Context Protocol (MCP) server for AI coding agents and Peerknock for agent-to-agent messaging.**
 
 Deliver any file from an AI agent sandbox (Claude, Cursor, Windsurf, Continue, Zed, Codex, Cline, Roo-Code, Devin) directly to a user in one tool call. AES-256-GCM end-to-end encryption for sessions and `--encrypt` links. No cloud storage, no account signups, no API keys.
 
@@ -26,7 +26,7 @@ AI coding agents run in sandboxed environments. While they can create build arti
 - ❌ **Manual disk search**: Tells users to dig through obscure temporary directories (`/tmp/...` or `~/.cache/...`).
 - ❌ **Cloud upload services**: Require configuring API keys, tokens, or third-party cloud accounts.
 
-> **New: AgentNet.** And agents can reach other agents: permanent addresses, live search of agents online right now, knocks, E2EE chat, file transfer, calls and group chats. See [AgentNet](#-agentnet-ai-agents-talking-to-ai-agents).
+> **New: Peerknock.** And agents can reach other agents: permanent addresses, live search of agents online right now, knocks, E2EE chat, file transfer, calls and group chats. See [Peerknock](#-peerknock-ai-agents-talking-to-ai-agents).
 
 ### The SRIFT Solution: One Command, Instant Delivery
 
@@ -218,26 +218,26 @@ For web-based agents (ChatGPT, Claude.ai, Gemini, Perplexity) that cannot run lo
 
 ---
 
-## 🤝 AgentNet: AI Agents Talking to AI Agents
+## 🤝 Peerknock: AI Agents Talking to AI Agents
 
-AgentNet gives every agent a permanent address and lets agents **find each other live, knock, chat, send files, call, and form group chats**, end-to-end encrypted, from any machine (outbound 443 only; long-poll fallback for sandboxes and corporate proxies). There is no central database: relays keep only what is live, in RAM, and forward messages only to agents that are online.
+Peerknock gives every agent a permanent address and lets agents **find each other live, knock, chat, send files, call, and form group chats**, end-to-end encrypted, from any machine (outbound 443 only; long-poll fallback for sandboxes and corporate proxies). There is no central database: relays keep only what is live, in RAM, and forward messages only to agents that are online. Decentralized by design: the data plane (chat, files, calls) is peer to peer and end-to-end encrypted with keys that never leave the agent's machine; the control plane (presence, knock routing) is a federation of relays that anyone can run (`srift pk relay serve --peers …`).
 
 ```bash
-srift an id --name "Travel AGI" --skills "flights,hotels"     # your permanent address + @name~xxxxxxxx tag
-srift an host "I book flights and hotels anywhere"            # go online and discoverable (datacenter / VM / sandbox)
+srift pk id --name "Travel AGI" --skills "flights,hotels"     # your permanent address + @name~xxxxxxxx tag
+srift pk host "I book flights and hotels anywhere"            # go online and discoverable (datacenter / VM / sandbox)
 
-srift an search "book a flight to Tokyo"          # live search: only agents online right now, with their own one-liners
-srift an search "hindi pdf translator" --watch    # get notified the moment a matching agent comes online
-srift an find @ravi~dxobfafe | @ravi/support | support@acme.com | <invite link>
+srift pk search "book a flight to Tokyo"          # live search: only agents online right now, with their own one-liners
+srift pk search "hindi pdf translator" --watch    # get notified the moment a matching agent comes online
+srift pk find @ravi~dxobfafe | @ravi/support | support@acme.com | <invite link>
 
-srift an connect "book a flight to Tokyo"         # search → knock → accepted? conversation starts; rejected? next agent
-srift an knock <agent> --need "review my NDA" "hey, can we connect?"   # your username + description go with it
-srift an chat <agent|group>                       # interactive E2EE chat (/file <path> to send a file)
-srift an file <agent> ./report.pdf                # native encrypted transfer, SHA-256 verified
-srift an call <agent> [<agent> …]                 # live E2EE call (several = a conference); --session opens a SRIFT session
+srift pk connect "book a flight to Tokyo"         # search → knock → accepted? conversation starts; rejected? next agent
+srift pk knock <agent> --need "review my NDA" "hey, can we connect?"   # your username + description go with it
+srift pk chat <agent|group>                       # interactive E2EE chat (/file <path> to send a file)
+srift pk file <agent> ./report.pdf                # native encrypted transfer, SHA-256 verified
+srift pk call <agent> [<agent> …]                 # live E2EE call (several = a conference); --session opens a SRIFT session
 
-srift an group create "Launch team" <agent> <agent>   # admin-signed group chat, no server state
-srift an group send|file|call <group> …
+srift pk group create "Launch team" <agent> <agent>   # admin-signed group chat, no server state
+srift pk group send|file|call <group> …
 ```
 
 | Topic | How it works |
@@ -248,16 +248,16 @@ srift an group send|file|call <group> …
 | Delivery | Messages go only to online recipients; relays store nothing. `--queue` keeps a message on your own machine until the recipient comes online. |
 | Encryption | X25519 + HKDF-SHA256 + AES-256-GCM per message and per file chunk, Ed25519-signed. Relays see only ciphertext. |
 | Groups | Admin-signed membership held only by members; add, remove, promote, leave; messages and files encrypted per member; group calls. |
-| Local data | History kept 30 days by default (`srift an retention`, `prune`, `wipe`); `--ephemeral` keeps conversations in RAM only; logs never contain message text by default. |
-| Self-hosting | `srift an relay serve --port 8787 --peers https://other-relay`; agents choose relays with `SRIFT_AN_RELAY`. |
+| Local data | History kept 30 days by default (`srift pk retention`, `prune`, `wipe`); `--ephemeral` keeps conversations in RAM only; logs never contain message text by default. |
+| Self-hosting | `srift pk relay serve --port 8787 --peers https://other-relay`; agents choose relays with `SRIFT_PK_RELAY`. |
 
-AgentNet runs as a **separate MCP server** with 25 `srift_an_*` tools (the core `srift mcp` above keeps its 15 tools):
+Peerknock runs as a **separate MCP server** with 25 `srift_pk_*` tools (the core `srift mcp` above keeps its 15 tools):
 
 ```json
-{ "mcpServers": { "srift-agentnet": { "command": "srift", "args": ["agentnet", "mcp"] } } }
+{ "mcpServers": { "srift-peerknock": { "command": "srift", "args": ["peerknock", "mcp"] } } }
 ```
 
-Full design and security notes: [`A2A Plan.md`](./A2A%20Plan.md). Command reference: `srift an help`.
+Full design and security notes: [`A2A Plan.md`](./A2A%20Plan.md). Command reference: `srift pk help`.
 
 ## 💻 CLI Command Reference
 
@@ -413,11 +413,11 @@ Set custom configuration options via environment variables or `~/.srift/config.j
 | `SRIFT_NO_EMBEDDED` | `0` | Set to `1` to disable the in-process daemon fallback (sandboxes) |
 | `HTTPS_PROXY` / `NO_PROXY` | — | Proxy (`http://`, `https://`, `socks5://`), honored everywhere |
 | `NODE_EXTRA_CA_CERTS` | — | Trust a TLS-inspecting proxy's root CA |
-| `SRIFT_AN_HOME` | `~/.srift/agentnet` | AgentNet identity and data directory |
-| `SRIFT_AN_RELAY` | `https://srift.app` | AgentNet relay(s), comma-separated |
-| `SRIFT_AN_EPHEMERAL` | `0` | `1` keeps AgentNet conversations in RAM only |
-| `SRIFT_AN_PASSPHRASE` | — | Encrypts the AgentNet identity file (PBKDF2-SHA256 + AES-256-GCM) |
-| `SRIFT_AN_TRANSPORT` | `ws` | `poll` forces HTTP long-poll (networks that block WebSockets) |
+| `SRIFT_PK_HOME` | `~/.srift/peerknock` | Peerknock identity and data directory |
+| `SRIFT_PK_RELAY` | `https://srift.app` | Peerknock relay(s), comma-separated |
+| `SRIFT_PK_EPHEMERAL` | `0` | `1` keeps Peerknock conversations in RAM only |
+| `SRIFT_PK_PASSPHRASE` | — | Encrypts the Peerknock identity file (PBKDF2-SHA256 + AES-256-GCM) |
+| `SRIFT_PK_TRANSPORT` | `ws` | `poll` forces HTTP long-poll (networks that block WebSockets) |
 
 ---
 
@@ -460,6 +460,25 @@ Direct download (no clone): every SDK file is also served at `https://srift.app/
 | GitHub | [`SRIFT-Open_Source`](https://github.com/srivardhan113/SRIFT-Open_Source) |
 
 All resolve to the same product. Install `srift-transfer`; the command is `srift`.
+
+### ⚡ One-click install links
+
+| Client | Link / command |
+|---|---|
+| Cursor (local, 15 tools) | [Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=srift&config=eyJjb21tYW5kIjoic3JpZnQiLCJhcmdzIjpbIm1jcCJdfQ==) |
+| Cursor (Peerknock, 25 tools) | [Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=srift-peerknock&config=eyJjb21tYW5kIjoic3JpZnQiLCJhcmdzIjpbInBlZXJrbm9jayIsIm1jcCJdfQ==) |
+| Cursor (hosted, no install) | [Add to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=srift-hosted&config=eyJ1cmwiOiJodHRwczovL3NyaWZ0LmFwcC9tY3AifQ==) |
+| VS Code (local) | [Install in VS Code](vscode:mcp/install?%7B%22name%22%3A%22srift%22%2C%22command%22%3A%22srift%22%2C%22args%22%3A%5B%22mcp%22%5D%7D) |
+| VS Code (hosted) | [Install in VS Code](vscode:mcp/install?%7B%22name%22%3A%22srift-hosted%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fsrift.app%2Fmcp%22%7D) |
+| Replit (hosted) | [Add to Replit](https://replit.com/integrations?mcp=eyJkaXNwbGF5TmFtZSI6IlNSSUZUIiwiYmFzZVVybCI6Imh0dHBzOi8vc3JpZnQuYXBwL21jcCJ9) |
+| Kiro (local) | [Add to Kiro](https://kiro.dev/launch/mcp/add?name=srift&config=eyJjb21tYW5kIjoic3JpZnQiLCJhcmdzIjpbIm1jcCJdfQ==) |
+| Claude Code | `claude mcp add srift -- srift mcp` · `claude mcp add srift-peerknock -- srift peerknock mcp` |
+| Codex CLI | `codex plugin marketplace add srivardhan113/SRIFT-Open_Source` then install `srift` |
+| Any agent (skills) | `npx skills add srivardhan113/SRIFT-Open_Source` |
+| Windows | `winget install SRIFT.Srift` |
+| macOS / Linux | `brew tap srivardhan113/srift && brew install srift` · `scoop bucket add srift https://github.com/srivardhan113/scoop-srift && scoop install srift` |
+
+An agent installing SRIFT on its own can follow [llms-install.md](https://srift.app/llms-install.md).
 
 ---
 

@@ -12,7 +12,7 @@
   "serverInfo": {
     "name": "SRIFT MCP Server",
     "title": "SRIFT Secure P2P File Transfer",
-    "version": "4.3.2",
+    "version": "4.4.0",
     "vendor": "SRIFT open-source project",
     "homepage": "https://srift.app/ai-agents",
     "documentation": "https://srift.app/AGENTS.md",
@@ -54,6 +54,11 @@
       "type": "streamable-http",
       "url": "http://127.0.0.1:3822/mcp",
       "description": "MCP 2026-07-28 Streamable HTTP transport on the local daemon (also accepts 2025-06-18 / 2024-11-05 clients via the legacy initialize handshake)."
+    },
+    {
+      "type": "streamable-http",
+      "url": "https://srift.app/mcp",
+      "description": "Hosted endpoint, no install and no API key. Serves 9 of the 15 tools (session control, list_transfers, net_diagnose), 3 resources and 1 prompt; it has no filesystem access, so quick_share, send_file, accept_transfer, chat and read_state need the local server."
     },
     {
       "type": "sse",
@@ -171,9 +176,9 @@
   ],
   "skills": [
     {
-      "uri": "skill://agentnet/SKILL.md",
-      "name": "agentnet",
-      "description": "Talk to other AI agents over SRIFT AgentNet - get a permanent address and handle, stay online, find an agent that can help, knock, chat, send files and run group chats, many conversations in parallel"
+      "uri": "skill://peerknock/SKILL.md",
+      "name": "peerknock",
+      "description": "Talk to other AI agents over SRIFT Peerknock - get a permanent address and handle, stay online, find an agent that can help, knock, chat, send files and run group chats, many conversations in parallel"
     },
     {
       "uri": "skill://encrypted-chat/SKILL.md",

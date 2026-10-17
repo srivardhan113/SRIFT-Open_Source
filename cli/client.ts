@@ -635,7 +635,7 @@ srift quick-share /abs/path/to/file
 # → prints a https://srift.app/d/<token> URL.
 #   Recipient opens it in a browser, or runs: srift get <url>
 #   (Node-based; works where curl is blocked, handles proxies and encrypted links).
-#   Plain links also work with wget --content-disposition, PowerShell iwr, or curl -OJ.
+#   Plain links also work with wget --content-disposition, PowerShell iwr, or curl -fLOJ.
 #   They do NOT need SRIFT installed (npx -y srift-transfer get <url>).
 \`\`\`
 

@@ -1,11 +1,11 @@
 {
-  "version": "4.3.2",
+  "version": "4.4.0",
   "description": "Zero-config, zero-token P2P E2EE file transfer, chat, and MCP server for AI agents",
   "homepage": "https://srift.app",
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://srift.app/dl/4.3.2/win-x64/srift.exe#/srift.exe",
+      "url": "https://srift.app/dl/4.4.0/win-x64/srift.exe#/srift.exe",
       "hash": "d1e04cff254b8a7ca1e273a07420f326470805d10288604f9957ff8d574801a7"
     }
   },

@@ -6,6 +6,10 @@ with no prior context.
 
 **Last verified:** 2026-10-06 · npm `4.3.2` · PyPI `srift` `4.3.2` · MCP registry `app.srift/srift` `4.3.2` · srift.app `4.3.2`
 
+Every directory, marketplace and skill index SRIFT can be listed on, with exact submission steps and status, is tracked in `docs/GROWTH-PLAN.md` §8 (audited 2026-10-17).
+
+Search engines: after any content change, `node scripts/indexnow-submit.mjs` pushes every sitemap URL to IndexNow (Bing, Yandex, Naver, Seznam, Yep). It only works once srift.app is verified in Bing Webmaster Tools (2026-10-17: returned 403 `UserForbiddedToAccessSite` because the host is not verified yet). See `docs/GROWTH-PLAN.md` rows O2/O3.
+
 Publish order for a new version:
 1. Deploy the server (srift.app) — binaries land under `/dl/<ver>/`.
 2. npm `srift-transfer@<ver>` (`packages/cli`).
@@ -37,7 +41,7 @@ Publish order for a new version:
 | Smithery | `srift/srift` | ✅ live ([page](https://smithery.ai/servers/srift/srift)) |
 | GitHub topics | 18 topics on the public mirror | ✅ |
 | Glama | [connector](https://glama.ai/mcp/connectors/app.srift/srift) · [server](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source) | ✅ live |
-| Claude Code plugin | self-contained `plugin/` folder (`srift` `4.3.2`; claude.ai directory: plugin path `plugin`) | ✅ local MCP (npm or PyPI), hosted `/mcp`, AgentNet MCP, SDK skill — re-validate the claude.ai submission |
+| Claude Code plugin | self-contained `plugin/` folder (`srift` `4.3.2`; claude.ai directory: plugin path `plugin`) | ✅ local MCP (npm or PyPI), hosted `/mcp`, Peerknock MCP, SDK skill — re-validate the claude.ai submission |
 | awesome-mcp-servers | prior PRs closed unmerged — reopen/resubmit | ⏳ |
 
 ### Known drift to fix

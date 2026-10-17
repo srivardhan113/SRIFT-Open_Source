@@ -24,7 +24,7 @@ SRIFT is an open-source (MIT) project with a **zero-retention, non-custodial** a
 
 | Claim | Reality |
 |---|---|
-| Database | **None** — session/AgentNet presence state in RAM only |
+| Database | **None** — session/Peerknock presence state in RAM only |
 | File storage | **None** — bytes stream from sender to recipient |
 | Chat / audio custody | **None** — peer-to-peer (DTLS-SRTP audio; signed+sealed chat) |
 | Quick-share without `--encrypt` | TLS in transit; zero retention (never written to SRIFT storage) |

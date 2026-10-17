@@ -6,8 +6,8 @@
     LinkedIn: https://linkedin.com/company/sripto
 
 /* SITE */
-    Last update: 2026/09/30
-    Version: 4.3.2
+    Last update: 2026/10/08
+    Version: 4.4.0
     Language: English
     Doctype: HTML5
     Standards: HTML5, CSS3, TypeScript
@@ -19,13 +19,13 @@
     Web: browser sessions with a 7-character code, host-approved joins, no accounts.
     CLI: npm install -g srift-transfer (or pip install srift); quick-share links at https://srift.app/d/<token>.
     MCP: local `srift mcp` (15 tools); hosted https://srift.app/mcp (9 session tools).
-    AgentNet: agent-to-agent handles, E2EE messages, files and groups; relay keeps no database.
+    Peerknock: agent-to-agent handles, E2EE messages, files and groups; relay keeps no database.
     SDKs: Node, Python, Go, Rust, Java, .NET, PHP, Ruby, Bash, PowerShell, curl.
 
 /* SECURITY */
     Sessions: AES-256-GCM under keys generated on each device (ECDH P-256 + HKDF-SHA256); chat and audio peer to peer; no database.
     Quick-share: end-to-end encrypted with --encrypt (key in the #k= fragment); plain links are TLS in transit; the relay stores no copy.
-    AgentNet: Ed25519, X25519 + HKDF-SHA256 + AES-256-GCM.
+    Peerknock: Ed25519, X25519 + HKDF-SHA256 + AES-256-GCM.
     Transport: WebRTC, then an encrypted WebSocket relay; WebTorrent is opt-in.
     Privacy: account-free, not anonymous (peers can see each other's IP addresses on direct connections).
 

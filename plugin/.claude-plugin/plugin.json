@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "srift",
+  "displayName": "SRIFT",
+  "version": "4.4.0",
+  "description": "Decentralized, end-to-end encrypted file transfer, chat and calls: human to human, human to AI agent, and AI agent to AI agent. Send files as links, open sealed sessions, reach agents on Peerknock.",
+  "author": {
+    "name": "SRIFT",
+    "url": "https://srift.app"
+  },
+  "homepage": "https://srift.app",
+  "repository": "https://github.com/srivardhan113/SRIFT-Open_Source",
+  "license": "MIT",
+  "keywords": ["file-transfer", "p2p", "e2ee", "mcp", "peerknock", "pypi", "sdk", "aes-256-gcm"],
+  "icon": "./icon.png",
+  "privacyPolicy": "https://srift.app/privacy"
+}

@@ -12,7 +12,7 @@ Usage:
     from srift import Srift
     srift = Srift()
     result = srift.quick_share("/abs/path/file.zip")
-    print(result["shareUrl"])   # → https://srift.app/join-session?id=ABC1234
+    print(result["downloadUrl"])   # → https://srift.app/d/<token>
 
 Async usage (if you want non-blocking, requires Python 3.8+):
     from srift import AsyncSrift
@@ -27,7 +27,7 @@ import urllib.error
 from typing import Any, Dict, List, Optional
 
 __all__ = ["Srift", "AsyncSrift", "SriftError"]
-__version__ = "4.1.0"
+__version__ = "4.4.0"
 # Python-urllib's default User-Agent is refused by some CDNs/WAFs (srift.app included).
 _UA = f"srift-python-sdk/{__version__}"
 
@@ -80,6 +80,10 @@ class Srift:
         """Read the workspace .srift-state.json snapshot."""
         return self._call("/state")
 
+    def diagnose(self, fresh: bool = False) -> Dict[str, Any]:
+        """Which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes."""
+        return self._call("/v1/diag?fresh=1" if fresh else "/v1/diag")
+
     # ─── Session ────────────────────────────────────────────────────────────
     def start_session(self, name: Optional[str] = None, room_secret: Optional[str] = None) -> Dict[str, Any]:
         return self._call("/session/start", "POST", {"sessionName": name, "roomSecret": room_secret})
@@ -110,9 +114,31 @@ class Srift:
         s = self.status()
         return s.get("activeTransfers", [])
 
-    def quick_share(self, file_path: str, session_name: Optional[str] = None) -> Dict[str, Any]:
-        """One-shot: ensure session, seed file, return share URL. Use this 90% of the time."""
-        return self._call("/quick-share", "POST", {"filePath": file_path, "sessionName": session_name})
+    def quick_share(
+        self,
+        file_path: Optional[str] = None,
+        session_name: Optional[str] = None,
+        *,
+        encrypt: Optional[bool] = None,
+        password: Optional[str] = None,
+        ttl_ms: Optional[int] = None,
+        max_downloads: Optional[int] = None,
+        file_paths: Optional[List[str]] = None,
+        bundle: Optional[bool] = None,
+        bundle_name: Optional[str] = None,
+        exclude: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """One-shot: ensure session, seed file(s), return share URL. Use this 90% of the time.
+
+        encrypt=True (or a password) makes the link end-to-end encrypted (key in the #k= fragment).
+        file_paths shares several files/folders: one .tar.gz link (bundle=True, default) or one per path.
+        """
+        body = {
+            "filePath": file_path, "sessionName": session_name, "encrypt": encrypt, "password": password,
+            "ttlMs": ttl_ms, "maxDownloads": max_downloads, "filePaths": file_paths, "bundle": bundle,
+            "bundleName": bundle_name, "exclude": exclude,
+        }
+        return self._call("/quick-share", "POST", {k: v for k, v in body.items() if v is not None})
 
     # ─── Chat ───────────────────────────────────────────────────────────────
     def send_chat(self, message: str) -> Dict[str, Any]:
@@ -162,11 +188,14 @@ class AsyncSrift:
     async def state(self) -> Dict[str, Any]:
         return await self._run(self._sync.state)
 
-    async def quick_share(self, file_path: str, session_name: Optional[str] = None) -> Dict[str, Any]:
-        return await self._run(self._sync.quick_share, file_path, session_name)
+    async def quick_share(self, file_path: Optional[str] = None, session_name: Optional[str] = None, **options: Any) -> Dict[str, Any]:
+        return await self._run(lambda: self._sync.quick_share(file_path, session_name, **options))
 
     async def status(self) -> Dict[str, Any]:
         return await self._run(self._sync.status)
+
+    async def diagnose(self, fresh: bool = False) -> Dict[str, Any]:
+        return await self._run(self._sync.diagnose, fresh)
 
     async def send_chat(self, message: str) -> Dict[str, Any]:
         return await self._run(self._sync.send_chat, message)
@@ -244,7 +273,7 @@ class SriftMCP:
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python srift.py <quick-share|status|...> [args]")
+        print("Usage: python srift.py <quick-share|status|state|diagnose|send|chat|history> [args]")
         sys.exit(1)
     s = Srift()
     cmd = sys.argv[1]
@@ -252,6 +281,12 @@ if __name__ == "__main__":
         print(json.dumps(s.quick_share(sys.argv[2]), indent=2))
     elif cmd == "status":
         print(json.dumps(s.status(), indent=2))
+    elif cmd == "state":
+        print(json.dumps(s.state(), indent=2))
+    elif cmd == "diagnose":
+        print(json.dumps(s.diagnose(fresh="fresh" in sys.argv[2:]), indent=2))
+    elif cmd == "history":
+        print(json.dumps(s.chat_history(), indent=2))
     elif cmd == "send":
         print(json.dumps(s.send_file(sys.argv[2]), indent=2))
     elif cmd == "chat":

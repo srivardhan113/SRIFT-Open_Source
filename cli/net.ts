@@ -267,6 +267,8 @@ export type RequestOpts = {
   signal?: AbortSignal;
   /** Abort if the response body exceeds this many bytes (default: unlimited). */
   maxBytes?: number;
+  /** Custom DNS lookup for direct connections (Peerknock pins learned relays to public addresses). */
+  lookup?: net.LookupFunction;
 };
 
 export type SimpleResponse = { status: number; headers: http.IncomingHttpHeaders; body: Buffer; url: string };
@@ -283,7 +285,7 @@ export function openRequest(url: string, opts: RequestOpts = {}): Promise<{ res:
     if (body && !Object.keys(headers).some((h) => h.toLowerCase() === 'content-length')) {
       headers['Content-Length'] = String(body.length);
     }
-    const req = mod.request(u, { method: opts.method || 'GET', headers, agent: agentFor(u), signal: opts.signal }, (res) => {
+    const req = mod.request(u, { method: opts.method || 'GET', headers, agent: agentFor(u), signal: opts.signal, ...(opts.lookup ? { lookup: opts.lookup } : {}) }, (res) => {
       const status = res.statusCode || 0;
       if (status >= 300 && status < 400 && res.headers.location && maxRedirects > 0) {
         res.resume();

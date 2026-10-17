@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name          = "srift"
-  spec.version       = "4.1.0"
+  spec.version       = "4.4.0"
   spec.authors       = ["SRIFT"]
   spec.license       = "MIT"
 

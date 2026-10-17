@@ -11,9 +11,9 @@
 
   <PropertyGroup>
     <PackageId>Srift</PackageId>
-    <Version>4.1.0</Version>
+    <Version>4.4.0</Version>
     <Authors>SRIFT</Authors>
-    <Company>Sripto Corporation Private Limited</Company>
+    <Company>SRIFT contributors</Company>
     <Description>Zero-dependency .NET client for the local SRIFT daemon: P2P E2EE file transfer, session lifecycle, and chat.</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://srift.app</PackageProjectUrl>

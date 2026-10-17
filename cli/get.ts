@@ -1,7 +1,7 @@
 /**
  * `srift get <url|token>` — download a SRIFT link with Node's own HTTP stack.
  *
- * Exists because the documented `curl -OJ` fails in some agent sandboxes
+ * Exists because the documented `curl -fLOJ` fails in some agent sandboxes
  * (e.g. `curl: (43)`), and because encrypted links (#k=<key>) need local
  * decryption. Honours HTTPS_PROXY/NO_PROXY, resumes with Range, retries with
  * backoff, respects Content-Disposition without letting it escape the target
@@ -209,6 +209,21 @@ async function closeSink(ws: fs.WriteStream): Promise<void> {
   await new Promise<void>((resolve) => { if (ws.closed || ws.destroyed) resolve(); else ws.end(() => resolve()); });
 }
 
+/** Abandoned downloads leave `<file>.<tag>.srift-part` and `.srift-<tag>.resume` behind; the server's
+ *  resume token lives 1 h, so anything of ours older than 7 days in this folder is dead weight. */
+const STALE_PARTIAL_MS = 7 * 86_400_000;
+function sweepStalePartials(dir: string, keepTag: string): void {
+  try {
+    const now = Date.now();
+    for (const f of fs.readdirSync(dir)) {
+      if (f.includes(keepTag)) continue;
+      if (!/\.[0-9a-f]{12}\.srift-part$/.test(f) && !/^\.srift-[0-9a-f]{12}\.resume$/.test(f)) continue;
+      const fp = path.join(dir, f);
+      try { if (now - fs.lstatSync(fp).mtimeMs > STALE_PARTIAL_MS) fs.rmSync(fp, { force: true }); } catch { /* in use or gone */ }
+    }
+  } catch { /* unreadable folder */ }
+}
+
 export async function getLink(input: string, opts: GetOpts = {}): Promise<GetResult> {
   const { url, key, hasFragment } = resolveLink(input);
   if (hasFragment && !key) throw new GetError('The #fragment of this link is not a valid SRIFT key — copy the whole link.', 'EKEY');
@@ -229,6 +244,7 @@ export async function getLink(input: string, opts: GetOpts = {}): Promise<GetRes
   const linkTag = crypto.createHash('sha256').update(url).digest('hex').slice(0, 12);
   const tmpDir = explicitFile ? path.dirname(explicitFile) : destDir;
   const tokenFile = path.join(tmpDir, `.srift-${linkTag}.resume`);
+  sweepStalePartials(tmpDir, linkTag);
   const readToken = (): string | null => { try { return fs.readFileSync(tokenFile, 'utf8').trim() || null; } catch { return null; } };
   const saveToken = (t: string) => { try { assertNotSymlink(tokenFile); fs.writeFileSync(tokenFile, t, { mode: 0o600 }); } catch { /* best-effort */ } };
   const dropToken = () => { try { fs.rmSync(tokenFile, { force: true }); } catch { /* ignore */ } };

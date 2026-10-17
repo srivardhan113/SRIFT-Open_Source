@@ -6,8 +6,8 @@
 curl -X POST http://127.0.0.1:3822/quick-share \
   -H 'Content-Type: application/json' \
   -d '{"filePath":"/abs/path/file.zip"}'
-# → { "success": true, "sessionId": "ABC1234", "fileId": "...",
-#     "shareUrl": "https://srift.app/join-session?id=ABC1234", "protocol": "websocket", ... }
+# → { "success": true, "mode": "relay", "downloadUrl": "https://srift.app/d/<token>",
+#     "token": "...", "fileName": "file.zip", "fileSize": 12345, "encrypted": false, "expiresAt": null, ... }
 
 # ─── 2. Start a session manually ────────────────────────────────────────────
 curl -X POST http://127.0.0.1:3822/session/start \

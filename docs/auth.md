@@ -6,32 +6,14 @@ SRIFT uses the **anonymous** registration method only. There is no signup form, 
 
 ## Step 1 — Discover
 
-### 1a. Fetch the Protected Resource Metadata
+SRIFT publishes **no OAuth metadata** on purpose: no `/.well-known/oauth-protected-resource`, `/.well-known/oauth-authorization-server` or `/.well-known/openid-configuration`. Those documents tell MCP clients to start a sign-in flow, and there is nothing to sign in to. The hosted MCP server `https://srift.app/mcp` answers without credentials and never returns `401`.
+
+Read the service descriptions instead:
 
 ```http
-GET https://srift.app/.well-known/oauth-protected-resource
+GET https://srift.app/.well-known/mcp/server-card.json
+GET https://srift.app/.well-known/agent.json
 ```
-
-Expected fields:
-
-- `resource` — `https://srift.app/`
-- `authorization_servers` — `["https://srift.app"]`
-- `scopes_supported` — `["srift.public"]`
-- `bearer_methods_supported` — `["header"]`
-
-### 1b. Fetch the Authorization Server metadata
-
-```http
-GET https://srift.app/.well-known/oauth-authorization-server
-```
-
-Read `agent_auth`:
-
-- `skill` — `https://srift.app/auth.md`
-- `register_uri` — `https://srift.app/auth.md#instant-access`
-- `identity_types_supported` — `["anonymous"]`
-- `anonymous.credential_types_supported` — `["none"]`
-- `anonymous.claim_uri` — `https://srift.app/auth.md#room-secret`
 
 ## Step 2 — Pick a method
 
@@ -58,6 +40,7 @@ Start immediately:
 | Surface | How |
 |---|---|
 | MCP stdio | `srift mcp` |
+| MCP hosted | `https://srift.app/mcp` (streamable HTTP, no auth) |
 | MCP HTTP | `POST http://127.0.0.1:3822/mcp` |
 | REST | [`/openapi.json`](https://srift.app/openapi.json) |
 | CLI | `srift quick-share <file>` |
@@ -84,8 +67,6 @@ Pass the same `roomSecret` to host and guest on `srift_start_session` / `srift_j
 
 ## Discovery
 
-- [`/.well-known/oauth-protected-resource`](https://srift.app/.well-known/oauth-protected-resource)
-- [`/.well-known/oauth-authorization-server`](https://srift.app/.well-known/oauth-authorization-server)
 - [`/.well-known/mcp/server-card.json`](https://srift.app/.well-known/mcp/server-card.json)
 - [`/.well-known/agent.json`](https://srift.app/.well-known/agent.json)
 - [`/openapi.json`](https://srift.app/openapi.json)

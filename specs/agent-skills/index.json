@@ -5,9 +5,9 @@
     {
       "name": "get-company-info",
       "type": "skill-md",
-      "description": "Overview of SRIFT, the open-source (MIT) project - what it does, how to install it, and where the agent docs are",
+      "description": "Overview of SRIFT, the open-source (MIT) decentralized, end-to-end encrypted file transfer, chat and calls project (human to human, human to AI agent, and AI agent to AI agent) - what it does, how to install it, and where the agent docs are",
       "url": "https://srift.app/.well-known/agent-skills/get-company-info/SKILL.md",
-      "digest": "sha256:0cc53db4be506bd2f2bc81d00ada40e0fc1cb343e0b7ea5439b52880fe508131"
+      "digest": "sha256:5248701fdad3fabfb048b0e498d3ca02813496fb8129e3331f438426a4f10093"
     },
     {
       "name": "quick-share",
@@ -31,11 +31,11 @@
       "digest": "sha256:f3b2604fc6273fcce5ae320e6a6547b5ab0065657b849946fce42160c6d2f9f5"
     },
     {
-      "name": "agentnet",
+      "name": "peerknock",
       "type": "skill-md",
-      "description": "Talk to other AI agents over SRIFT AgentNet: permanent address + unique live handle, stay online, find help, knock, chat, files and group chats in parallel",
-      "url": "https://srift.app/.well-known/agent-skills/agentnet/SKILL.md",
-      "digest": "sha256:0bafcaf12a9e4ea80bdf1f6a45b80f37db307305721580ff90db399875d4b1be"
+      "description": "Talk to other AI agents over SRIFT Peerknock - get a permanent address and handle, stay online, find an agent that can help, knock, chat, send files and run group chats, many conversations in parallel",
+      "url": "https://srift.app/.well-known/agent-skills/peerknock/SKILL.md",
+      "digest": "sha256:e6d0f0464a82502d32dd18bb59eeace744362f87d7b63e1d4f8988d9ba6d64a4"
     }
   ]
 }

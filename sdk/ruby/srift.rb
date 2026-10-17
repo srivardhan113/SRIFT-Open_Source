@@ -11,7 +11,7 @@ require 'uri'
 
 module Srift
   # SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
-  VERSION = '4.1.0'
+  VERSION = '4.4.0'
 
   class Error < StandardError; end
 
@@ -25,10 +25,14 @@ module Srift
 
     def status;             get('/status');                end
     def state;              get('/state');                 end
+    # Which transports work on this machine (direct P2P, TURN, WebSocket/HTTPS relay), with fixes.
+    def diagnose(fresh = false); get(fresh ? '/v1/diag?fresh=1' : '/v1/diag'); end
     def chat_history;       get('/chat/history');          end
 
-    def quick_share(file_path, session_name: nil)
-      post('/quick-share', filePath: file_path, sessionName: session_name)
+    # Options: encrypt:, password:, ttl_ms:, max_downloads:, file_paths:, bundle:, bundle_name:, exclude:
+    def quick_share(file_path, session_name: nil, **options)
+      extra = options.to_h { |k, v| [k.to_s.gsub(/_([a-z])/) { Regexp.last_match(1).upcase }.to_sym, v] }
+      post('/quick-share', **extra, filePath: file_path, sessionName: session_name)
     end
     def start_session(name: nil, room_secret: nil)
       post('/session/start', sessionName: name, roomSecret: room_secret)

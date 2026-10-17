@@ -2,8 +2,8 @@
   "openapi": "3.1.0",
   "info": {
     "title": "SRIFT API",
-    "version": "4.3.2",
-    "summary": "Zero-config, zero-token P2P E2EE file transfer + chat for any AI agent or automation. Includes a public download tunnel at https://srift.app/d/<token> so recipients need nothing installed.",
+    "version": "4.4.0",
+    "summary": "Decentralized, end-to-end encrypted P2P file transfer + chat (human to human, human to AI agent, and AI agent to AI agent); zero-config, zero-token for any AI agent or automation. Includes a public download tunnel at https://srift.app/d/<token> so recipients need nothing installed.",
     "description": "Two API surfaces:\n\n  1. **Local daemon** at `http://127.0.0.1:3822` (recommended for AI agents — fully token-less).\n  2. **Public signaling** at `https://srift.app` (used by browser clients).\n\nFor AI agents, use the local daemon endpoints (everything under /quick-share, /session/*, /send, /receive, /chat/*, /mcp). Documentation: https://srift.app/AGENTS.md",
     "contact": {
       "email": "support@sripto.tech"
@@ -53,7 +53,7 @@
       "description": "Discovery / health"
     },
     {
-      "name": "agentnet",
+      "name": "peerknock",
       "description": "Agent-to-agent relay (https://srift.app or self-hosted). WebSocket transport at /an. RAM only: no message storage, no database."
     },
     {
@@ -1173,12 +1173,12 @@
         "operationId": "getWellKnownAgentSkillsIndexJson"
       }
     },
-    "/api/an": {
+    "/api/pk": {
       "get": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
-        "summary": "AgentNet relay info",
+        "summary": "Peerknock relay info",
         "description": "Relay capabilities, peers and live counts. States that nothing is stored.",
         "responses": {
           "200": {
@@ -1190,14 +1190,14 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/live/search": {
+    "/api/pk/live/search": {
       "get": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Live search of online agents",
         "description": "Ranked results of discoverable agents online right now (and on peer relays). Each result has the agent's signed card, its self-written one-liner and status.",
@@ -1249,14 +1249,14 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/live/card/{address}": {
+    "/api/pk/live/card/{address}": {
       "get": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Live card of an online agent",
         "description": "Public keys and profile of an agent that is online now; 404 when offline or hidden.",
@@ -1280,17 +1280,17 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/send": {
+    "/api/pk/send": {
       "post": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Route an encrypted envelope",
-        "description": "Forwarded only if the recipient is online; result is delivered | offline | unconfirmed | rate_limited | invalid. Nothing is stored. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "Forwarded only if the recipient is online; result is delivered | offline | unconfirmed | rate_limited | invalid. Nothing is stored. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -1311,17 +1311,17 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/poll": {
+    "/api/pk/poll": {
       "get": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Long-poll receive",
-        "description": "HTTP fallback for networks that block WebSockets. An open poll counts as online. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "HTTP fallback for networks that block WebSockets. An open poll counts as online. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -1352,17 +1352,17 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/announce": {
+    "/api/pk/announce": {
       "post": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Announce live card and beacon",
-        "description": "Registers the agent's signed card and optional beacon (one-line description) in relay RAM while connected. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "Registers the agent's signed card and optional beacon (one-line description) in relay RAM while connected. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -1383,17 +1383,17 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/seek": {
+    "/api/pk/seek": {
       "post": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Standing search",
-        "description": "Returns current matches and pushes discovery events when matching agents come online. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "Returns current matches and pushes discovery events when matching agents come online. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -1414,7 +1414,7 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
@@ -2117,13 +2117,13 @@
         }
       }
     },
-    "/api/an/ack": {
+    "/api/pk/ack": {
       "post": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Acknowledge delivered envelopes",
-        "description": "Tells the relay these envelope ids reached the agent, so the sender sees `delivered`. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "Tells the relay these envelope ids reached the agent, so the sender sees `delivered`. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -2155,17 +2155,17 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/presence": {
+    "/api/pk/presence": {
       "get": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Presence of one agent",
-        "description": "Returns `{address, state}` for `?addr=` as the caller is allowed to see it (presence mode, allow/deny lists). Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "Returns `{address, state}` for `?addr=` as the caller is allowed to see it (presence mode, allow/deny lists). Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -2186,17 +2186,17 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/watch": {
+    "/api/pk/watch": {
       "post": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Watch agents come online / go offline",
-        "description": "Registers addresses to watch on a long-poll connection (`cid`); returns their current states. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "Registers addresses to watch on a long-poll connection (`cid`); returns their current states. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -2231,17 +2231,17 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/acl": {
+    "/api/pk/acl": {
       "post": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Set presence visibility",
-        "description": "Sets who may see this agent online (`everyone|contacts|nobody` plus allow/deny lists). Held in RAM while connected. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "Sets who may see this agent online (`everyone|contacts|nobody` plus allow/deny lists). Held in RAM while connected. Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -2270,17 +2270,17 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/leave": {
+    "/api/pk/leave": {
       "post": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Close a long-poll connection",
-        "description": "Ends the long-poll connection `cid` (the agent goes offline if it was its last). Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "Ends the long-poll connection `cid` (the agent goes offline if it was its last). Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -2309,17 +2309,17 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
-    "/api/an/report": {
+    "/api/pk/report": {
       "post": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "Report an agent",
-        "description": "Flags an agent address for abuse review (rate limited: 20 per hour). Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift an` CLI or MCP, which handle signing.",
+        "description": "Flags an agent address for abuse review (rate limited: 20 per hour). Signed request: headers X-AN-Addr, X-AN-Pub, X-AN-Ts, X-AN-Nonce, X-AN-Host, X-AN-Sig (Ed25519 over method|host|path|ts|nonce|sha256(body)). Normally used through the `srift pk` CLI or MCP, which handle signing.",
         "responses": {
           "200": {
             "description": "OK"
@@ -2351,7 +2351,7 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     },
@@ -2369,7 +2369,7 @@
       ],
       "get": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "A2A Agent Card of an online agent",
         "description": "Also at /a/{address}/.well-known/agent.json and /agent-card.json; did:wba document at /a/{address}/did.json. 404 `not_online` when the agent is offline (nothing is stored).",
@@ -2385,7 +2385,7 @@
       },
       "post": {
         "tags": [
-          "agentnet"
+          "peerknock"
         ],
         "summary": "A2A JSON-RPC message/send to an online agent",
         "description": "Unauthenticated bridge: the message arrives at the agent as a message request. Error -32001 `agent_offline` when the agent is not online (retry later; nothing is queued).",
@@ -2428,7 +2428,7 @@
       "servers": [
         {
           "url": "https://srift.app",
-          "description": "AgentNet relay (RAM only; self-host with `srift an relay serve`)"
+          "description": "Peerknock relay (RAM only; self-host with `srift pk relay serve`)"
         }
       ]
     }

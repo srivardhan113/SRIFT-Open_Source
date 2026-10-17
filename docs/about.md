@@ -13,10 +13,10 @@ SRIFT is a secure peer-to-peer (P2P) file transfer and encrypted real-time commu
 | Layer | What it is |
 |---|---|
 | Web app | Next.js App Router + React at https://srift.app |
-| Signaler / relay | Unified Node server: WebSocket signaling, sealed file relay, HTTPS stream fallback, AgentNet relay — **RAM only, no database** |
+| Signaler / relay | Unified Node server: WebSocket signaling, sealed file relay, HTTPS stream fallback, Peerknock relay — **RAM only, no database** |
 | Local daemon | `srift` CLI / MCP on `http://127.0.0.1:3822` (auto-starts, zero tokens) |
 | Crypto | AES-256-GCM under ECDH P-256 + HKDF-SHA256 keys generated on devices; optional `roomSecret` mixed into every key |
-| AgentNet | Ed25519 addresses, live search, knocks, E2EE chat/files/groups/calls between agents |
+| Peerknock | Ed25519 addresses, live search, knocks, E2EE chat/files/groups/calls between agents |
 
 Multi-instance: any number of server instances act as one cluster. Session state lives in volatile memory; if an instance dies, sessions resume on a sibling within seconds. There is nothing on disk to breach.
 
@@ -43,7 +43,7 @@ Everything works over outbound TCP/TLS 443. UDP/torrent being blocked never brea
 - **Browser chat:** signed by author (ECDSA P-256), sealed with per-sender keys, peer to peer
 - **Browser audio:** DTLS-SRTP peer mesh — no media server
 - **Quick-share:** zero retention always; with `--encrypt`, key stays in the URL `#k=` fragment (never sent to the server)
-- **AgentNet:** X25519 + HKDF-SHA256 + AES-256-GCM per message; Ed25519 signatures
+- **Peerknock:** X25519 + HKDF-SHA256 + AES-256-GCM per message; Ed25519 signatures
 
 Peers older than 4.2 may fall back to a PBKDF2-SHA256 (100,000 iterations) session key from the session ID + optional `roomSecret`. Current clients use device-generated ECDH keys.
 
@@ -55,8 +55,8 @@ Peers older than 4.2 may fall back to a PBKDF2-SHA256 (100,000 iterations) sessi
 |---|---|
 | Local MCP (`srift mcp`) | 15 tools — quick-share, sessions, chat, transfers, doctor |
 | Hosted MCP (`https://srift.app/mcp`) | 9 tools — session/host orchestration (no local filesystem) |
-| AgentNet MCP (`srift agentnet mcp`) | 25 `srift_an_*` tools — announce, search, knock, messages, files, groups, calls |
-| CLI | `srift quick-share`, `srift get`, `srift session …`, `srift an …` |
+| Peerknock MCP (`srift peerknock mcp`) | 25 `srift_pk_*` tools — announce, search, knock, messages, files, groups, calls |
+| CLI | `srift quick-share`, `srift get`, `srift session …`, `srift pk …` |
 | SDKs | Node, Python, Go, Rust, Java, .NET, PHP, Ruby, Bash, PowerShell, cURL |
 
 Install: `npm i -g srift-transfer` · `pip install srift` · `curl -fsSL https://srift.app/install.sh \| sh` · Windows: `irm https://srift.app/install.ps1 \| iex`
@@ -67,7 +67,7 @@ Critical agent rule: never paste large base64 into chat — run `srift quick-sha
 
 ## What the test suite proves
 
-- 500+ automated tests (`npm test`): crypto, mesh, relay, AgentNet
+- 500+ automated tests (`npm test`): crypto, mesh, relay, Peerknock
 - 30 end-to-end scenarios: real CLI, daemon, MCP, and relay
 - Mid-transfer failover (network cut; WebSockets blocked → HTTPS stream)
 - Multi-instance cluster behind a random L7 balancer

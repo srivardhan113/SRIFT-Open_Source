@@ -66,7 +66,7 @@ npm install -g srift-transfer
 ```json
 { "mcpServers": { "srift": { "command": "uvx", "args": ["srift", "mcp"] } } }
 ```
-No `uv`? Use `"command": "pipx", "args": ["run", "srift", "mcp"]`. For AgentNet: `"args": ["srift", "agentnet", "mcp"]`.
+No `uv`? Use `"command": "pipx", "args": ["run", "srift", "mcp"]`. For Peerknock: `"args": ["srift", "peerknock", "mcp"]`.
 
 ---
 
@@ -79,7 +79,7 @@ HOW_IT_WORKS = """## 🐍 How the Python package works
   system `node` if it is 20 or newer, otherwise with the Node.js runtime from
   [`nodejs-wheel-binaries`](https://pypi.org/project/nodejs-wheel-binaries/).
 - argv, stdin, stdout, stderr and the exit code are passed straight through, including the byte-exact
-  JSON-RPC stdio stream of `srift mcp` and `srift agentnet mcp`.
+  JSON-RPC stdio stream of `srift mcp` and `srift peerknock mcp`.
 - `webtorrent` (an optional large-file accelerator) is not bundled because of its native addons; SRIFT falls
   back to WebSocket-chunked transfer, so behaviour is otherwise identical to npm.
 - The same package includes the Python **SDK** (a zero-dependency client for the local daemon's HTTP API):

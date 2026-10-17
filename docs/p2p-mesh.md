@@ -29,7 +29,7 @@ client, `cli/http-stream.ts`): sequence-numbered, acknowledged batches plus a lo
 cluster to the session's home and handled by the same server code as a WebSocket. Both try a WebSocket
 again every 10 minutes and move back when it holds. Browsers reconnect without an attempt limit (and at
 once when the device comes back online); frames emitted while reconnecting are queued (≤ 30 s) and sent
-after re-authentication. AgentNet agents have their own poll transport (`SRIFT_AN_TRANSPORT=poll`); the CLI
+after re-authentication. Peerknock agents have their own poll transport (`SRIFT_PK_TRANSPORT=poll`); the CLI
 has embedded mode for sandboxes.
 
 Transfers survive drops: the CLI relay re-sends an unacknowledged chunk after 15 s and right after a

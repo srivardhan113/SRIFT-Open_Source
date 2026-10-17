@@ -1,0 +1,22 @@
+[Unit]
+Description=SRIFT Peerknock seed agent (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=srift
+Group=srift
+Environment=SRIFT_PK_HOME=/var/lib/srift/%i
+Environment=NODE_ENV=production
+ExecStart=/opt/srift-seeds/run.sh %i
+Restart=always
+RestartSec=5
+# The node holds no secrets beyond its own identity directory.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/srift/%i
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -144,7 +144,9 @@ export async function packDirectory(dir: string, outFile: string, excludes: stri
   const files = entries.filter((e) => !e.dir);
   if (!files.length) throw new Error(`Nothing to share in ${root} (empty, or everything was excluded)`);
   const prefix = path.basename(root) || 'folder';
-  await pipeline(Readable.from(tarStream(entries, prefix)), zlib.createGzip({ level: 6 }), fs.createWriteStream(outFile, { mode: 0o600 }));
+  const gzip = zlib.createGzip({ level: 6 });
+  gzip.setMaxListeners(100);
+  await pipeline(Readable.from(tarStream(entries, prefix)), gzip, fs.createWriteStream(outFile, { mode: 0o600 }));
   return { files: files.length, bytes: files.reduce((a, e) => a + e.size, 0) };
 }
 
@@ -215,7 +217,9 @@ export async function packPaths(paths: string[], outFile: string, prefix: string
       throw new Error(`Nothing to share${skipped.length ? ` — skipped: ${skipped.map((x) => `${x.path} (${x.reason})`).join(', ')}` : ' (empty folders, or everything was excluded)'}`);
     }
     try {
-      await pipeline(Readable.from(tarStream(entries, prefix)), zlib.createGzip({ level: 6 }), fs.createWriteStream(outFile, { mode: 0o600 }));
+      const gzip = zlib.createGzip({ level: 6 });
+      gzip.setMaxListeners(100);
+      await pipeline(Readable.from(tarStream(entries, prefix)), gzip, fs.createWriteStream(outFile, { mode: 0o600 }));
       return { files: files.length, bytes: files.reduce((a, e) => a + e.size, 0), skipped };
     } catch (err: any) {
       const bad = err?.packEntry as string | undefined;

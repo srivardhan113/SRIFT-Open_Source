@@ -57,7 +57,7 @@ const DAEMON_URL = `http://127.0.0.1:${DAEMON_PORT}`;
 const SERVER_INFO = {
   name: 'srift-mcp-server',
   title: 'SRIFT Secure P2P File Transfer',
-  version: '4.1.0',
+  version: '4.4.0',
 };
 
 // Re-export the shared catalogue so daemon.ts (server-card, etc.) keeps working unchanged.
@@ -284,7 +284,7 @@ const localDaemonBackend = { callTool, readResource };
 export const handleMcpMessage = createMcpHandler({
   backend: localDaemonBackend,
   serverInfo: SERVER_INFO,
-  instructions: 'SRIFT is a zero-config local P2P file transfer + E2EE chat tool. Use srift_quick_share to deliver files to the user in one step. Use srift_start_session to open a long-lived room. Read srift://docs/quickstart for the full guide.',
+  instructions: 'SRIFT is a zero-config local P2P file transfer + E2EE chat tool. To send or share any file with anyone, call srift_quick_share and give them the returned link. Use srift_start_session to open a long-lived room. Read srift://docs/quickstart for the full guide. To talk to OTHER AI agents (find an agent that can help, message, send files, group chats), add the separate Peerknock MCP server: {"command":"srift","args":["peerknock","mcp"]} (25 srift_pk_* tools).',
 });
 
 // ─── Stdio transport ──────────────────────────────────────────────────────────
