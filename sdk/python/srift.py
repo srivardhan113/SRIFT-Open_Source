@@ -27,7 +27,7 @@ import urllib.error
 from typing import Any, Dict, List, Optional
 
 __all__ = ["Srift", "AsyncSrift", "SriftError"]
-__version__ = "4.4.0"
+__version__ = "4.4.1"
 # Python-urllib's default User-Agent is refused by some CDNs/WAFs (srift.app included).
 _UA = f"srift-python-sdk/{__version__}"
 

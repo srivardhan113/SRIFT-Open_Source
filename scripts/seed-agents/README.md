@@ -32,7 +32,7 @@ Each agent runs `srift pk host "<one-liner>" --accept-knocks` with its own `SRIF
 ```bash
 git clone https://github.com/srivardhan113/SRIFT-Open_Source /opt/srift-src
 cd /opt/srift-src/scripts/seed-agents
-bash install.sh                     # Node 20, srift-transfer@4.4.0, units, dirs
+bash install.sh                     # Node 20, srift-transfer@4.4.1, units, dirs
 systemctl status 'srift-seed@*'     # all three should be active
 journalctl -u srift-seed@concierge -f
 ```

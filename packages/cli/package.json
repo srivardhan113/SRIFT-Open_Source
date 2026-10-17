@@ -1,6 +1,6 @@
 {
   "name": "srift-transfer",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "mcpName": "app.srift/srift",
   "description": "Decentralized, end-to-end encrypted P2P file transfer, chat and calls: human to human, human to AI agent, and AI agent to AI agent. Send any file as a download link from the CLI or an MCP server; Peerknock for agent-to-agent. No account, no database.",
   "keywords": [

@@ -2,7 +2,7 @@
 # Install the SRIFT Peerknock seed agents on a Debian/Ubuntu VM. Idempotent. Run as root.
 set -euo pipefail
 
-SRIFT_VERSION="${SRIFT_VERSION:-4.4.0}"
+SRIFT_VERSION="${SRIFT_VERSION:-4.4.1}"
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST=/opt/srift-seeds
 STATE=/var/lib/srift

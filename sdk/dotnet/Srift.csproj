@@ -11,7 +11,7 @@
 
   <PropertyGroup>
     <PackageId>Srift</PackageId>
-    <Version>4.4.0</Version>
+    <Version>4.4.1</Version>
     <Authors>SRIFT</Authors>
     <Company>SRIFT contributors</Company>
     <Description>Zero-dependency .NET client for the local SRIFT daemon: P2P E2EE file transfer, session lifecycle, and chat.</Description>

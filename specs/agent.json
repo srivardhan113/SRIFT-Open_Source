@@ -19,7 +19,7 @@
   "url": "https://srift.app",
   "preferredTransport": "MCP",
   "documentationUrl": "https://srift.app/ai-agents",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "provider": {
     "organization": "SRIFT open-source project (MIT)",
     "url": "https://srift.app"

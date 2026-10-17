@@ -4,7 +4,7 @@ Everything needed to publish, list, and verify SRIFT across npm, the MCP
 registry, and the agent directories. Written so a cold session can pick this up
 with no prior context.
 
-**Last verified:** 2026-10-06 · npm `4.3.2` · PyPI `srift` `4.3.2` · MCP registry `app.srift/srift` `4.3.2` · srift.app `4.3.2`
+**Last verified:** 2026-10-17 · npm `4.4.0` · PyPI `srift` `4.4.0` · MCP registry `app.srift/srift` `4.4.0` · srift.app `4.4.0` · GitHub release `v4.4.0`
 
 Every directory, marketplace and skill index SRIFT can be listed on, with exact submission steps and status, is tracked in `docs/GROWTH-PLAN.md` §8 (audited 2026-10-17).
 
@@ -23,26 +23,34 @@ Publish order for a new version:
 
 | Surface | Value | Status |
 |---|---|---|
-| npm package | [**`srift-transfer`**](https://www.npmjs.com/package/srift-transfer) | ✅ published `4.3.2` |
-| CLI command | **`srift`** (bin name ≠ package name) | ✅ |
-| Website / API | https://srift.app | ✅ `4.3.2` |
+| npm package | [**`srift-transfer`**](https://www.npmjs.com/package/srift-transfer) | ✅ `4.4.0` (2026-10-17) |
+| CLI command | **`srift`** (bin name ≠ package name); agent layer `srift peerknock` / `srift pk` | ✅ |
+| Website / API | https://srift.app | ✅ `4.4.0` (Cloud Build trigger on `main`) |
 | Hosted MCP | `POST https://srift.app/mcp` | ✅ 9 tools |
-| Local MCP | `srift mcp` (stdio) | ✅ 15 tools |
-| GitHub | `SRIPTO-Tech/srift-website` (private) | ✅ |
-| Open-source mirror | `srivardhan113/SRIFT-Open_Source` | ✅ docs synced |
-| MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ **published 4.3.2** (isLatest) |
-| PyPI | [`srift`](https://pypi.org/project/srift/) (CLI + MCP via bundled Node.js) | ✅ `4.3.2` |
-| Python SDK | included in PyPI `srift` (`from srift import Srift`) | ✅ |
-| Scoop | [`srivardhan113/scoop-srift`](https://github.com/srivardhan113/scoop-srift) | ✅ `4.3.2` |
-| Homebrew | [`srivardhan113/homebrew-srift`](https://github.com/srivardhan113/homebrew-srift) | ✅ `4.3.2` |
-| winget | `SRIFT.Srift` | ⏳ manifest ready — PR against `microsoft/winget-pkgs` |
-| AUR | `srift` | ⏳ PKGBUILD ready — needs AUR SSH push |
-| Other library SDKs | npm `srift`, crates, Maven, NuGet, Packagist, RubyGems | ⏳ registry tokens / account setup still required; direct download from `srift.app/sdk/` works |
-| Smithery | `srift/srift` | ✅ live ([page](https://smithery.ai/servers/srift/srift)) |
-| GitHub topics | 18 topics on the public mirror | ✅ |
-| Glama | [connector](https://glama.ai/mcp/connectors/app.srift/srift) · [server](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source) | ✅ live |
-| Claude Code plugin | self-contained `plugin/` folder (`srift` `4.3.2`; claude.ai directory: plugin path `plugin`) | ✅ local MCP (npm or PyPI), hosted `/mcp`, Peerknock MCP, SDK skill — re-validate the claude.ai submission |
-| awesome-mcp-servers | prior PRs closed unmerged — reopen/resubmit | ⏳ |
+| Local MCP | `srift mcp` (stdio) · `srift peerknock mcp` (25 `srift_pk_*` tools) | ✅ 15 + 25 tools |
+| GitHub | `SRIPTO-Tech/srift-website` (private) | ✅ release `v4.4.0` published; `srift.mcpb` attached by the workflow |
+| Open-source mirror | `srivardhan113/SRIFT-Open_Source` | ✅ synced by `node scripts/sync-mirror.mjs` (docs, specs, packaging, SDKs, CLI, plugin, skills; never lib/, app/, server.mjs, tests, secrets); licence detected as MIT |
+| MCP registry | [`app.srift/srift`](https://registry.modelcontextprotocol.io/v0/servers?search=srift) | ✅ `4.4.0` isLatest (publish only after npm has the version) |
+| PyPI | [`srift`](https://pypi.org/project/srift/) (CLI + MCP via bundled Node.js, Python SDK) | ✅ `4.4.0` (`python packages/pypi/build.py` + twine; the workflow's trusted-publisher job fails at checkout) |
+| Homebrew tap | [`srivardhan113/homebrew-srift`](https://github.com/srivardhan113/homebrew-srift) | ✅ `4.4.0` (pushed by git; hash = sha256 of the npm tarball) |
+| Scoop bucket | [`srivardhan113/scoop-srift`](https://github.com/srivardhan113/scoop-srift) | ✅ `4.4.0` (hash = sha256 of `/dl/4.4.0/win-x64/srift.exe`) |
+| winget | `SRIFT.Srift` | ✅ 4.3.2 merged · ⏳ 4.4.0 = PR [microsoft/winget-pkgs#454765](https://github.com/microsoft/winget-pkgs/pull/454765) |
+| Claude Code plugin | `plugin/` (`.claude-plugin/plugin.json`, `.mcp.json`, 6 skills) · ZIP via `node packaging/claude-plugin/build.mjs` · marketplace: `/plugin install srift --marketplace srivardhan113/SRIFT-Open_Source` | ✅ validates; directory submission is owner-side (claude.ai/directory/manage) |
+| Agent Plugins layout (Cursor, Codex, OpenAI) | repo-root `plugin.json` + `mcp.json` + `skills/`; `plugin/plugin.json` + `plugin/mcp.json`; `.agents/plugins/marketplace.json`; OpenAI ZIP via `node packaging/openai-plugin/build.mjs` | ✅ files; OpenAI portal submission owner-side |
+| Cursor Directory | [cursor.directory/plugins/srift](https://cursor.directory/plugins/srift) | ⏳ listed 2026-10-17, public once their security scan finishes |
+| ClawHub (OpenClaw) | `srift-quick-share`, `srift-peerknock` (from `clawhub/`) | ⏳ submitted 2026-10-17, pending security scans |
+| skills.cat | repo submitted (18 skills) | ⏳ processing |
+| skills.sh | `.agents/skills/` + root `skills/`; `npx skills add srivardhan113/SRIFT-Open_Source` run once | ⏳ appears after their index |
+| mcpservers.org | submitted (free, Communication, registry name `app.srift/srift`) | ⏳ review ≤ 2 weeks |
+| Docker MCP Catalog | PR [docker/mcp-registry#5800](https://github.com/docker/mcp-registry/pull/5800) (`servers/srift`, remote) | ⏳ Docker review |
+| awesome-mcp-servers | PR [punkpeye#15388](https://github.com/punkpeye/awesome-mcp-servers/pull/15388) (labels green, maintainer nudged) | ⏳ merge |
+| awesome-remote-mcp-servers | PR [jaw9c#1418](https://github.com/jaw9c/awesome-remote-mcp-servers/pull/1418) | ⏳ merge |
+| Smithery | [`srift/srift`](https://smithery.ai/servers/srift/srift) | ✅ live, score 98, description updated 2026-10-17 (verified badge = paid plan, deferred) |
+| Glama | [connector](https://glama.ai/mcp/connectors/app.srift/srift) · [server](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source) · `glama.json` maintainers | ✅ live, quality A |
+| AUR | `srift` (`packaging/aur`, real sha256) | ⏳ needs the owner's AUR SSH push |
+| Other library SDKs | crates, Maven, NuGet, Packagist, RubyGems | ⏳ workflow jobs exist but skip until the seven repo secrets are added (owner); direct download from `srift.app/sdk/` works |
+| Deferred by owner decision (2026-10-17) | mcp.so ($39), LobeHub (repo+workflow scopes), skillsdirectory and AlternativeTo (new accounts), Perplexity (email-only), Smithery verified badge (paid) | ⏸ ignore for now |
+| Search engines | Google Search Console (DNS-verified) · Bing Webmaster (not verified → IndexNow 403) · `/news-sitemap.xml` | ⏳ Bing verification owner-side |
 
 ### Known drift to fix
 
@@ -187,7 +195,13 @@ who finds the listing hits a 404 install.
 
 ## 4. Agent directories
 
-Do these after npm + MCP registry are live.
+Do these after npm + MCP registry are live. Status of every directory (done / pending / deferred) lives in `docs/GROWTH-PLAN.md` §0a and §8; the notes below are the how-to.
+
+### ClawHub (OpenClaw)
+`npm i -g clawhub`, `clawhub login` (GitHub device flow, read-only scopes), then `clawhub skill publish ./clawhub/srift-quick-share --slug srift-quick-share --name "SRIFT Quick Share" --version <ver>` and the same for `./clawhub/srift-peerknock`. Releases are held until the ClawHub security scans pass. ClawHub applies MIT-0 to published skill text.
+
+### skills.cat / skills.sh / cursor.directory / mcpservers.org
+`npx -y skillscat login` then `npx -y skillscat submit https://github.com/srivardhan113/SRIFT-Open_Source` · `npx skills add srivardhan113/SRIFT-Open_Source` once (registers on skills.sh; the repo root carries `skills/` for it) · cursor.directory/plugins/new scans the repo ROOT for `plugin.json`, `mcp.json`, `skills/` (all generated at the root) · mcpservers.org/submit (free plan, registry name `app.srift/srift`).
 
 ### Smithery — biggest source of MCP installs
 [smithery.ai/new](https://smithery.ai/new) → sign in with GitHub → point at the
@@ -198,11 +212,10 @@ repo. Reads `server.json`. Repo must be public or granted access.
 public GitHub repos with MCP metadata; submitting just accelerates it.
 
 ### awesome-mcp-servers
-Fork [punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers),
-add one alphabetical line under the file-management section, open a PR:
+PR #15388 is open from the fork `srivardhan113/awesome-mcp-servers` (branch `add-srift-4.3.0`, entry under File Systems with emoji tags and both Glama badges; labels has-emoji / has-glama / valid-name are green). Current line:
 
 ```markdown
-- [srift-transfer](https://github.com/srivardhan113/SRIFT-Open_Source) - Secure P2P file transfer and encrypted chat. Zero accounts, hosted endpoint at srift.app/mcp.
+- [srivardhan113/SRIFT-Open_Source](https://github.com/srivardhan113/SRIFT-Open_Source) [badges…] 📇 ☁️ 🏠 🍎 🪟 🐧 - Decentralized, end-to-end encrypted (AES-256-GCM) peer-to-peer file transfer, chat and agent-to-agent messaging: send files as download links, no accounts, no database; hosted endpoint at https://srift.app/mcp.
 ```
 
 ### GitHub topics
@@ -313,13 +326,20 @@ curl -fLOJ "https://srift.app/d/<token>"
 
 ---
 
-## 8. Remaining work
+## 8. Remaining work (as of 2026-10-17)
 
-1. ~~Publish npm / PyPI / MCP~~ ✅ `4.3.2`
-2. ~~Scoop + Homebrew taps~~ ✅ live
-3. **winget** — submit `packaging/winget/manifests/.../4.3.2` via `wingetcreate` / PR to `microsoft/winget-pkgs`
-4. **AUR** — push `packaging/aur` with AUR SSH (`ssh://aur@aur.archlinux.org/srift.git`)
-5. **Library SDKs** — publish when registry tokens exist (crates / NuGet / RubyGems / Packagist / npm `srift` if name allowed; else keep `srift.app/sdk/` downloads)
-6. **awesome-mcp-servers** — reopen PR (earlier PRs closed unmerged)
-7. Google Search Console — set `GOOGLE_VERIFICATION_CODE` if desired
-8. Backlinks: Show HN, Product Hunt, r/selfhosted, AlternativeTo
+Done this release: npm / PyPI / MCP registry / srift.app / GitHub release / Homebrew tap / Scoop bucket at 4.4.0; winget PR #454765; Docker catalog PR #5800; awesome-mcp-servers PR #15388 (labels green) and awesome-remote-mcp-servers PR #1418 open; ClawHub, skills.cat, skills.sh, cursor.directory, mcpservers.org submitted; Smithery description updated; release-distribution workflow made valid. Full per-surface tracker: `docs/GROWTH-PLAN.md` §0a and §8.
+
+Owner-only, in order:
+1. **Repo secrets** (CARGO_REGISTRY_TOKEN, RUBYGEMS_API_KEY, NUGET_API_KEY, PACKAGIST_API_TOKEN, WINGET_GITHUB_TOKEN, HOMEBREW_TAP_TOKEN, SCOOP_TAP_TOKEN) so the next GitHub release publishes crates / RubyGems / NuGet / Packagist / winget / taps by itself. Deferred by the owner for now; taps and winget were done by hand this time.
+2. **AUR**: push `packaging/aur` with the AUR SSH key (`ssh://aur@aur.archlinux.org/srift.git`, regenerate `.SRCINFO`).
+3. **Anthropic directory**: claude.ai/directory/manage, MCP connector (`https://srift.app/mcp`), then Plugin bundle (repo path `plugin`). Copy in `docs/GROWTH-PLAN.md` §6.
+4. **OpenAI plugin directory**: `node packaging/openai-plugin/build.mjs`, upload the ZIP; identity verification; challenge token at `/.well-known/openai-apps-challenge`; test prompts and demo video (`packaging/openai-plugin/README.md`).
+5. **Cline marketplace**: test the install inside Cline once, then the submission issue (logo at `https://srift.app/Favicon/srift-400.png`, `llms-install.md`).
+6. **GitHub MCP Registry / VS Code gallery**: one email to partnerships@github.com.
+7. **Bing Webmaster Tools** verification, then `node scripts/indexnow-submit.mjs`; Google Search Console sitemap resubmit.
+8. **Seed agents** (`scripts/seed-agents`, small VM), demo video, Show HN, Product Hunt, newsletters (`docs/GROWTH-PLAN.md` §9).
+
+Deferred (owner decision 2026-10-17, ignore until revisited): mcp.so ($39), LobeHub (needs repo + workflow GitHub scopes), skillsdirectory and AlternativeTo (need new accounts), Perplexity (email-only), Smithery verified badge (paid plan).
+
+Per-release checklist (what 4.4.0 taught): deploy srift.app first (binaries at `/dl/<ver>/`), then npm (`cd packages/cli && npm run build && npm publish`; npm may take a minute to show the version), then PyPI (`python packages/pypi/build.py` + twine), then `mcp-publisher publish`, then the GitHub release `v<ver>`. After the binaries exist, **recompute the hashes** in `packaging/homebrew/srift.rb` (npm tarball), `packaging/scoop/srift.json` and `packaging/winget/.../<ver>/` (win-x64 exe): `scripts/sync-version.mjs` only bumps the version strings and leaves the previous hashes in place. Then `node scripts/sync-mirror.mjs` and push the mirror.

@@ -1,6 +1,6 @@
 {
   "$comment": "SRIFT daemon ↔ SDK compatibility matrix. Machine-readable. Updated on every release.",
-  "daemon": "4.4.0",
+  "daemon": "4.4.1",
   "minSdkMajor": 2,
   "minSdkMinor": 0,
   "deprecatedSdks": ["1.x"],
@@ -32,15 +32,15 @@
     },
     "selfUpdate": "srift self-update",
     "targets": {
-      "linux-x64":    "https://srift.app/dl/4.4.0/linux-x64/srift",
-      "linux-arm64":  "https://srift.app/dl/4.4.0/linux-arm64/srift",
-      "linux-x64-musl":   "https://srift.app/dl/4.4.0/linux-x64-musl/srift",
-      "linux-arm64-musl": "https://srift.app/dl/4.4.0/linux-arm64-musl/srift",
-      "darwin-x64":   "https://srift.app/dl/4.4.0/darwin-x64/srift",
-      "darwin-arm64": "https://srift.app/dl/4.4.0/darwin-arm64/srift",
-      "win-x64":      "https://srift.app/dl/4.4.0/win-x64/srift.exe"
+      "linux-x64":    "https://srift.app/dl/4.4.1/linux-x64/srift",
+      "linux-arm64":  "https://srift.app/dl/4.4.1/linux-arm64/srift",
+      "linux-x64-musl":   "https://srift.app/dl/4.4.1/linux-x64-musl/srift",
+      "linux-arm64-musl": "https://srift.app/dl/4.4.1/linux-arm64-musl/srift",
+      "darwin-x64":   "https://srift.app/dl/4.4.1/darwin-x64/srift",
+      "darwin-arm64": "https://srift.app/dl/4.4.1/darwin-arm64/srift",
+      "win-x64":      "https://srift.app/dl/4.4.1/win-x64/srift.exe"
     },
-    "checksums": "https://srift.app/dl/4.4.0/SHA256SUMS",
+    "checksums": "https://srift.app/dl/4.4.1/SHA256SUMS",
     "runtime": "standalone (bun-compiled, no Node.js required on end-user machine)"
   },
   "versionCheckUrls": {

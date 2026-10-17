@@ -21,7 +21,7 @@ use std::env;
 const DEFAULT_BASE: &str = "http://127.0.0.1:3822";
 
 /// SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
-pub const VERSION: &str = "4.4.0";
+pub const VERSION: &str = "4.4.1";
 
 #[derive(Debug, thiserror::Error)]
 pub enum SriftError {

@@ -7,11 +7,11 @@
 #   - Docker Compose: network_mode: "service:<agent>" (see docker-compose.yml)
 # The agent then calls http://127.0.0.1:3822 (or runs `srift` itself).
 #
-#   docker build -t srift-daemon:4.4.0 integrations/docker
+#   docker build -t srift-daemon:4.4.1 integrations/docker
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:24-alpine
 
-ARG SRIFT_VERSION=4.4.0
+ARG SRIFT_VERSION=4.4.1
 RUN npm install -g "srift-transfer@${SRIFT_VERSION}" --no-audit --no-fund \
  && npm cache clean --force
 

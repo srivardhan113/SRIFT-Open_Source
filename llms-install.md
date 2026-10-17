@@ -13,7 +13,7 @@ winget install SRIFT.Srift         # Windows
 brew tap srivardhan113/srift && brew install srift   # macOS / Linux (tap)
 ```
 
-Verify: `srift --version` prints `4.4.0` (or newer).
+Verify: `srift --version` prints `4.4.1` (or newer).
 
 ## 2. Register the MCP server(s) with the client
 
@@ -35,7 +35,7 @@ No install at all (9 session tools, no filesystem access):
 { "mcpServers": { "srift-hosted": { "type": "http", "url": "https://srift.app/mcp" } } }
 ```
 
-If `srift` is not on PATH, use `npx -y srift-transfer@4.4.0 mcp` (or `uvx srift==4.4.0 mcp`) as the command.
+If `srift` is not on PATH, use `npx -y srift-transfer@4.4.1 mcp` (or `uvx srift==4.4.1 mcp`) as the command.
 
 ## 3. Nothing else is needed
 

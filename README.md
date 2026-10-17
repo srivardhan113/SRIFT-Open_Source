@@ -457,6 +457,11 @@ Direct download (no clone): every SDK file is also served at `https://srift.app/
 | Smithery | [`srift/srift`](https://smithery.ai/servers/srift/srift) |
 | Glama (connector) | [`app.srift/srift`](https://glama.ai/mcp/connectors/app.srift/srift) |
 | Glama (server) | [`SRIFT-Open_Source`](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source) |
+| PyPI | [`srift`](https://pypi.org/project/srift/) |
+| winget | `winget install SRIFT.Srift` |
+| Homebrew tap | [`srivardhan113/homebrew-srift`](https://github.com/srivardhan113/homebrew-srift) |
+| Scoop bucket | [`srivardhan113/scoop-srift`](https://github.com/srivardhan113/scoop-srift) |
+| Cursor Directory | [`cursor.directory/plugins/srift`](https://cursor.directory/plugins/srift) |
 | GitHub | [`SRIFT-Open_Source`](https://github.com/srivardhan113/SRIFT-Open_Source) |
 
 All resolve to the same product. Install `srift-transfer`; the command is `srift`.

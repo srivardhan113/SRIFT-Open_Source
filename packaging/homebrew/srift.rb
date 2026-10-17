@@ -24,7 +24,7 @@
 class Srift < Formula
   desc "Zero-config, zero-token P2P E2EE file transfer, chat, and MCP server"
   homepage "https://srift.app"
-  url "https://registry.npmjs.org/srift-transfer/-/srift-transfer-4.4.0.tgz"
+  url "https://registry.npmjs.org/srift-transfer/-/srift-transfer-4.4.1.tgz"
   sha256 "d17cb38e8ed52c387693101dc534b80651fe2c1c43652a9b77726a44a51ef958"
   license "MIT"
 

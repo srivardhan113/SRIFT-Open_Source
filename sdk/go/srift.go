@@ -25,7 +25,7 @@ import (
 const DefaultBase = "http://127.0.0.1:3822"
 
 // Version is the SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
-const Version = "4.4.0"
+const Version = "4.4.1"
 
 type Client struct {
 	BaseURL string

@@ -13,7 +13,7 @@
 SRIFT_BASE="${SRIFT_BASE_URL:-http://127.0.0.1:3822}"
 
 # SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs.
-SRIFT_SDK_VERSION="4.4.0"
+SRIFT_SDK_VERSION="4.4.1"
 
 _srift_have_jq() { command -v jq >/dev/null 2>&1; }
 
