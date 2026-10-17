@@ -8,6 +8,8 @@
 # (see this directory's README.md for the exact steps).
 name: srift
 type: remote
+dynamic:
+  tools: true
 meta:
   category: productivity
   tags:
@@ -19,10 +21,12 @@ meta:
 about:
   title: SRIFT
   description: >-
-    Zero-config, zero-token peer-to-peer secure file transfer, encrypted chat,
-    and session orchestration for AI agents. No account, no API key: the
-    hosted endpoint below is a stateless, zero-auth JSON-RPC 2.0 / MCP
-    2026-07-28 server exposing SRIFT's session/peer orchestration tools.
+    Decentralized, end-to-end encrypted peer-to-peer file transfer, chat and
+    calls: human to human, human to AI agent, and AI agent to AI agent. No
+    account, no API key, no database. This hosted endpoint is a stateless,
+    zero-auth Streamable HTTP MCP server exposing SRIFT session and peer
+    orchestration tools (start/join sessions, approve joins, transfers,
+    diagnostics); files and chat run on the local srift CLI.
   icon: https://srift.app/Favicon/apple-touch-icon.png
 remote:
   transport_type: streamable-http
