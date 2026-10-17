@@ -1,0 +1,26 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "srift": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/plugin/scripts/claude-mcp.mjs",
+        "mcp"
+      ]
+    },
+    "srift-peerknock": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${PLUGIN_ROOT}/plugin/scripts/claude-mcp.mjs",
+        "peerknock",
+        "mcp"
+      ]
+    },
+    "srift-hosted": {
+      "type": "streamable-http",
+      "url": "https://srift.app/mcp"
+    }
+  }
+}
