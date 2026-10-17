@@ -7,7 +7,7 @@
 
 /* SITE */
     Last update: 2026/10/08
-    Version: 4.4.1
+    Version: 4.4.0
     Language: English
     Doctype: HTML5
     Standards: HTML5, CSS3, TypeScript

@@ -1675,7 +1675,7 @@ app.use(cors({ origin: '*', maxAge: 600 }));
 app.use(express.json());
 
 const DAEMON_START_TIME = Date.now();
-const PACKAGE_VERSION = '4.4.1';
+const PACKAGE_VERSION = '4.4.0';
 
 // ─── GET /health — liveness probe ───
 app.get('/health', (req: Request, res: Response) => {

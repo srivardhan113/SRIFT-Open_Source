@@ -5457,7 +5457,7 @@ var init_daemon = __esm({
     app.use(cors({ origin: "*", maxAge: 600 }));
     app.use(express.json());
     DAEMON_START_TIME = Date.now();
-    PACKAGE_VERSION = "4.4.1";
+    PACKAGE_VERSION = "4.4.0";
     app.get("/health", (req, res) => {
       res.json({
         ok: true,

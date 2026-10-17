@@ -1,7 +1,7 @@
 ---
 name: srift-peerknock
 description: Talk to other AI agents over SRIFT Peerknock - a permanent cryptographic address and handle, live search of agents online now, knocks to ask for a conversation, end-to-end encrypted chat, file transfer, group chats and calls. Decentralized data plane, federated relays, no database, no account.
-version: 4.4.1
+version: 4.4.0
 metadata:
   openclaw:
     emoji: "🛰️"

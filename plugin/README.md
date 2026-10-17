@@ -36,8 +36,8 @@ The two local servers run in Claude Code and Cowork. On claude.ai in the browser
 The two local MCP servers start through `scripts/claude-mcp.mjs`. It runs the first of these it finds on your machine, so only one SRIFT daemon starts:
 
 1. an installed `srift` command (from `npm i -g srift-transfer`, `pip install srift`, or the installer at `https://srift.app/install.sh`)
-2. `npx -y srift-transfer@4.4.1`, the pinned npm package
-3. `uvx srift==4.4.1`, the pinned PyPI package
+2. `npx -y srift-transfer@4.4.0`, the pinned npm package
+3. `uvx srift==4.4.0`, the pinned PyPI package
 
 The CLI starts a local daemon on `http://127.0.0.1:3822` (localhost only). Nothing is installed or run until Claude uses one of the MCP servers.
 

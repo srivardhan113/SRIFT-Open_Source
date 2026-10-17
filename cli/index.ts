@@ -52,7 +52,7 @@ const __dirname = path.dirname(__filename);
 
 const DAEMON_PORT = parseInt(process.env.SRIFT_DAEMON_PORT || '3822', 10);
 const DAEMON_URL = `http://127.0.0.1:${DAEMON_PORT}`;
-const CLI_VERSION = '4.4.1';
+const CLI_VERSION = '4.4.0';
 
 // Parse "30s", "15m", "2h", "1d" → milliseconds. Returns 0 on invalid input.
 function parseDuration(s: string | undefined): number {

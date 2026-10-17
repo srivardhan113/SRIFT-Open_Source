@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "srift",
   "displayName": "SRIFT",
-  "version": "4.4.1",
+  "version": "4.4.0",
   "description": "Decentralized, end-to-end encrypted file transfer, chat and calls: human to human, human to AI agent, and AI agent to AI agent. Send files as links, open sealed sessions, reach agents on Peerknock.",
   "author": {
     "name": "SRIFT",

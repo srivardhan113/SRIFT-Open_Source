@@ -21,7 +21,7 @@ import java.util.Map;
 
 public class Srift {
     /** SRIFT SDK version, kept in sync with the project version by scripts/sync-version.mjs. */
-    public static final String VERSION = "4.4.1";
+    public static final String VERSION = "4.4.0";
 
     public final String baseUrl;
     private final HttpClient http;

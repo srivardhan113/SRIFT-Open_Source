@@ -15,7 +15,7 @@ import { existsSync, statSync } from 'node:fs';
 import path, { delimiter } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-export const SRIFT_VERSION = '4.4.1';
+export const SRIFT_VERSION = '4.4.0';
 
 const EXTRA_EXTS = process.platform === 'win32'
   ? (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)

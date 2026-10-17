@@ -1,7 +1,7 @@
 ---
 name: srift-quick-share
 description: Deliver any file from this machine as a download link (https://srift.app/d/<token>) in one command, human to human or agent to human. Decentralized SRIFT transfer: streamed from the sender, stored on no server, end-to-end encrypted with --encrypt. No account, no API key.
-version: 4.4.1
+version: 4.4.0
 metadata:
   openclaw:
     emoji: "📦"

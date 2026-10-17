@@ -1,6 +1,6 @@
 {
   "name": "srift/srift",
-  "version": "4.4.1",
+  "version": "4.4.0",
   "type": "library",
   "description": "Zero-dependency PHP client for the local SRIFT daemon: P2P E2EE file transfer, session lifecycle, and chat.",
   "license": "MIT",
