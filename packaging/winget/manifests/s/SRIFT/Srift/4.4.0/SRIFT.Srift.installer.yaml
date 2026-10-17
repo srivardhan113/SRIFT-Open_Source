@@ -7,7 +7,7 @@ Commands:
 Installers:
   - Architecture: x64
     InstallerUrl: https://srift.app/dl/4.4.0/win-x64/srift.exe
-    InstallerSha256: D1E04CFF254B8A7CA1E273A07420F326470805D10288604F9957FF8D574801A7
-    ReleaseDate: 2026-10-06
+    InstallerSha256: F50A21E01F2E0911FD1B43CD2AB7474684974929DDDD31258AD48BB3753DDDB7
+    ReleaseDate: 2026-10-17
 ManifestType: installer
 ManifestVersion: 1.10.0
