@@ -2130,12 +2130,14 @@ async function registerPubshare(
     pubshareRegResolvers.set(fileId, resolve);
     const startedAt = Date.now();
     // The register message shares the socket with any upload in flight, so it (and its ack) can sit behind
-    // megabytes of file data on a slow uplink. Keep waiting while the socket is still draining, up to
-    // PUBSHARE_REG_MAX_WAIT_MS; only a quiet socket that never answers is a real failure.
+    // megabytes of file data on a slow uplink: in ws's buffer (bufferedAmount) and, once handed to the OS,
+    // in TCP send buffers that bufferedAmount cannot see. Keep waiting while a link is streaming out or the
+    // socket is still draining, up to PUBSHARE_REG_MAX_WAIT_MS; only an idle socket that never answers fails.
     const check = () => {
       if (!pubshareRegResolvers.has(fileId)) return;
       const waited = Date.now() - startedAt;
-      const draining = !!wsConn && wsConn.readyState === WebSocket.OPEN && wsConn.bufferedAmount > 0;
+      const open = !!wsConn && wsConn.readyState === WebSocket.OPEN;
+      const draining = open && (wsConn!.bufferedAmount > 0 || activePulls.size > 0);
       if (draining && waited < PUBSHARE_REG_MAX_WAIT_MS) {
         setTimeout(check, 1000);
         return;

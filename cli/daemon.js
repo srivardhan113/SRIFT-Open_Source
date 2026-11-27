@@ -4824,7 +4824,8 @@ async function registerPubshare(fileId, absPath, filename, size, mime, opts = {}
     const check = () => {
       if (!pubshareRegResolvers.has(fileId)) return;
       const waited = Date.now() - startedAt;
-      const draining = !!wsConn && wsConn.readyState === WebSocket2.OPEN && wsConn.bufferedAmount > 0;
+      const open2 = !!wsConn && wsConn.readyState === WebSocket2.OPEN;
+      const draining = open2 && (wsConn.bufferedAmount > 0 || activePulls.size > 0);
       if (draining && waited < PUBSHARE_REG_MAX_WAIT_MS) {
         setTimeout(check, 1e3);
         return;
