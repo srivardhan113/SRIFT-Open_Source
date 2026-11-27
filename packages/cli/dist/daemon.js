@@ -14,7 +14,7 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// cli/net.ts
+// ../../cli/net.ts
 import http from "http";
 import https from "https";
 import net from "net";
@@ -328,7 +328,7 @@ function formatNetError(err, url) {
 }
 var CLIENT_VERSION, USER_AGENT, TunnelHttpsAgent, TunnelHttpAgent, agentCache, TLS_TRUST_CODES;
 var init_net = __esm({
-  "cli/net.ts"() {
+  "../../cli/net.ts"() {
     "use strict";
     CLIENT_VERSION = "4.4.0";
     USER_AGENT = `srift-transfer/${CLIENT_VERSION} (node ${process.versions.node}; ${process.platform})`;
@@ -371,7 +371,7 @@ var init_net = __esm({
   }
 });
 
-// cli/probe.ts
+// ../../cli/probe.ts
 import { spawn, spawnSync } from "child_process";
 import dgram from "dgram";
 import dns from "dns";
@@ -910,7 +910,7 @@ async function runDiagnostics(opts = {}) {
 }
 var CACHE_FILE, CACHE_TTL_MS, CACHE_SCHEMA;
 var init_probe = __esm({
-  "cli/probe.ts"() {
+  "../../cli/probe.ts"() {
     "use strict";
     init_net();
     CACHE_FILE = path.join(os.homedir(), ".srift", "probe.json");
@@ -919,7 +919,7 @@ var init_probe = __esm({
   }
 });
 
-// cli/e2ee.ts
+// ../../cli/e2ee.ts
 import crypto3 from "crypto";
 import fs2 from "fs";
 function b64url(buf) {
@@ -1031,7 +1031,7 @@ async function* encryptFile(filePath, fragKey, meta, opts = {}) {
 }
 var E2EE_MAGIC, E2EE_HEADER_LEN, E2EE_TAG_LEN, E2EE_DEFAULT_CHUNK, E2EE_KDF_ITERATIONS, HKDF_INFO, Decryptor;
 var init_e2ee = __esm({
-  "cli/e2ee.ts"() {
+  "../../cli/e2ee.ts"() {
     "use strict";
     E2EE_MAGIC = "SRE1";
     E2EE_HEADER_LEN = 36;
@@ -1123,7 +1123,7 @@ var init_e2ee = __esm({
   }
 });
 
-// cli/get.ts
+// ../../cli/get.ts
 import crypto4 from "crypto";
 import fs3 from "fs";
 import path2 from "path";
@@ -1577,7 +1577,7 @@ async function getLink(input, opts = {}) {
 }
 var GetError, BIDI_CONTROLS, WIN_RESERVED, STALE_PARTIAL_MS;
 var init_get = __esm({
-  "cli/get.ts"() {
+  "../../cli/get.ts"() {
     "use strict";
     init_net();
     init_e2ee();
@@ -1595,7 +1595,7 @@ var init_get = __esm({
   }
 });
 
-// cli/selftest.ts
+// ../../cli/selftest.ts
 import crypto5 from "crypto";
 import fs4 from "fs";
 import os2 from "os";
@@ -1633,13 +1633,13 @@ async function relaySelfTest(call, opts = {}) {
   }
 }
 var init_selftest = __esm({
-  "cli/selftest.ts"() {
+  "../../cli/selftest.ts"() {
     "use strict";
     init_get();
   }
 });
 
-// cli/history.ts
+// ../../cli/history.ts
 import fs5 from "fs";
 import os3 from "os";
 import path4 from "path";
@@ -1701,7 +1701,7 @@ function pruneHistory(now = Date.now()) {
 }
 var HISTORY_FILE, MAX_ENTRIES, DAY_MS;
 var init_history = __esm({
-  "cli/history.ts"() {
+  "../../cli/history.ts"() {
     "use strict";
     HISTORY_FILE = path4.join(os3.homedir(), ".srift", "history.jsonl");
     MAX_ENTRIES = 500;
@@ -1709,7 +1709,7 @@ var init_history = __esm({
   }
 });
 
-// cli/embedded.ts
+// ../../cli/embedded.ts
 function isEmbeddedDaemon() {
   return dispatch !== null;
 }
@@ -1733,14 +1733,14 @@ function embeddedCall(method, pathname, body) {
 }
 var dispatch, starting;
 var init_embedded = __esm({
-  "cli/embedded.ts"() {
+  "../../cli/embedded.ts"() {
     "use strict";
     dispatch = null;
     starting = null;
   }
 });
 
-// lib/mcp/skills-data.mjs
+// ../../lib/mcp/skills-data.mjs
 import { createHash } from "node:crypto";
 function parseFrontmatter(md) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(md);
@@ -1763,7 +1763,7 @@ function digestOf(content) {
 }
 var SOURCES, MCP_SKILLS, MCP_SKILL_FILES;
 var init_skills_data = __esm({
-  "lib/mcp/skills-data.mjs"() {
+  "../../lib/mcp/skills-data.mjs"() {
     "use strict";
     SOURCES = [
       { name: "encrypted-chat", content: "---\nname: encrypted-chat\ndescription: Send and read end-to-end encrypted chat messages and manage in-session file transfers within an active SRIFT session\n---\n\n# encrypted-chat\n\nSend and read end-to-end encrypted chat messages within an active SRIFT session, plus manage in-session file transfers, via the local MCP daemon.\n\n## Requirements\n\nAn active SRIFT session (see the `session-management` skill to open or join one first). No special credentials required.\n\n## Instructions\n\nAvailable MCP tools (see `/.well-known/mcp/server-card.json` for full schemas):\n\n- `srift_send_chat` \u2014 send an E2EE chat message to peers in the current session.\n- `srift_chat_history` \u2014 read decrypted chat history for the current session.\n- `srift_send_file` \u2014 offer a file to peers already inside the session (in-session transfer, distinct from `quick-share`'s standalone link flow).\n- `srift_accept_transfer` \u2014 accept and download an inbound file offer.\n- `srift_list_transfers` \u2014 list all active and recent transfers with progress.\n- `srift_read_state` \u2014 read the raw `.srift-state.json` snapshot for debugging/observability.\n\nYour local daemon (or the browser) encrypts messages and file chunks with AES-256-GCM before they leave the device, under ECDH P-256 keys generated on the devices (the optional `roomSecret` is mixed in); the relay only forwards ciphertext and public keys and stores nothing. Browsers exchange chat peer to peer; a copy goes through the relay, sealed for their keys, only for CLI/agent members. Peers older than 4.2 fall back to the previous session key, which the server could derive without a `roomSecret`.\n" },
@@ -1786,7 +1786,7 @@ var init_skills_data = __esm({
   }
 });
 
-// lib/mcp/core.mjs
+// ../../lib/mcp/core.mjs
 function buildPromptMessages(name, args) {
   switch (name) {
     case "send_file_to_user":
@@ -2010,7 +2010,7 @@ function createMcpHandler(opts) {
 }
 var PROTOCOL_VERSION, SUPPORTED_LEGACY_PROTOCOL_VERSIONS, LATEST_INITIALIZE_ERA_VERSION, ALL_SUPPORTED_PROTOCOL_VERSIONS, META_PROTOCOL_VERSION, META_SERVER_INFO, ERROR_UNSUPPORTED_PROTOCOL_VERSION, MCP_TOOLS, OPEN_WORLD, NOT_IDEMPOTENT, MCP_RESOURCES, MCP_PROMPTS, QUICKSTART_DOC, DEFAULT_TTL_MS;
 var init_core = __esm({
-  "lib/mcp/core.mjs"() {
+  "../../lib/mcp/core.mjs"() {
     "use strict";
     init_skills_data();
     PROTOCOL_VERSION = "2026-07-28";
@@ -2649,7 +2649,7 @@ for full file-transfer + chat capability.
   }
 });
 
-// cli/mcp.ts
+// ../../cli/mcp.ts
 import http3 from "http";
 import fs6 from "fs";
 import path5 from "path";
@@ -2888,7 +2888,7 @@ async function readResource(uri) {
 }
 var DAEMON_PORT, DAEMON_URL, SERVER_INFO, localDaemonBackend, handleMcpMessage;
 var init_mcp = __esm({
-  "cli/mcp.ts"() {
+  "../../cli/mcp.ts"() {
     "use strict";
     init_probe();
     init_selftest();
@@ -2911,7 +2911,7 @@ var init_mcp = __esm({
   }
 });
 
-// lib/e2e-keys.ts
+// ../../lib/e2e-keys.ts
 function toB64(bytes) {
   let bin = "";
   for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 32768)));
@@ -3019,7 +3019,7 @@ async function relayReceiver(sessionId, fileId, roomSecret) {
 }
 var subtle, enc, IV_LEN, PUB_LEN, saltFor, CHAT_SCHEME, RELAY_PK_SCHEME, Keyring;
 var init_e2e_keys = __esm({
-  "lib/e2e-keys.ts"() {
+  "../../lib/e2e-keys.ts"() {
     "use strict";
     subtle = () => globalThis.crypto.subtle;
     enc = new TextEncoder();
@@ -3104,13 +3104,13 @@ var init_e2e_keys = __esm({
   }
 });
 
-// lib/http-stream-client.ts
+// ../../lib/http-stream-client.ts
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 var RETRY_MAX_MS, GIVE_UP_MS, TX_BATCH_BYTES, HttpStreamSocket;
 var init_http_stream_client = __esm({
-  "lib/http-stream-client.ts"() {
+  "../../lib/http-stream-client.ts"() {
     "use strict";
     RETRY_MAX_MS = 4e3;
     GIVE_UP_MS = 3e4;
@@ -3309,11 +3309,11 @@ var init_http_stream_client = __esm({
   }
 });
 
-// cli/http-stream.ts
+// ../../cli/http-stream.ts
 import { EventEmitter } from "node:events";
 var NodeHttpStreamSocket;
 var init_http_stream = __esm({
-  "cli/http-stream.ts"() {
+  "../../cli/http-stream.ts"() {
     "use strict";
     init_http_stream_client();
     init_net();
@@ -3351,7 +3351,7 @@ var init_http_stream = __esm({
   }
 });
 
-// cli/pack.ts
+// ../../cli/pack.ts
 import fs7 from "fs";
 import path6 from "path";
 import zlib from "zlib";
@@ -3581,14 +3581,14 @@ async function mapLimit(items, limit, fn) {
 }
 var BLOCK, DEFAULT_EXCLUDES;
 var init_pack = __esm({
-  "cli/pack.ts"() {
+  "../../cli/pack.ts"() {
     "use strict";
     BLOCK = 512;
     DEFAULT_EXCLUDES = [".git", "node_modules", ".DS_Store", "Thumbs.db"];
   }
 });
 
-// cli/daemon.ts
+// ../../cli/daemon.ts
 var daemon_exports = {};
 __export(daemon_exports, {
   embeddedDispatch: () => embeddedDispatch,
@@ -4826,7 +4826,7 @@ async function registerPubshare(fileId, absPath, filename, size, mime, opts = {}
       if (!pubshareRegResolvers.has(fileId)) return;
       const waited = Date.now() - startedAt;
       const open2 = !!wsConn && wsConn.readyState === WebSocket2.OPEN;
-      const draining = open2 && (wsConn.bufferedAmount > 0 || activePulls.size > 0);
+      const draining = open2 && (wsConn.bufferedAmount > 0 || activePulls.size > 0 || Date.now() - lastPullEndedAt < PULL_TAIL_MS);
       if (draining && waited < PUBSHARE_REG_MAX_WAIT_MS) {
         setTimeout(check, 1e3);
         return;
@@ -4960,9 +4960,10 @@ async function handlePubsharePull(payload) {
       }));
       pos += len;
       seq++;
-      if (wsConn.bufferedAmount > 8 * 1024 * 1024) {
-        await new Promise((r) => setTimeout(r, 20));
-      } else if (seq % 8 === 0) {
+      while (!cancelFlag.cancelled && wsConn && wsConn.readyState === WebSocket2.OPEN && wsConn.bufferedAmount > PUBSHARE_HIGH_WATER) {
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      if (seq % 8 === 0) {
         await new Promise((r) => setImmediate(r));
       }
     }
@@ -4979,6 +4980,7 @@ async function handlePubsharePull(payload) {
     } catch {
     }
     activePulls.delete(requestId);
+    lastPullEndedAt = Date.now();
   }
   if (completedOk && isFullDownload) {
     entry.completedDownloads = (entry.completedDownloads || 0) + 1;
@@ -5262,9 +5264,9 @@ function embeddedDispatch(method, pathname, body) {
     }
   });
 }
-var _WebTorrentCtor, _webTorrentLoadError, SRIFT_HOME, EMBEDDED, STATE_PATH, logPath, DAEMON_LOG_MAX, openLog, logBytes, DAEMON_LOG_MAX_AGE_MS, pruneOldLogs, logStream, logRotating, logPending, writeLogLine, logMessage, fmtLogArg, crypto6, PORT, DEFAULT_SIGNALER_URL, activeSignalerUrl, lastDiag, session, activeTransfers, chatHistory, pendingJoins, participants, sseClients, wsConn, signalingMode, wsFailures, httpModeSince, WS_RETRY_AFTER_MS, wsUrl, csrfToken, heartbeatInterval, lastHeartbeatAckAt, encryptionKey, sessionTerminated, terminationReason, activeTorrents, wtClient, pubshares, pubsharesByToken, activePulls, pubshareRegResolvers, TEMP_DIR, TMP_CHUNK_MAX_AGE_MS, TMP_FILE_MAX_AGE_MS, KDF_ITERATIONS, IV_LEN2, RELAY_ENC, relayKeyCache, keyring, relayReceivers, relaySenders, PUBLIC_TRACKERS, STATE_STALE_MS, activeUploads, uploadKey, uploadsOf, RELAY_ACK_TIMEOUT_MS, RELAY_STALL_MS, RELAY_WINDOW, RELAY_LEGACY_CHUNK, RELAY_FAST_CHUNK, RELAY_FORMAT, RELAY_SOCKET_HIGH_BYTES, relayDownloads, partPathOf, app, LOCAL_HOSTS, DAEMON_START_TIME, PACKAGE_VERSION, PUBSHARE_REG_MAX_WAIT_MS, hostSessionInflight, MAX_MULTI_PATHS, MULTI_CONCURRENCY, embeddedReady, httpServer;
+var _WebTorrentCtor, _webTorrentLoadError, SRIFT_HOME, EMBEDDED, STATE_PATH, logPath, DAEMON_LOG_MAX, openLog, logBytes, DAEMON_LOG_MAX_AGE_MS, pruneOldLogs, logStream, logRotating, logPending, writeLogLine, logMessage, fmtLogArg, crypto6, PORT, DEFAULT_SIGNALER_URL, activeSignalerUrl, lastDiag, session, activeTransfers, chatHistory, pendingJoins, participants, sseClients, wsConn, signalingMode, wsFailures, httpModeSince, WS_RETRY_AFTER_MS, wsUrl, csrfToken, heartbeatInterval, lastHeartbeatAckAt, encryptionKey, sessionTerminated, terminationReason, activeTorrents, wtClient, pubshares, pubsharesByToken, activePulls, lastPullEndedAt, PULL_TAIL_MS, PUBSHARE_HIGH_WATER, pubshareRegResolvers, TEMP_DIR, TMP_CHUNK_MAX_AGE_MS, TMP_FILE_MAX_AGE_MS, KDF_ITERATIONS, IV_LEN2, RELAY_ENC, relayKeyCache, keyring, relayReceivers, relaySenders, PUBLIC_TRACKERS, STATE_STALE_MS, activeUploads, uploadKey, uploadsOf, RELAY_ACK_TIMEOUT_MS, RELAY_STALL_MS, RELAY_WINDOW, RELAY_LEGACY_CHUNK, RELAY_FAST_CHUNK, RELAY_FORMAT, RELAY_SOCKET_HIGH_BYTES, relayDownloads, partPathOf, app, LOCAL_HOSTS, DAEMON_START_TIME, PACKAGE_VERSION, PUBSHARE_REG_MAX_WAIT_MS, hostSessionInflight, MAX_MULTI_PATHS, MULTI_CONCURRENCY, embeddedReady, httpServer;
 var init_daemon = __esm({
-  "cli/daemon.ts"() {
+  "../../cli/daemon.ts"() {
     init_mcp();
     init_core();
     init_e2e_keys();
@@ -5404,6 +5406,9 @@ var init_daemon = __esm({
     pubshares = /* @__PURE__ */ new Map();
     pubsharesByToken = /* @__PURE__ */ new Map();
     activePulls = /* @__PURE__ */ new Map();
+    lastPullEndedAt = 0;
+    PULL_TAIL_MS = 3e4;
+    PUBSHARE_HIGH_WATER = 2 * 1024 * 1024;
     pubshareRegResolvers = /* @__PURE__ */ new Map();
     TEMP_DIR = path7.join(SRIFT_HOME, "tmp");
     if (!fs8.existsSync(TEMP_DIR)) {

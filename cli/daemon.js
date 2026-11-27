@@ -4825,7 +4825,7 @@ async function registerPubshare(fileId, absPath, filename, size, mime, opts = {}
       if (!pubshareRegResolvers.has(fileId)) return;
       const waited = Date.now() - startedAt;
       const open2 = !!wsConn && wsConn.readyState === WebSocket2.OPEN;
-      const draining = open2 && (wsConn.bufferedAmount > 0 || activePulls.size > 0);
+      const draining = open2 && (wsConn.bufferedAmount > 0 || activePulls.size > 0 || Date.now() - lastPullEndedAt < PULL_TAIL_MS);
       if (draining && waited < PUBSHARE_REG_MAX_WAIT_MS) {
         setTimeout(check, 1e3);
         return;
@@ -4959,9 +4959,10 @@ async function handlePubsharePull(payload) {
       }));
       pos += len;
       seq++;
-      if (wsConn.bufferedAmount > 8 * 1024 * 1024) {
-        await new Promise((r) => setTimeout(r, 20));
-      } else if (seq % 8 === 0) {
+      while (!cancelFlag.cancelled && wsConn && wsConn.readyState === WebSocket2.OPEN && wsConn.bufferedAmount > PUBSHARE_HIGH_WATER) {
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      if (seq % 8 === 0) {
         await new Promise((r) => setImmediate(r));
       }
     }
@@ -4978,6 +4979,7 @@ async function handlePubsharePull(payload) {
     } catch {
     }
     activePulls.delete(requestId);
+    lastPullEndedAt = Date.now();
   }
   if (completedOk && isFullDownload) {
     entry.completedDownloads = (entry.completedDownloads || 0) + 1;
@@ -5261,7 +5263,7 @@ function embeddedDispatch(method, pathname, body) {
     }
   });
 }
-var _WebTorrentCtor, _webTorrentLoadError, SRIFT_HOME, EMBEDDED, STATE_PATH, logPath, DAEMON_LOG_MAX, openLog, logBytes, DAEMON_LOG_MAX_AGE_MS, pruneOldLogs, logStream, logRotating, logPending, writeLogLine, logMessage, fmtLogArg, crypto6, PORT, DEFAULT_SIGNALER_URL, activeSignalerUrl, lastDiag, session, activeTransfers, chatHistory, pendingJoins, participants, sseClients, wsConn, signalingMode, wsFailures, httpModeSince, WS_RETRY_AFTER_MS, wsUrl, csrfToken, heartbeatInterval, lastHeartbeatAckAt, encryptionKey, sessionTerminated, terminationReason, activeTorrents, wtClient, pubshares, pubsharesByToken, activePulls, pubshareRegResolvers, TEMP_DIR, TMP_CHUNK_MAX_AGE_MS, TMP_FILE_MAX_AGE_MS, KDF_ITERATIONS, IV_LEN2, RELAY_ENC, relayKeyCache, keyring, relayReceivers, relaySenders, PUBLIC_TRACKERS, STATE_STALE_MS, activeUploads, uploadKey, uploadsOf, RELAY_ACK_TIMEOUT_MS, RELAY_STALL_MS, RELAY_WINDOW, RELAY_LEGACY_CHUNK, RELAY_FAST_CHUNK, RELAY_FORMAT, RELAY_SOCKET_HIGH_BYTES, relayDownloads, partPathOf, app, LOCAL_HOSTS, DAEMON_START_TIME, PACKAGE_VERSION, PUBSHARE_REG_MAX_WAIT_MS, hostSessionInflight, MAX_MULTI_PATHS, MULTI_CONCURRENCY, embeddedReady, httpServer;
+var _WebTorrentCtor, _webTorrentLoadError, SRIFT_HOME, EMBEDDED, STATE_PATH, logPath, DAEMON_LOG_MAX, openLog, logBytes, DAEMON_LOG_MAX_AGE_MS, pruneOldLogs, logStream, logRotating, logPending, writeLogLine, logMessage, fmtLogArg, crypto6, PORT, DEFAULT_SIGNALER_URL, activeSignalerUrl, lastDiag, session, activeTransfers, chatHistory, pendingJoins, participants, sseClients, wsConn, signalingMode, wsFailures, httpModeSince, WS_RETRY_AFTER_MS, wsUrl, csrfToken, heartbeatInterval, lastHeartbeatAckAt, encryptionKey, sessionTerminated, terminationReason, activeTorrents, wtClient, pubshares, pubsharesByToken, activePulls, lastPullEndedAt, PULL_TAIL_MS, PUBSHARE_HIGH_WATER, pubshareRegResolvers, TEMP_DIR, TMP_CHUNK_MAX_AGE_MS, TMP_FILE_MAX_AGE_MS, KDF_ITERATIONS, IV_LEN2, RELAY_ENC, relayKeyCache, keyring, relayReceivers, relaySenders, PUBLIC_TRACKERS, STATE_STALE_MS, activeUploads, uploadKey, uploadsOf, RELAY_ACK_TIMEOUT_MS, RELAY_STALL_MS, RELAY_WINDOW, RELAY_LEGACY_CHUNK, RELAY_FAST_CHUNK, RELAY_FORMAT, RELAY_SOCKET_HIGH_BYTES, relayDownloads, partPathOf, app, LOCAL_HOSTS, DAEMON_START_TIME, PACKAGE_VERSION, PUBSHARE_REG_MAX_WAIT_MS, hostSessionInflight, MAX_MULTI_PATHS, MULTI_CONCURRENCY, embeddedReady, httpServer;
 var init_daemon = __esm({
   "cli/daemon.ts"() {
     init_mcp();
@@ -5403,6 +5405,9 @@ var init_daemon = __esm({
     pubshares = /* @__PURE__ */ new Map();
     pubsharesByToken = /* @__PURE__ */ new Map();
     activePulls = /* @__PURE__ */ new Map();
+    lastPullEndedAt = 0;
+    PULL_TAIL_MS = 3e4;
+    PUBSHARE_HIGH_WATER = 2 * 1024 * 1024;
     pubshareRegResolvers = /* @__PURE__ */ new Map();
     TEMP_DIR = path7.join(SRIFT_HOME, "tmp");
     if (!fs8.existsSync(TEMP_DIR)) {

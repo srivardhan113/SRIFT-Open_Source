@@ -338,6 +338,13 @@ type PubshareEntry = {
 const pubshares: Map<string, PubshareEntry> = new Map(); // by fileId
 const pubsharesByToken: Map<string, PubshareEntry> = new Map();
 const activePulls: Map<string, { cancelled: boolean; token?: string }> = new Map();
+// When the last link stream finished sending. The server forwards a stream to its downloader at the
+// downloader's pace and reads this socket no faster, so later messages (a new link's register) can wait
+// behind the tail of that stream for a while after the daemon has sent its last byte.
+let lastPullEndedAt = 0;
+const PULL_TAIL_MS = 30_000;
+// Most file data a link stream may queue on the signalling socket before it waits (see handlePubsharePull).
+const PUBSHARE_HIGH_WATER = 2 * 1024 * 1024;
 // Resolvers waiting for pubshare_register_ack, keyed by fileId
 const pubshareRegResolvers: Map<string, (entry: PubshareEntry) => void> = new Map();
 
@@ -2137,7 +2144,7 @@ async function registerPubshare(
       if (!pubshareRegResolvers.has(fileId)) return;
       const waited = Date.now() - startedAt;
       const open = !!wsConn && wsConn.readyState === WebSocket.OPEN;
-      const draining = open && (wsConn!.bufferedAmount > 0 || activePulls.size > 0);
+      const draining = open && (wsConn!.bufferedAmount > 0 || activePulls.size > 0 || Date.now() - lastPullEndedAt < PULL_TAIL_MS);
       if (draining && waited < PUBSHARE_REG_MAX_WAIT_MS) {
         setTimeout(check, 1000);
         return;
@@ -2262,10 +2269,17 @@ async function handlePubsharePull(payload: any): Promise<void> {
       }));
       pos += len;
       seq++;
-      // Backpressure: pause briefly if WS buffered amount climbs
-      if (wsConn.bufferedAmount > 8 * 1024 * 1024) {
-        await new Promise((r) => setTimeout(r, 20));
-      } else if (seq % 8 === 0) {
+      // Backpressure: keep at most PUBSHARE_HIGH_WATER queued on the socket. The old check paused 20 ms
+      // once above 8 MiB and then sent the next chunk anyway, so a whole 64 MB file could pile up ahead of
+      // a new link's register message (10-18 s on a home uplink). 2 MiB still fills the pipe.
+      while (
+        !cancelFlag.cancelled &&
+        wsConn && wsConn.readyState === WebSocket.OPEN &&
+        wsConn.bufferedAmount > PUBSHARE_HIGH_WATER
+      ) {
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      if (seq % 8 === 0) {
         // Yield every 512 KiB so parallel downloads, new shares and API calls
         // interleave fairly instead of waiting for one big stream.
         await new Promise((r) => setImmediate(r));
@@ -2281,6 +2295,7 @@ async function handlePubsharePull(payload: any): Promise<void> {
   } finally {
     try { fs.closeSync(fd); } catch {}
     activePulls.delete(requestId);
+    lastPullEndedAt = Date.now();
   }
 
   // Unlimited links: count completed downloads that started at byte 0 (stats).
