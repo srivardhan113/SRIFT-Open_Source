@@ -5,6 +5,7 @@ registry, and the agent directories. Written so a cold session can pick this up
 with no prior context.
 
 **Last verified:** 2026-10-17 · npm `4.4.0` · PyPI `srift` `4.4.0` · MCP registry `app.srift/srift` `4.4.0` · srift.app `4.4.0` · GitHub release `v4.4.0`
+**Re-checked 2026-10-22:** npm, PyPI, Homebrew tap and Scoop bucket at `4.4.0`; winget 4.4.0 merged (2026-10-19); awesome-mcp-servers, awesome-remote-mcp-servers and Docker MCP catalog PRs still open (no maintainer activity since 2026-10-17); srift.app commit `76601f9` live (prod e2e 28/28).
 
 Every directory, marketplace and skill index SRIFT can be listed on, with exact submission steps and status, is tracked in `docs/GROWTH-PLAN.md` §8 (audited 2026-10-17).
 
@@ -34,7 +35,8 @@ Publish order for a new version:
 | PyPI | [`srift`](https://pypi.org/project/srift/) (CLI + MCP via bundled Node.js, Python SDK) | ✅ `4.4.0` (`python packages/pypi/build.py` + twine; the workflow's trusted-publisher job fails at checkout) |
 | Homebrew tap | [`srivardhan113/homebrew-srift`](https://github.com/srivardhan113/homebrew-srift) | ✅ `4.4.0` (pushed by git; hash = sha256 of the npm tarball) |
 | Scoop bucket | [`srivardhan113/scoop-srift`](https://github.com/srivardhan113/scoop-srift) | ✅ `4.4.0` (hash = sha256 of `/dl/4.4.0/win-x64/srift.exe`) |
-| winget | `SRIFT.Srift` | ✅ 4.3.2 merged · ⏳ 4.4.0 = PR [microsoft/winget-pkgs#454765](https://github.com/microsoft/winget-pkgs/pull/454765) |
+| winget | `SRIFT.Srift` | ✅ 4.4.0 merged 2026-10-19 (PR [microsoft/winget-pkgs#454765](https://github.com/microsoft/winget-pkgs/pull/454765)) |
+| ChatGPT + Codex plugin directory | ZIP from `node packaging/openai-plugin/build.mjs` (one remote server `https://srift.app/mcp`, one ChatGPT-specific skill `srift-rooms`) · domain token at `/.well-known/openai-apps-challenge` | ⏳ in review setup 2026-10-22: domain token served; listing text now states tasks / users / limitations; local-CLI skills no longer bundled (two were flagged); review answers in `packaging/openai-plugin/README.md`; demo video still owner-side |
 | Claude Code plugin | `plugin/` (`.claude-plugin/plugin.json`, `.mcp.json`, 6 skills) · ZIP via `node packaging/claude-plugin/build.mjs` · marketplace: `/plugin install srift --marketplace srivardhan113/SRIFT-Open_Source` | ✅ validates; directory submission is owner-side (claude.ai/directory/manage) |
 | Agent Plugins layout (Cursor, Codex, OpenAI) | repo-root `plugin.json` + `mcp.json` + `skills/`; `plugin/plugin.json` + `plugin/mcp.json`; `.agents/plugins/marketplace.json`; OpenAI ZIP via `node packaging/openai-plugin/build.mjs` | ✅ files; OpenAI portal submission owner-side |
 | Cursor Directory | [cursor.directory/plugins/srift](https://cursor.directory/plugins/srift) | ⏳ listed 2026-10-17, public once their security scan finishes |
@@ -43,7 +45,7 @@ Publish order for a new version:
 | skills.sh | `.agents/skills/` + root `skills/`; `npx skills add srivardhan113/SRIFT-Open_Source` run once | ⏳ appears after their index |
 | mcpservers.org | submitted (free, Communication, registry name `app.srift/srift`) | ⏳ review ≤ 2 weeks |
 | Docker MCP Catalog | PR [docker/mcp-registry#5800](https://github.com/docker/mcp-registry/pull/5800) (`servers/srift`, remote) | ⏳ Docker review |
-| awesome-mcp-servers | PR [punkpeye#15388](https://github.com/punkpeye/awesome-mcp-servers/pull/15388) (labels green, maintainer nudged) | ⏳ merge |
+| awesome-mcp-servers | PR [punkpeye#15388](https://github.com/punkpeye/awesome-mcp-servers/pull/15388) (labels green, both bot items fixed, maintainer nudged) | ⏳ merge (open, no activity since 2026-10-17) |
 | awesome-remote-mcp-servers | PR [jaw9c#1418](https://github.com/jaw9c/awesome-remote-mcp-servers/pull/1418) | ⏳ merge |
 | Smithery | [`srift/srift`](https://smithery.ai/servers/srift/srift) | ✅ live, score 98, description updated 2026-10-17 (verified badge = paid plan, deferred) |
 | Glama | [connector](https://glama.ai/mcp/connectors/app.srift/srift) · [server](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source) · `glama.json` maintainers | ✅ live, quality A |
@@ -335,7 +337,7 @@ Owner-only, in order:
 1. **Repo secrets** (CARGO_REGISTRY_TOKEN, RUBYGEMS_API_KEY, NUGET_API_KEY, PACKAGIST_API_TOKEN, WINGET_GITHUB_TOKEN, HOMEBREW_TAP_TOKEN, SCOOP_TAP_TOKEN) so the next GitHub release publishes crates / RubyGems / NuGet / Packagist / winget / taps by itself. Deferred by the owner for now; taps and winget were done by hand this time.
 2. **AUR**: push `packaging/aur` with the AUR SSH key (`ssh://aur@aur.archlinux.org/srift.git`, regenerate `.SRCINFO`).
 3. **Anthropic directory**: claude.ai/directory/manage, MCP connector (`https://srift.app/mcp`), then Plugin bundle (repo path `plugin`). Copy in `docs/GROWTH-PLAN.md` §6.
-4. **OpenAI plugin directory**: `node packaging/openai-plugin/build.mjs`, upload the ZIP; identity verification; challenge token at `/.well-known/openai-apps-challenge`; test prompts and demo video (`packaging/openai-plugin/README.md`).
+4. **OpenAI plugin directory**: `node packaging/openai-plugin/build.mjs`, upload the ZIP; domain token is served (2026-10-22, click Verify Domain after deploy); paste the test cases, release notes and reviewer notes from `packaging/openai-plugin/README.md`; add the demo video URL; request manual privacy review.
 5. **Cline marketplace**: test the install inside Cline once, then the submission issue (logo at `https://srift.app/Favicon/srift-400.png`, `llms-install.md`).
 6. **GitHub MCP Registry / VS Code gallery**: one email to partnerships@github.com.
 7. **Bing Webmaster Tools** verification, then `node scripts/indexnow-submit.mjs`; Google Search Console sitemap resubmit.

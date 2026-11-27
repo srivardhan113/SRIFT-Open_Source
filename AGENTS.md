@@ -99,7 +99,7 @@ To monitor progress without polling: read `.srift-state.json` after every action
 | ChatGPT Custom GPT / OpenAI Apps / Plugins | **OpenAPI** + `/.well-known/ai-plugin.json` | Via hosted signaler at srift.app |
 | LangChain / LlamaIndex / AutoGen / CrewAI / DSPy / Haystack | **Local HTTP MCP** — `http://127.0.0.1:3822/mcp` (full tools) OR **Hosted** — `https://srift.app/mcp` (9 tools) | Choose based on features needed |
 | n8n / Zapier / Make / IFTTT / Activepieces | **REST** (`http://127.0.0.1:3822` or `https://srift.app` public endpoints) | Both local and hosted supported |
-| Google A2A agents | `/.well-known/agent.json` (discovery) · `https://srift.app/a/<address>` (`message/send` to an online Peerknock agent) | Tools themselves are MCP/REST |
+| Google A2A agents | `/.well-known/agent.json` (discovery) · `https://srift.app/a2a` (`message/send`: answers with the online agents matching your text) · `https://srift.app/a/<address>` (`message/send` to an online Peerknock agent) | Tools themselves are MCP/REST |
 | Any shell / Bash agent / Devin / Replit Agent | **CLI** — `srift send` / `srift receive` / `srift quick-share` | Requires `npm install -g srift-transfer` or curl install |
 | Web-based agents | **Hosted MCP** at `https://srift.app/mcp` (CORS enabled) OR **REST** to hosted endpoints | No local daemon needed |
 | Pure file-watching agents | Watch `.srift-state.json` for state changes | Requires local daemon |

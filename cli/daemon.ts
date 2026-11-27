@@ -13,7 +13,7 @@ import dotenv from 'dotenv';
 import { handleMcpMessage, MCP_TOOLS, MCP_RESOURCES, MCP_PROMPTS } from './mcp.ts';
 import { PROTOCOL_VERSION } from '../lib/mcp/core.mjs';
 import { Keyring, isPk1, isPublicKey, relaySender, relayReceiver, RELAY_PK_SCHEME } from '../lib/e2e-keys.ts';
-import { agentFor, requestJson, formatNetError } from './net.ts';
+import { agentFor, requestJson, formatNetError, USER_AGENT } from './net.ts';
 import { NodeHttpStreamSocket } from './http-stream.ts';
 import { runDiagnostics, type DiagReport } from './probe.ts';
 type ShareResult = {
@@ -681,7 +681,7 @@ function connectWebSocket(wsTargetUrl: string) {
   // `ws` ignores HTTPS_PROXY; pass an explicit tunnelling agent when one applies.
   const sock = viaHttp
     ? new NodeHttpStreamSocket(wsTargetUrl, session.id || '')
-    : new WebSocket(wsTargetUrl, { agent: agentFor(wsTargetUrl) });
+    : new WebSocket(wsTargetUrl, { agent: agentFor(wsTargetUrl), headers: { 'User-Agent': USER_AGENT } });
   wsConn = sock;
   let opened = false;
   let openedAt = 0;
@@ -2705,7 +2705,9 @@ app.get('/.well-known/agent.json', (req: Request, res: Response) => {
     supportedInterfaces: [{ url: `http://127.0.0.1:${PORT}/mcp`, protocolBinding: 'MCP', protocolVersion: '2025-06-18' }],
     name: 'SRIFT',
     description: 'Zero-config P2P E2EE file transfer + chat for any AI agent or automation. Discovery card: the skills are MCP tools at /mcp and REST routes in /openapi.json.',
-    url: `http://127.0.0.1:${PORT}`,
+    // The card's endpoint must exist: the daemon speaks MCP at /mcp (its root answers nothing).
+    url: `http://127.0.0.1:${PORT}/mcp`,
+    preferredTransport: 'MCP',
     version: PACKAGE_VERSION,
     capabilities: {
       streaming: false,

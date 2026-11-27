@@ -6,6 +6,7 @@
 [![MCP Registry](https://img.shields.io/badge/MCP%20Registry-app.srift%2Fsrift-purple.svg)](https://registry.modelcontextprotocol.io)
 [![Smithery](https://img.shields.io/badge/Smithery-srift%2Fsrift-7c3aed)](https://smithery.ai/servers/srift/srift)
 [![Glama](https://img.shields.io/badge/Glama-app.srift%2Fsrift-blueviolet.svg)](https://glama.ai/mcp/connectors/app.srift/srift)
+[![srivardhan113/SRIFT-Open_Source MCP server](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source/badges/score.svg)](https://glama.ai/mcp/servers/srivardhan113/SRIFT-Open_Source)
 [![Encryption: AES-256-GCM](https://img.shields.io/badge/Encryption-AES--256--GCM-green.svg)](https://srift.app)
 [![Zero Telemetry](https://img.shields.io/badge/telemetry-zero-success.svg)](https://srift.app/privacy)
 

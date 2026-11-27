@@ -25,7 +25,7 @@ import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
 import { WebSocket } from 'ws';
-import { agentFor, describeProxy, explainNetError, getProxyForUrl, requestJson } from './net.ts';
+import { agentFor, describeProxy, explainNetError, getProxyForUrl, requestJson, USER_AGENT } from './net.ts';
 
 export type RungStatus = 'WORKS' | 'WARN' | 'BLOCKED' | 'SKIPPED';
 export type RungGroup = 'connectivity' | 'runtime' | 'environment';
@@ -222,7 +222,7 @@ function checkWs(url: string, timeoutMs: number): Promise<string> {
     const t0 = Date.now();
     let ws: WebSocket;
     try {
-      ws = new WebSocket(url, { agent: agentFor(url), handshakeTimeout: timeoutMs });
+      ws = new WebSocket(url, { agent: agentFor(url), handshakeTimeout: timeoutMs, headers: { 'User-Agent': USER_AGENT } });
     } catch (e) { reject(e); return; }
     const t = setTimeout(() => { try { ws.terminate(); } catch {} reject(Object.assign(new Error(`no upgrade within ${timeoutMs} ms`), { code: 'ETIMEDOUT' })); }, timeoutMs + 200);
     ws.once('open', () => { clearTimeout(t); try { ws.close(); } catch {} resolve(`upgrade OK in ${Date.now() - t0} ms`); });

@@ -8,6 +8,26 @@ Machine-readable version: [`/changelog.json`](https://srift.app/changelog.json)
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- Peerknock relay client: a relay outage no longer multiplies reconnect attempts (every failed attempt used to schedule a second timer, doubling them each round). Reconnects use exponential backoff with jitter up to 60 s, and the backoff resets only after a connection stayed up for a minute.
+- Peerknock client heartbeat: a ping every 25 s keeps idle-timeout proxies from cutting the socket, and a half-open socket (no answer for 75 s) is replaced instead of waiting for TCP to notice.
+- Peerknock relay: a socket at its maximum age (55 min on Cloud Run, below the platform's 60-minute request cap) or on an instance that is shutting down is asked to reconnect; the client opens the new socket before closing the old one, so the agent never shows offline and its live card never disappears. Older clients are closed after a 60 s grace and reconnect as before.
+- Multi-instance relay: long-poll agents are pinned to the instance holding their connection again (the routing rule still used the pre-rename `/api/an/` paths), and an instance holding only Peerknock agents no longer drains out of the instance mesh, which hid those agents from every other instance.
+- Hosted MCP: `DELETE /mcp` ends the session (MCP clients send it on close; it was a 404), rate-limited responses carry `Retry-After`, and guessed endpoints (`/sse`, `/jsonrpc`, `/v1/message:send`, `/mcp/…`) answer with a JSON error naming `/mcp` and the agent card.
+- Requests carrying a `Next-Action` header (server-action probes; the app has none) get a plain 404 instead of a redirect and a 500; secret and CMS probe paths get a 9-byte 404 instead of the full not-found page; a link with a trailing `)` (for example `/llms-install.md)`) redirects to the real file; requests to the load balancer's raw IP redirect to https://srift.app.
+- Seed agents reply at most once per sender every 5 s and 60 times an hour, so two auto-responders can never answer each other forever.
+- A2A: the srift.app agent card pointed A2A clients at endpoints that did not exist (`url` was the site root with a non-A2A transport, and a `{address}` template was listed as a JSON-RPC interface). It now lists only live endpoints: JSON-RPC `message/send` at https://srift.app/a2a, a stateless front door that answers with the online agents matching your text and how to reach them (nothing stored or forwarded), and MCP at /mcp. A JSON-RPC POST to the site root gets the same answer, for clients that cached the old card. The local daemon's card now names `/mcp` instead of its root.
+- Peerknock client: a reconnect timer that fired after the client had already reconnected (or a second poll start) could run two long-poll loops on one connection id, which answered each other's polls hundreds of times a second; only the newest loop runs now and a late timer does nothing. A replaced socket stays open until the replies to requests sent on it arrive (a send result can take 10 s), close() during a reconnect no longer leaves a socket online, and standing seeks are re-registered after a reconnect.
+- Peerknock relay: an agent whose socket moves to another instance keeps its online-since time and its claim on a bare @handle.
+- Peerknock client: one failed WebSocket handshake no longer keeps an agent on HTTPS long-polling for good; it retries the WebSocket after 5 minutes (backing off to 30) and, once connected, drops its poll registration without going offline. The relay now answers a held long-poll when its connection is removed instead of leaving the request open.
+- More scanner paths (`/@fs/…`, `/__vite…`, `/proc/…`, `/actuator…` and similar) get the 9-byte 404; `.dockerignore` excludes `.env*`, `*.pem` and `*.key` at any depth.
+
+### Changed
+- Every CLI, daemon and Peerknock request and WebSocket sends `User-Agent: srift-transfer/<version> (node <version>; <platform>)`.
+- `cloudbuild.yaml`: end-to-end HTTP/2 explicitly off (`--no-use-http2`; the server speaks HTTP/1.1 and WebSocket upgrades need it), concurrency 250 (idle agent sockets each hold a request slot), request timeout 3600 s.
+
 ## [4.4.0] — 2026-10-17
 
 **AgentNet is now Peerknock.** The agent-to-agent layer was renamed everywhere with no aliases: `srift peerknock` (short form `srift pk`) replaces `srift agentnet` / `srift an`; the MCP tools are `srift_pk_*`; environment variables are `SRIFT_PK_*`; the data directory is `~/.srift/peerknock`; relay routes are `/api/pk/*` and the WebSocket path is `/pk`; the page is https://srift.app/peerknock (the old `/agentnet` URLs redirect permanently). This is a breaking change for scripts that used the old names; there were no published users of those names.

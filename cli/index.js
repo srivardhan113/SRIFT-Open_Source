@@ -325,6 +325,7 @@ function openRequest(url, opts = {}) {
     const mod = u.protocol === "https:" ? https : http;
     const body = typeof opts.body === "string" ? Buffer.from(opts.body) : opts.body;
     const headers = { ...opts.headers || {} };
+    if (!Object.keys(headers).some((h) => h.toLowerCase() === "user-agent")) headers["User-Agent"] = USER_AGENT;
     if (body && !Object.keys(headers).some((h) => h.toLowerCase() === "content-length")) {
       headers["Content-Length"] = String(body.length);
     }
@@ -431,10 +432,12 @@ function formatNetError(err, url) {
   return d.fix ? `${d.message}
   Fix: ${d.fix}` : d.message;
 }
-var TunnelHttpsAgent, TunnelHttpAgent, agentCache, TLS_TRUST_CODES;
+var CLIENT_VERSION, USER_AGENT, TunnelHttpsAgent, TunnelHttpAgent, agentCache, TLS_TRUST_CODES;
 var init_net = __esm({
   "cli/net.ts"() {
     "use strict";
+    CLIENT_VERSION = "4.4.0";
+    USER_AGENT = `srift-transfer/${CLIENT_VERSION} (node ${process.versions.node}; ${process.platform})`;
     TunnelHttpsAgent = class extends https.Agent {
       constructor(proxy) {
         super({ keepAlive: true, maxSockets: 16 });
@@ -648,7 +651,7 @@ function checkWs(url, timeoutMs) {
     const t0 = Date.now();
     let ws;
     try {
-      ws = new WebSocket(url, { agent: agentFor(url), handshakeTimeout: timeoutMs });
+      ws = new WebSocket(url, { agent: agentFor(url), handshakeTimeout: timeoutMs, headers: { "User-Agent": USER_AGENT } });
     } catch (e) {
       reject(e);
       return;
@@ -3985,7 +3988,7 @@ function connectWebSocket(wsTargetUrl) {
   }
   const viaHttp = signalingMode === "http";
   console.log(`[DAEMON] Connecting to Signaler ${viaHttp ? "HTTPS stream" : "WS"}: ${wsTargetUrl}`);
-  const sock = viaHttp ? new NodeHttpStreamSocket(wsTargetUrl, session.id || "") : new WebSocket2(wsTargetUrl, { agent: agentFor(wsTargetUrl) });
+  const sock = viaHttp ? new NodeHttpStreamSocket(wsTargetUrl, session.id || "") : new WebSocket2(wsTargetUrl, { agent: agentFor(wsTargetUrl), headers: { "User-Agent": USER_AGENT } });
   wsConn = sock;
   let opened = false;
   let openedAt = 0;
@@ -6028,7 +6031,9 @@ data: /mcp/messages
         supportedInterfaces: [{ url: `http://127.0.0.1:${PORT}/mcp`, protocolBinding: "MCP", protocolVersion: "2025-06-18" }],
         name: "SRIFT",
         description: "Zero-config P2P E2EE file transfer + chat for any AI agent or automation. Discovery card: the skills are MCP tools at /mcp and REST routes in /openapi.json.",
-        url: `http://127.0.0.1:${PORT}`,
+        // The card's endpoint must exist: the daemon speaks MCP at /mcp (its root answers nothing).
+        url: `http://127.0.0.1:${PORT}/mcp`,
+        preferredTransport: "MCP",
         version: PACKAGE_VERSION,
         capabilities: {
           streaming: false,
@@ -9564,13 +9569,21 @@ var init_netpolicy = __esm({
 // cli/peerknock/relay-client.ts
 import { EventEmitter as EventEmitter2 } from "node:events";
 import WebSocket3 from "ws";
-var RelayClient;
+var PING_MS, STABLE_MS, MAX_BACKOFF_MS, UPGRADE_MIN_MS, UPGRADE_MAX_MS, RETIRE_MAX_MS, MAX_SEEKS, jitter, RelayClient;
 var init_relay_client = __esm({
   "cli/peerknock/relay-client.ts"() {
     "use strict";
     init_net();
     init_crypto();
     init_netpolicy();
+    PING_MS = 25e3;
+    STABLE_MS = 6e4;
+    MAX_BACKOFF_MS = 6e4;
+    UPGRADE_MIN_MS = 5 * 6e4;
+    UPGRADE_MAX_MS = 30 * 6e4;
+    RETIRE_MAX_MS = 25e3;
+    MAX_SEEKS = 20;
+    jitter = (ms) => Math.round(ms * (0.5 + Math.random() * 0.5));
     RelayClient = class extends EventEmitter2 {
       constructor(base, identity, opts) {
         super();
@@ -9583,6 +9596,20 @@ var init_relay_client = __esm({
         this.pollAbort = null;
         this.watched = /* @__PURE__ */ new Set();
         this.reconnectDelay = 1e3;
+        /** At most one pending reconnect: every failed attempt used to add one, so an outage doubled them each round. */
+        this.reconnectTimer = null;
+        this.connectedAt = 0;
+        this.refreshing = false;
+        /** On the long-poll fallback: when to try the WebSocket again (one failed handshake must not pin us to polling). */
+        this.upgradeTimer = null;
+        this.upgradeDelay = UPGRADE_MIN_MS;
+        /** Only the newest long-poll loop runs: two loops on one cid answer each other's polls in a tight loop. */
+        this.pollGen = 0;
+        /** Requests awaiting a reply, per socket (a replaced socket stays open until its own replies arrive). */
+        this.inFlight = /* @__PURE__ */ new WeakMap();
+        /** Standing seeks by the id first returned; relay seeks belong to one connection, so they are re-registered. */
+        this.seeks = /* @__PURE__ */ new Map();
+        this.seekAlias = /* @__PURE__ */ new Map();
         this.connecting = null;
         /** Seconds to add to the local clock, learned from the relay (fixes skewed machines). */
         this.clockOffset = 0;
@@ -9622,7 +9649,6 @@ var init_relay_client = __esm({
         if (!this.opts.forcePoll && process.env.SRIFT_PK_TRANSPORT !== "poll") {
           try {
             await this.connectWs();
-            this.reconnectDelay = 1e3;
             return;
           } catch (e) {
             if (process.env.SRIFT_PK_DEBUG) console.error(`[peerknock] WebSocket to ${this.base} failed (${e?.message}); using HTTPS long-poll.`);
@@ -9635,13 +9661,13 @@ var init_relay_client = __esm({
           this.scheduleReconnect();
           throw e;
         }
-        this.reconnectDelay = 1e3;
+        this.connectedAt = Date.now();
       }
       // ─── WebSocket ─────────────────────────────────────────────────
       connectWs() {
         const url = this.base.replace(/^http/, "ws") + "/pk";
         return new Promise((resolve, reject) => {
-          const ws = new WebSocket3(url, { agent: agentFor(url), handshakeTimeout: this.opts.connectTimeoutMs ?? 1e4, ...this.lookup ? { lookup: this.lookup } : {} });
+          const ws = new WebSocket3(url, { agent: agentFor(url), handshakeTimeout: this.opts.connectTimeoutMs ?? 1e4, headers: { "User-Agent": USER_AGENT }, ...this.lookup ? { lookup: this.lookup } : {} });
           let authed = false;
           const timer = setTimeout(() => {
             ws.terminate();
@@ -9676,10 +9702,25 @@ var init_relay_client = __esm({
             if (m.type === "auth_ok") {
               authed = true;
               clearTimeout(timer);
+              if (this.closed) {
+                try {
+                  ws.close(1e3);
+                } catch {
+                }
+                reject(new Error("client closed"));
+                return;
+              }
+              const prev = this.ws;
+              if (prev && prev !== ws) this.retire(prev);
               this.ws = ws;
               this.transport = "ws";
+              this.pollGen++;
+              this.cancelReconnect();
+              this.connectedAt = Date.now();
+              this.keepAlive(ws);
               if (this.watched.size) this.wsRequest({ type: "watch", addresses: [...this.watched] }).catch(() => {
               });
+              this.resubscribeSeeks();
               this.emit("connected", { transport: "ws" });
               if (m.handle) this.emit("handle", m.handle);
               resolve();
@@ -9692,6 +9733,10 @@ var init_relay_client = __esm({
               } catch {
               }
               reject(new Error(m.error || "auth failed"));
+              return;
+            }
+            if (m.type === "reconnect") {
+              if (this.ws === ws) void this.refresh();
               return;
             }
             this.onFrame(m);
@@ -9717,15 +9762,105 @@ var init_relay_client = __esm({
               reject(new Error("closed before auth"));
               return;
             }
+            this.failRequests(ws);
             if (this.ws !== ws) return;
             this.ws = null;
             this.transport = null;
-            for (const [, cb] of this.waiting) cb({ type: "error", error: "connection closed" });
-            this.waiting.clear();
             this.emit("disconnected");
             this.scheduleReconnect();
           });
         });
+      }
+      /**
+       * Client heartbeat. Pings keep idle-timeout middleboxes from cutting the socket, and a socket that hears
+       * nothing for three intervals (half-open: the relay instance vanished) is terminated so the normal
+       * reconnect runs instead of waiting for TCP to notice.
+       */
+      keepAlive(ws) {
+        let heard = Date.now();
+        const alive = () => {
+          heard = Date.now();
+        };
+        ws.on("pong", alive);
+        ws.on("ping", alive);
+        ws.on("message", alive);
+        const t = setInterval(() => {
+          if (ws.readyState !== WebSocket3.OPEN) {
+            clearInterval(t);
+            return;
+          }
+          if (Date.now() - heard > PING_MS * 3) {
+            ws.terminate();
+            return;
+          }
+          try {
+            ws.ping();
+          } catch {
+          }
+        }, PING_MS);
+        t.unref?.();
+        ws.once("close", () => clearInterval(t));
+      }
+      /**
+       * The relay asked us to move (it is shutting down, or this socket reached its maximum age): the new
+       * connection is opened before the old one closes, so the agent never shows as offline in between.
+       * If it fails, the old socket stays in use until the relay closes it and the normal reconnect runs.
+       */
+      async refresh() {
+        if (this.refreshing || this.closed || this.transport !== "ws") return;
+        this.refreshing = true;
+        try {
+          await this.connectWs();
+        } catch {
+        } finally {
+          this.refreshing = false;
+        }
+      }
+      ridsOf(ws) {
+        let s = this.inFlight.get(ws);
+        if (!s) {
+          s = /* @__PURE__ */ new Set();
+          this.inFlight.set(ws, s);
+        }
+        return s;
+      }
+      failRequests(ws) {
+        const own = this.ridsOf(ws);
+        for (const rid of own) {
+          const cb = this.waiting.get(rid);
+          this.waiting.delete(rid);
+          cb?.({ type: "error", error: "connection closed" });
+        }
+        own.clear();
+      }
+      /** Close a replaced socket once the replies to requests sent on it have arrived (send results can take ~10 s). */
+      retire(ws) {
+        const own = this.ridsOf(ws);
+        const since = Date.now();
+        const t = setInterval(() => {
+          if (own.size && Date.now() - since < RETIRE_MAX_MS && ws.readyState === WebSocket3.OPEN) return;
+          clearInterval(t);
+          try {
+            ws.close(1e3, "replaced");
+          } catch {
+          }
+        }, 250);
+        t.unref?.();
+      }
+      /** Re-register standing seeks on a new connection; matches that came online meanwhile are reported once. */
+      resubscribeSeeks() {
+        for (const [orig, s] of this.seeks) {
+          const done = (m) => {
+            if (!m?.seekId) return;
+            for (const [alias, o] of this.seekAlias) if (o === orig) this.seekAlias.delete(alias);
+            if (m.seekId !== orig) this.seekAlias.set(m.seekId, orig);
+            for (const result of m.results || []) this.onEvent({ type: "discovery", seekId: m.seekId, result });
+          };
+          if (this.transport === "ws") this.wsRequest({ type: "seek", q: s.q, watch: true, federated: false }, 2e4).then(done, () => {
+          });
+          else this.http("POST", "/api/pk/seek", { cid: this.cid, q: s.q, watch: true }).then((r) => done(r.data), () => {
+          });
+        }
       }
       onFrame(m) {
         if (m.rid !== void 0 && this.waiting.has(m.rid)) {
@@ -9739,22 +9874,33 @@ var init_relay_client = __esm({
       onEvent(m) {
         if (m.type === "deliver" && m.env) this.emit("deliver", m.env);
         else if (m.type === "presence_event") this.emit("presence", { address: m.address, state: m.state });
-        else if (m.type === "discovery" && m.result) this.emit("discovery", { seekId: m.seekId, result: m.result, relay: this.base });
-        else if (m.type === "handle_status" && m.handle) this.emit("handle", m.handle);
+        else if (m.type === "discovery" && m.result) {
+          const seekId = this.seekAlias.get(m.seekId) ?? m.seekId;
+          const known = this.seeks.get(seekId)?.known;
+          if (known && typeof m.result.address === "string") {
+            if (known.has(m.result.address)) return;
+            known.add(m.result.address);
+          }
+          this.emit("discovery", { seekId, result: m.result, relay: this.base });
+        } else if (m.type === "handle_status" && m.handle) this.emit("handle", m.handle);
       }
       wsRequest(frame, timeoutMs = 15e3) {
         const ws = this.ws;
         if (!ws || ws.readyState !== WebSocket3.OPEN) return Promise.reject(new Error("not connected"));
         const rid = ++this.rid;
+        const own = this.ridsOf(ws);
         return new Promise((resolve, reject) => {
           const t = setTimeout(() => {
             this.waiting.delete(rid);
+            own.delete(rid);
             reject(new Error("relay timeout"));
           }, timeoutMs);
           this.waiting.set(rid, (m) => {
             clearTimeout(t);
+            own.delete(rid);
             resolve(m);
           });
+          own.add(rid);
           ws.send(JSON.stringify({ ...frame, rid }));
         });
       }
@@ -9774,8 +9920,10 @@ var init_relay_client = __esm({
         if (this.opts.recv && this.opts.acl) await this.http("POST", "/api/pk/acl", { acl: this.opts.acl });
         if (this.opts.recv && this.opts.card) await this.http("POST", "/api/pk/announce", { cid: this.cid, card: this.opts.card, beacon: this.opts.beacon ?? null });
         if (this.watched.size) await this.http("POST", "/api/pk/watch", { cid: this.cid, addresses: [...this.watched] });
+        this.resubscribeSeeks();
       }
       async connectPoll() {
+        this.pollAbort?.abort();
         this.pollAbort = new AbortController();
         const info = await this.http("GET", "/api/pk");
         if (info.status !== 200) throw new Error(`relay HTTP ${info.status}`);
@@ -9786,40 +9934,87 @@ var init_relay_client = __esm({
           await this.syncPollState();
           for (const ev of r.data?.events || []) this.onEvent(ev);
           this.transport = "poll";
+          this.cancelReconnect();
           this.emit("connected", { transport: "poll" });
-          void this.pollLoop();
+          void this.pollLoop(++this.pollGen);
+          this.scheduleUpgrade();
         } else {
           this.transport = "poll";
           this.emit("connected", { transport: "poll" });
         }
       }
-      async pollLoop() {
+      async pollLoop(gen) {
         let backoff = 1e3;
-        while (!this.closed && this.transport === "poll") {
+        const current = () => !this.closed && this.transport === "poll" && gen === this.pollGen;
+        while (current()) {
           try {
             const r = await this.http("GET", this.pollQuery(25), void 0, 4e4);
             if (r.status !== 200) throw new Error(`poll HTTP ${r.status}`);
             backoff = 1e3;
-            if (r.data?.reset) {
+            if (r.data?.reset && current()) {
               await this.syncPollState();
               this.emit("connected", { transport: "poll", resync: true });
             }
             for (const ev of r.data?.events || []) this.onEvent(ev);
           } catch (e) {
-            if (this.closed) return;
+            if (!current()) return;
             if (process.env.SRIFT_PK_DEBUG) console.error(`[peerknock] poll error: ${e?.message}`);
-            await new Promise((r) => setTimeout(r, backoff));
-            backoff = Math.min(backoff * 2, 3e4);
+            await new Promise((r) => setTimeout(r, jitter(backoff)));
+            backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
           }
         }
       }
+      /**
+       * Back from the long-poll fallback to the WebSocket once it works again. The socket authenticates first,
+       * then the poll registration is dropped, so the agent stays online throughout; the poll loop then ends.
+       */
+      scheduleUpgrade() {
+        if (this.closed || !this.receives || this.upgradeTimer || this.opts.forcePoll || process.env.SRIFT_PK_TRANSPORT === "poll") return;
+        this.upgradeTimer = setTimeout(async () => {
+          this.upgradeTimer = null;
+          if (this.closed || this.transport !== "poll") return;
+          try {
+            await this.connectWs();
+          } catch {
+            this.upgradeDelay = Math.min(this.upgradeDelay * 2, UPGRADE_MAX_MS);
+            this.scheduleUpgrade();
+            return;
+          }
+          this.upgradeDelay = UPGRADE_MIN_MS;
+          await this.leavePoll();
+        }, jitter(this.upgradeDelay));
+        this.upgradeTimer.unref?.();
+      }
+      /** Drop this client's long-poll registration at the relay now (not after its grace period). */
+      leavePoll() {
+        return requestJson(this.base + "/api/pk/leave", {
+          method: "POST",
+          headers: signHttp(this.me(), "POST", "/api/pk/leave", { cid: this.cid }, this.host, this.clockOffset),
+          json: { cid: this.cid },
+          timeoutMs: 5e3,
+          maxRedirects: 0,
+          lookup: this.lookup
+        }).catch(() => {
+        });
+      }
       scheduleReconnect() {
-        if (this.closed || !this.receives) return;
-        const d = this.reconnectDelay;
-        this.reconnectDelay = Math.min(this.reconnectDelay * 2, 3e4);
-        setTimeout(() => {
-          if (!this.closed) this.connect().catch(() => this.scheduleReconnect());
-        }, d).unref?.();
+        if (this.closed || !this.receives || this.reconnectTimer) return;
+        if (this.connectedAt && Date.now() - this.connectedAt >= STABLE_MS) this.reconnectDelay = 1e3;
+        this.connectedAt = 0;
+        const d = jitter(this.reconnectDelay);
+        this.reconnectDelay = Math.min(this.reconnectDelay * 2, MAX_BACKOFF_MS);
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          if (this.closed || this.connected) return;
+          this.connect().catch(() => this.scheduleReconnect());
+        }, d);
+        this.reconnectTimer.unref?.();
+      }
+      cancelReconnect() {
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
       }
       // ─── API ────────────────────────────────────────────────────────
       async send(env) {
@@ -9884,11 +10079,18 @@ var init_relay_client = __esm({
         if (this.transport === "ws") {
           const m = await this.wsRequest({ type: "seek", q, watch: watchIt }, 2e4);
           if (m.type === "error") throw new Error(m.error);
+          this.rememberSeek(m.seekId, q, m.results || []);
           return { seekId: m.seekId, results: m.results || [] };
         }
         const r = await this.http("POST", "/api/pk/seek", { cid: this.cid, q, watch: watchIt }, 2e4);
         if (r.status !== 200) throw new Error(r.data?.error || `HTTP ${r.status}`);
+        this.rememberSeek(r.data.seekId, q, r.data.results || []);
         return { seekId: r.data.seekId, results: r.data.results || [] };
+      }
+      rememberSeek(seekId, q, results) {
+        if (!seekId) return;
+        if (this.seeks.size >= MAX_SEEKS) this.seeks.delete(this.seeks.keys().next().value);
+        this.seeks.set(seekId, { q, known: new Set(results.map((r) => r.address)) });
       }
       /** Card of an ONLINE agent (this relay or its peers). null if offline/hidden. */
       async liveCard(address) {
@@ -9917,6 +10119,12 @@ var init_relay_client = __esm({
       }
       async close() {
         this.closed = true;
+        this.cancelReconnect();
+        if (this.upgradeTimer) {
+          clearTimeout(this.upgradeTimer);
+          this.upgradeTimer = null;
+        }
+        this.pollGen++;
         const wasPoll = this.transport === "poll" && this.receives;
         this.pollAbort?.abort();
         this.pollAbort = null;
@@ -9928,16 +10136,7 @@ var init_relay_client = __esm({
           this.ws = null;
         }
         this.transport = null;
-        if (wasPoll) {
-          await requestJson(this.base + "/api/pk/leave", {
-            method: "POST",
-            headers: signHttp(this.me(), "POST", "/api/pk/leave", { cid: this.cid }, this.host, this.clockOffset),
-            json: { cid: this.cid },
-            timeoutMs: 5e3,
-            maxRedirects: 0
-          }).catch(() => {
-          });
-        }
+        if (wasPoll) await this.leavePoll();
       }
     };
   }
@@ -11873,8 +12072,11 @@ function createPeerknockRelay(opts = {}) {
   const framesPerSec = opts.framesPerSec ?? 600;
   const maxConnsPerAddr = opts.maxConnsPerAddr ?? 10;
   const heartbeatMs = opts.heartbeatMs ?? 3e4;
+  const wsMaxAgeMs = opts.wsMaxAgeMs ?? 0;
+  const moveGraceMs = opts.moveGraceMs ?? 6e4;
   const maxSendOnlyPerAddr = opts.maxSendOnlyPerAddr ?? 20;
   const maxConnsPerIp = opts.maxConnsPerIp ?? 1e3;
+  const ipOf = opts.ipOf || ((req) => req?.socket?.remoteAddress);
   const publicBaseUrl = (opts.publicBaseUrl || process.env.PUBLIC_BASE_URL || "https://srift.app").replace(/\/$/, "");
   const publicHost = new URL(publicBaseUrl).host.toLowerCase();
   const strictHost = opts.strictHost ?? false;
@@ -12210,8 +12412,12 @@ function createPeerknockRelay(opts = {}) {
     const sigOf = (card0, b0) => `${card0?.sig || ""}|${b0?.oneLine || ""}|${b0?.status || ""}|${b0?.discoverable ? 1 : 0}`;
     const changed = sigOf(cur?.card, cur?.beacon) !== sigOf(c, b);
     const prevHandle = cur?.card?.handle;
-    const hs = cur && prevHandle === c.handle ? cur.hs : Date.now();
-    live.set(addr, { card: c, beacon: b, since: cur?.since || nowSec(), hs });
+    let moved = null;
+    if (!cur) {
+      for (const r of remote.get(addr)?.values() || []) if (!moved || r.since < moved.since) moved = r;
+    }
+    const hs = cur && prevHandle === c.handle ? cur.hs : moved && c.handle && moved.card?.handle === c.handle && moved.hs ? moved.hs : Date.now();
+    live.set(addr, { card: c, beacon: b, since: cur?.since || moved?.since || nowSec(), hs });
     reindex(addr);
     if (index.get(addr) && (!wasSearchable || changed)) notifySeekers(addr);
     const st = handleStatus2(addr);
@@ -12304,6 +12510,10 @@ function createPeerknockRelay(opts = {}) {
       conn.queue.length = 0;
       if (conn.waiter) {
         clearTimeout(conn.waiter.timer);
+        try {
+          conn.waiter.res.json({ events: [], reset: false });
+        } catch {
+        }
         conn.waiter = null;
       }
     }
@@ -12532,9 +12742,9 @@ function createPeerknockRelay(opts = {}) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 128 * 1024 });
   wss.on("connection", (ws, req) => {
     const nonce = randomToken(16);
-    const ip = req?.socket?.remoteAddress || "unknown";
+    const ip = ipOf(req) || "unknown";
     const reqHost = req?.headers?.host;
-    const conn = { id: ++connSeq, kind: "ws", ws, addr: null, recv: false, watching: /* @__PURE__ */ new Set(), seeks: /* @__PURE__ */ new Map(), closed: false, alive: true, ip };
+    const conn = { id: ++connSeq, kind: "ws", ws, addr: null, recv: false, watching: /* @__PURE__ */ new Set(), seeks: /* @__PURE__ */ new Map(), closed: false, alive: true, ip, at: Date.now() };
     ws._anConn = conn;
     ipConns.set(ip, (ipConns.get(ip) || 0) + 1);
     if (ipConns.get(ip) > maxConnsPerIp) {
@@ -12692,6 +12902,7 @@ function createPeerknockRelay(opts = {}) {
     }
   });
   const heartbeat = setInterval(() => {
+    const now = Date.now();
     for (const ws of wss.clients) {
       const conn = ws._anConn;
       if (conn && conn.alive === false) {
@@ -12699,6 +12910,16 @@ function createPeerknockRelay(opts = {}) {
         continue;
       }
       if (conn) conn.alive = false;
+      if (wsMaxAgeMs && conn?.addr && now - conn.at > wsMaxAgeMs) {
+        if (now - conn.at > wsMaxAgeMs + moveGraceMs) {
+          try {
+            ws.close(1012, "reconnect");
+          } catch {
+          }
+          continue;
+        }
+        askToMove(conn, "max_age");
+      }
       try {
         ws.ping();
       } catch {
@@ -12706,6 +12927,14 @@ function createPeerknockRelay(opts = {}) {
     }
   }, heartbeatMs);
   heartbeat.unref?.();
+  function askToMove(conn, reason) {
+    if (conn.moveAsked || conn.closed || conn.ws.readyState !== 1) return;
+    conn.moveAsked = true;
+    try {
+      conn.ws.send(JSON.stringify({ type: "reconnect", reason }));
+    } catch {
+    }
+  }
   function handleUpgrade(req, socket, head) {
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
   }
@@ -12747,8 +12976,14 @@ function createPeerknockRelay(opts = {}) {
     req.pk = req.get("x-an-sig") ? verifySigned(req) : null;
     next();
   };
+  function limited(res, key) {
+    const r = ipRate.get(key);
+    res.setHeader("Retry-After", String(r ? Math.max(1, Math.ceil((r.start + 6e4 - Date.now()) / 1e3)) : 60));
+    return res.status(429).json({ error: "rate_limited" });
+  }
   const ipLimit = (limit) => (req, res, next) => {
-    if (!hit(ipRate, `${req.ip}|${req.route?.path || req.path}`, limit)) return res.status(429).json({ error: "rate_limited" });
+    const key = `${req.ip}|${req.route?.path || req.path}`;
+    if (!hit(ipRate, key, limit)) return limited(res, key);
     next();
   };
   const cid = (v) => typeof v === "string" && /^[A-Za-z0-9_-]{4,64}$/.test(v) ? v : null;
@@ -12757,7 +12992,7 @@ function createPeerknockRelay(opts = {}) {
   const json = express2.json({ limit: "128kb" });
   router.use(["/api/pk", "/a"], (req, res, next) => {
     res.setHeader("Cache-Control", "no-store");
-    if (!hit(ipRate, `all|${req.ip}`, opts.ipRequestsPerMin ?? 6e3)) return res.status(429).json({ error: "rate_limited" });
+    if (!hit(ipRate, `all|${req.ip}`, opts.ipRequestsPerMin ?? 6e3)) return limited(res, `all|${req.ip}`);
     next();
   });
   router.get("/api/pk", (_req, res) => {
@@ -12956,6 +13191,30 @@ function createPeerknockRelay(opts = {}) {
 <p>Or give this link to your AI agent (SRIFT Peerknock MCP: <b>srift_pk_contacts_add</b>).</p>
 <script>document.getElementById('c').textContent='srift pk contacts add "'+location.href+'"'</script></body></html>`);
   });
+  const A2A_SEND = /* @__PURE__ */ new Set(["message/send", "SendMessage", "tasks/send"]);
+  function a2aFrontDoor(req, res) {
+    const rpc = req.body || {};
+    const id = rpc.id ?? null;
+    if (rpc.jsonrpc !== "2.0" || !A2A_SEND.has(rpc.method)) {
+      return res.json({ jsonrpc: "2.0", id, error: { code: -32601, message: "Method not found (supported: message/send)" } });
+    }
+    const msg = rpc.params?.message;
+    const text2 = (Array.isArray(msg?.parts) ? msg.parts : []).filter((p) => p && typeof p.text === "string").map((p) => p.text).join(" ").trim().slice(0, 500);
+    const found = text2 ? localSearch({ q: text2, limit: 5 }) : [];
+    const reply = [
+      found.length ? `Online SRIFT Peerknock agents matching your message:
+${found.map((r) => `- @${r.tag}: ${r.oneLine} (A2A message/send: ${publicBaseUrl}/a/${compactAddress(r.address)})`).join("\n")}` : `No online agent matches${text2 ? " that" : ""} right now. Every agent online now: ${publicBaseUrl}/api/pk/live/list`,
+      // Project links, not this relay's: a self-hosted relay serves neither /mcp nor /peerknock.
+      "SRIFT is decentralized, end-to-end encrypted file transfer, chat and calls. Its tools are MCP tools at https://srift.app/mcp (or run: npx -y srift-transfer mcp). Agents reach each other over SRIFT Peerknock: https://srift.app/peerknock"
+    ].join("\n\n");
+    res.json({
+      jsonrpc: "2.0",
+      id,
+      result: { kind: "message", role: "agent", messageId: newId(), ...typeof msg?.contextId === "string" ? { contextId: msg.contextId.slice(0, 128) } : {}, parts: [{ kind: "text", text: reply }] }
+    });
+  }
+  router.post("/a2a", json, ipLimit(120), a2aFrontDoor);
+  router.post("/", json, (req, res, next) => req.body?.jsonrpc === "2.0" ? ipLimit(120)(req, res, () => a2aFrontDoor(req, res)) : next());
   function liveFor(p, requester = null) {
     const a = normalizeAddress(String(p || ""));
     return a && canSee(requester, a) ? getLive(a) || null : null;
@@ -13044,6 +13303,16 @@ function createPeerknockRelay(opts = {}) {
     hasPollConn(key) {
       const c = pollConns.get(key);
       return !!(c && !c.closed);
+    },
+    /** Agent connections held here (WebSocket + long-poll). An instance holding any is not idle. */
+    connections() {
+      let n = wss.clients.size;
+      for (const c of pollConns.values()) if (!c.closed) n++;
+      return n;
+    },
+    /** Shutdown: ask every agent socket to reconnect now; new sockets land on a sibling instance. */
+    moveAll(reason = "shutdown") {
+      for (const ws of wss.clients) if (ws._anConn?.addr) askToMove(ws._anConn, reason);
     },
     /** Introspection for tests/metrics. There is no message store and no database. */
     stats() {

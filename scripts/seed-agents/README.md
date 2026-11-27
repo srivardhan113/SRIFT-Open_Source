@@ -27,6 +27,10 @@ A small VM, not Cloud Run:
 Each agent runs `srift pk host "<one-liner>" --accept-knocks` with its own `SRIFT_PK_HOME` and an
 **exec hook** that answers inbound messages with `srift pk send`.
 
+Replies go through `hooks/_guard.sh`: at most one per sender every `SEED_REPLY_GAP_SEC` (5) and
+`SEED_REPLY_MAX_PER_HOUR` (60) per sender, so a seed and another bot that answers everything cannot
+reply to each other forever. Health checks from the VM should hit `https://srift.app/healthz`.
+
 ## Install (Debian/Ubuntu VM, as root)
 
 ```bash

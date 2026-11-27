@@ -23,6 +23,14 @@ import type { Duplex } from 'stream';
 
 type ConnCb = (err: Error | null, stream: Duplex) => void;
 
+/** Kept in step with package.json by scripts/sync-version.mjs. */
+export const CLIENT_VERSION = '4.4.0';
+/**
+ * Sent on every request and WebSocket the CLI, daemon and Peerknock node open (unless the caller set its
+ * own), so operators can tell SRIFT clients apart in logs and allow-list them at the edge.
+ */
+export const USER_AGENT = `srift-transfer/${CLIENT_VERSION} (node ${process.versions.node}; ${process.platform})`;
+
 // ─────────────────────────────────────────────────────────────────
 // Proxy resolution
 // ─────────────────────────────────────────────────────────────────
@@ -282,6 +290,7 @@ export function openRequest(url: string, opts: RequestOpts = {}): Promise<{ res:
     const mod = u.protocol === 'https:' ? https : http;
     const body = typeof opts.body === 'string' ? Buffer.from(opts.body) : opts.body;
     const headers: Record<string, string> = { ...(opts.headers || {}) };
+    if (!Object.keys(headers).some((h) => h.toLowerCase() === 'user-agent')) headers['User-Agent'] = USER_AGENT;
     if (body && !Object.keys(headers).some((h) => h.toLowerCase() === 'content-length')) {
       headers['Content-Length'] = String(body.length);
     }

@@ -44,7 +44,7 @@ Decentralized and end-to-end encrypted file transfer, chat and calls, human to h
 - **Run end-to-end suite** (real CLI/daemon/MCP/relay against a local server; needs `npm run build`): `npm run e2e` — `-- --server-url <url>` tests a deployed server, `-- --foreground-only` forces embedded mode
 - **Run Linux sandbox E2E** (network namespace, proxy-only egress): `npm run e2e:sandbox`
 - **Run exhaustive matrices** (every CLI command/flag, every Peerknock command + 25 MCP tools on two federated relays, all 15 local + 9 hosted MCP tools with output-schema checks; needs `npm run build:cli`): `npm run e2e:matrix` — each script also runs alone, e.g. `node scripts/e2e/peerknock-matrix.mjs https://srift.app`
-- **Run multi-instance proof** (N real `server.mjs` behind an L7 balancer that sends every request to a random instance; runs the e2e suite, the matrices and crash/hand-off/scale/consolidation scenarios; needs `npm run build`): `node scripts/e2e/cluster.mjs --instances 3` — `--only e2e|matrix|scenarios`, `--grep <name>`
+- **Run multi-instance proof** (N real `server.mjs` behind an L7 balancer that sends every request to a random instance; runs the e2e suite, the matrices and crash/hand-off/scale/consolidation scenarios; needs `npm run build`): `node scripts/e2e/cluster.mjs --instances 3` — `--only e2e|matrix|scenarios`, `--grep <name>`, `--regions 2` (instances alternate `in`/`us`; the `region-down` scenario needs one instance per region and is skipped otherwise: `--instances 2 --regions 2 --only scenarios --grep region-down`), `--mesh-delay-ms <n>` (one-way delay on mesh links)
 - **Typecheck**: `npx tsc --noEmit`
 - **Lint**: `npm run lint`
 - **Start dev server**: `npm run dev`

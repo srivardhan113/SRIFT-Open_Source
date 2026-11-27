@@ -2,6 +2,8 @@
 # Exec hook for the courier seed: a received file comes back as a quick-share link; a text message gets instructions.
 set -euo pipefail
 record="$(cat)"
+# shellcheck source=_guard.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_guard.sh"
 
 case "${SRIFT_PK_TYPE:-}" in
   file|file-received|file_done)
@@ -18,6 +20,7 @@ case "${SRIFT_PK_TYPE:-}" in
     fi
     exit 0 ;;
   message|text|chat)
+    reply_allowed || exit 0
     exec srift pk send "$SRIFT_PK_FROM" "SRIFT courier here. Send me a file with 'srift pk file <my address> <path>' and I reply with an https://srift.app/d/<token> link that anyone can open in a browser. Files are streamed, never stored on a server." ;;
   *) exit 0 ;;
 esac

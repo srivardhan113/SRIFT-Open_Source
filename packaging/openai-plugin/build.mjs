@@ -18,19 +18,23 @@ const limit = (label, s, max) => { if (s.length > max) throw new Error(`${label}
 fs.rmSync(stage, { recursive: true, force: true });
 fs.mkdirSync(path.join(stage, 'assets'), { recursive: true });
 
+// The directory asks for tasks, intended users and limitations; this listing describes only what the
+// hosted server does from ChatGPT (the local CLI's features are not part of this plugin).
 const longDescription = limit('longDescription', [
-  'SRIFT is decentralized, end-to-end encrypted file transfer, chat and calls: human to human, human to AI agent, and AI agent to AI agent. Keys are generated on the devices, nothing is stored on a server, there is no database and no account.',
+  'SRIFT opens private rooms where people send files and chat directly between their own devices, end-to-end encrypted. Keys are generated on each device; the server never sees file or chat content and stores none of it. No account is needed to join.',
   '',
-  'From ChatGPT or Codex this plugin reaches the hosted SRIFT server at https://srift.app/mcp: open an end-to-end encrypted session and get a join link anyone can open in a browser, approve or reject who joins, see who is in the room, watch transfers with speed and ETA, read the session state, close the session, and run a network diagnosis that says which transports work and how to fix the ones that do not.',
+  'What you can ask ChatGPT to do: open a room and give you its join link, show who is in the room and who is waiting, let people in or turn them away, remove a participant, see which files were shared and whether they were accepted, join a room by its ID, close the room, and get help diagnosing a connection problem.',
   '',
-  'Sending files from this machine, encrypted chat between peers, and Peerknock (agent-to-agent addresses, live search, knocks, chat, files, groups and calls) run on the local SRIFT CLI (npm srift-transfer, PyPI srift) and are described by the bundled skills, which also tell an agent how to install it. Open source, MIT.',
+  'Who it is for: anyone who wants to send large files or talk privately with someone, without uploading to a cloud drive or creating accounts, and who wants ChatGPT to set up and manage the room.',
+  '',
+  'Limitations: ChatGPT manages the room but cannot read, upload or send files itself; the people in the room send files from their own browser or the SRIFT app. Rooms are temporary and end when closed or after 7 days without activity.',
 ].join('\n'), 4000);
 
 const plugin = {
   $schema: 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json',
   name: 'srift',
   version: pkg.version,
-  description: 'Decentralized, end-to-end encrypted file transfer, chat and calls: human to human, human to AI agent, and AI agent to AI agent. Sessions, join links, transfers, diagnostics. No accounts.',
+  description: 'Open private, end-to-end encrypted rooms where people send files and chat directly between their devices: join links, who gets in, which files were shared. No accounts.',
   author: { name: 'SRIFT', url: 'https://srift.app' },
   homepage: 'https://srift.app',
   repository: 'https://github.com/srivardhan113/SRIFT-Open_Source',
@@ -40,7 +44,7 @@ const plugin = {
     'com.openai': {
       interface: {
         displayName: limit('displayName', 'SRIFT', 30),
-        shortDescription: limit('shortDescription', 'Decentralized E2EE sharing', 30),
+        shortDescription: limit('shortDescription', 'Private file-sharing rooms', 30),
         longDescription,
         developerName: 'SRIFT',
         category: 'Productivity',
@@ -68,7 +72,9 @@ const mcp = {
 };
 fs.writeFileSync(path.join(stage, 'mcp.json'), JSON.stringify(mcp, null, 2) + '\n');
 
-const skillsSrc = path.join(root, 'plugin', 'skills');
+// Only the skill written for this plugin: the shared plugin/skills/ describe the local CLI (installs,
+// Peerknock, filesystem), which ChatGPT cannot use and the directory's skill scan flags.
+const skillsSrc = path.join(import.meta.dirname, 'skills');
 for (const name of fs.readdirSync(skillsSrc)) {
   const src = path.join(skillsSrc, name, 'SKILL.md');
   if (!fs.existsSync(src)) continue;

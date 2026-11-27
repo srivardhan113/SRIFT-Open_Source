@@ -218,6 +218,7 @@ function openRequest(url, opts = {}) {
     const mod = u.protocol === "https:" ? https : http;
     const body = typeof opts.body === "string" ? Buffer.from(opts.body) : opts.body;
     const headers = { ...opts.headers || {} };
+    if (!Object.keys(headers).some((h) => h.toLowerCase() === "user-agent")) headers["User-Agent"] = USER_AGENT;
     if (body && !Object.keys(headers).some((h) => h.toLowerCase() === "content-length")) {
       headers["Content-Length"] = String(body.length);
     }
@@ -324,10 +325,12 @@ function formatNetError(err, url) {
   return d.fix ? `${d.message}
   Fix: ${d.fix}` : d.message;
 }
-var TunnelHttpsAgent, TunnelHttpAgent, agentCache, TLS_TRUST_CODES;
+var CLIENT_VERSION, USER_AGENT, TunnelHttpsAgent, TunnelHttpAgent, agentCache, TLS_TRUST_CODES;
 var init_net = __esm({
   "cli/net.ts"() {
     "use strict";
+    CLIENT_VERSION = "4.4.0";
+    USER_AGENT = `srift-transfer/${CLIENT_VERSION} (node ${process.versions.node}; ${process.platform})`;
     TunnelHttpsAgent = class extends https.Agent {
       constructor(proxy) {
         super({ keepAlive: true, maxSockets: 16 });
@@ -541,7 +544,7 @@ function checkWs(url, timeoutMs) {
     const t0 = Date.now();
     let ws;
     try {
-      ws = new WebSocket(url, { agent: agentFor(url), handshakeTimeout: timeoutMs });
+      ws = new WebSocket(url, { agent: agentFor(url), handshakeTimeout: timeoutMs, headers: { "User-Agent": USER_AGENT } });
     } catch (e) {
       reject(e);
       return;
@@ -3918,7 +3921,7 @@ function connectWebSocket(wsTargetUrl) {
   }
   const viaHttp = signalingMode === "http";
   console.log(`[DAEMON] Connecting to Signaler ${viaHttp ? "HTTPS stream" : "WS"}: ${wsTargetUrl}`);
-  const sock = viaHttp ? new NodeHttpStreamSocket(wsTargetUrl, session.id || "") : new WebSocket2(wsTargetUrl, { agent: agentFor(wsTargetUrl) });
+  const sock = viaHttp ? new NodeHttpStreamSocket(wsTargetUrl, session.id || "") : new WebSocket2(wsTargetUrl, { agent: agentFor(wsTargetUrl), headers: { "User-Agent": USER_AGENT } });
   wsConn = sock;
   let opened = false;
   let openedAt = 0;
@@ -5960,7 +5963,9 @@ data: /mcp/messages
         supportedInterfaces: [{ url: `http://127.0.0.1:${PORT}/mcp`, protocolBinding: "MCP", protocolVersion: "2025-06-18" }],
         name: "SRIFT",
         description: "Zero-config P2P E2EE file transfer + chat for any AI agent or automation. Discovery card: the skills are MCP tools at /mcp and REST routes in /openapi.json.",
-        url: `http://127.0.0.1:${PORT}`,
+        // The card's endpoint must exist: the daemon speaks MCP at /mcp (its root answers nothing).
+        url: `http://127.0.0.1:${PORT}/mcp`,
+        preferredTransport: "MCP",
         version: PACKAGE_VERSION,
         capabilities: {
           streaming: false,

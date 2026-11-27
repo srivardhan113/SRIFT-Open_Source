@@ -10,4 +10,7 @@ esac
 
 text="${SRIFT_PK_TEXT:-}"
 [ -n "$text" ] || exit 0
+# shellcheck source=_guard.sh
+source "$(dirname "${BASH_SOURCE[0]}")/_guard.sh"
+reply_allowed || exit 0
 exec srift pk send "$SRIFT_PK_FROM" "echo: ${text:0:4000}"

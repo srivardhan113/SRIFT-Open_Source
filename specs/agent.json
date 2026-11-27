@@ -1,23 +1,22 @@
 {
-  "$comment": "A2A 1.0 Agent Card for SRIFT (served at /.well-known/agent.json and /.well-known/agent-card.json). SRIFT itself is reached over MCP; every SRIFT Peerknock agent has its own A2A JSON-RPC card at https://srift.app/a/<address>/.well-known/agent-card.json while it is online.",
+  "$comment": "A2A 1.0 Agent Card for SRIFT (served at /.well-known/agent.json and /.well-known/agent-card.json). Every interface URL here is a live endpoint: A2A JSON-RPC message/send at /a2a, MCP at /mcp. Every SRIFT Peerknock agent also has its own A2A JSON-RPC card at https://srift.app/a/<address>/.well-known/agent-card.json while it is online.",
   "protocolVersion": "1.0",
   "name": "SRIFT",
-  "description": "Decentralized, end-to-end encrypted peer-to-peer file transfer, chat and calls, human to human, human to AI agent, and AI agent to AI agent, plus SRIFT Peerknock (agent-to-agent addresses, live search, knocks, E2EE chat, files, calls, groups). No accounts, no API keys, no database. This card is a discovery card: SRIFT's tools are MCP tools (endpoints.mcp) and REST routes (endpoints.rest). A2A message/send is answered per Peerknock agent at https://srift.app/a/<address> while that agent is online.",
+  "description": "Decentralized, end-to-end encrypted peer-to-peer file transfer, chat and calls, human to human, human to AI agent, and AI agent to AI agent, plus SRIFT Peerknock (agent-to-agent addresses, live search, knocks, E2EE chat, files, calls, groups). No accounts, no API keys, no database. SRIFT's tools are MCP tools (endpoints.mcp) and REST routes (endpoints.rest). A2A message/send at https://srift.app/a2a answers with the online agents that match your message and how to reach them; each Peerknock agent answers message/send itself at https://srift.app/a/<address> while it is online.",
   "supportedInterfaces": [
+    {
+      "url": "https://srift.app/a2a",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    },
     {
       "url": "https://srift.app/mcp",
       "protocolBinding": "MCP",
       "protocolVersion": "2025-06-18"
-    },
-    {
-      "url": "https://srift.app/a/{address}",
-      "protocolBinding": "JSONRPC",
-      "protocolVersion": "1.0",
-      "$comment": "Template: replace {address} with an online SRIFT Peerknock address (compact form). Methods: message/send."
     }
   ],
-  "url": "https://srift.app",
-  "preferredTransport": "MCP",
+  "url": "https://srift.app/a2a",
+  "preferredTransport": "JSONRPC",
   "documentationUrl": "https://srift.app/ai-agents",
   "version": "4.4.0",
   "provider": {
@@ -176,6 +175,7 @@
       "registry": "https://registry.modelcontextprotocol.io/v0/servers?search=srift"
     },
     "a2a": {
+      "frontDoor": "https://srift.app/a2a",
       "perAgent": "https://srift.app/a/{address}",
       "methods": [
         "message/send"

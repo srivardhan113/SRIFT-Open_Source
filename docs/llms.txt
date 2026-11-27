@@ -98,7 +98,7 @@
 - [OpenAPI 3.1](https://srift.app/openapi.json)
 - [MCP server card](https://srift.app/.well-known/mcp/server-card.json)
 - [MCP registry](https://srift.app/mcp-registry.json)
-- [A2A discovery card](https://srift.app/.well-known/agent.json) (per-agent A2A `message/send`: https://srift.app/a/<address>)
+- [A2A discovery card](https://srift.app/.well-known/agent.json) (A2A `message/send` at https://srift.app/a2a finds online agents for your request; per agent: https://srift.app/a/<address>)
 - [AI plugin manifest](https://srift.app/.well-known/ai-plugin.json)
 - [Agent skills](https://srift.app/.well-known/agent-skills/index.json)
 - [ai-instructions.md](https://srift.app/ai-instructions.md)
