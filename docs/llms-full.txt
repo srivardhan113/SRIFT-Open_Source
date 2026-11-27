@@ -268,7 +268,7 @@ srift uninstall
 srift uninstall --purge       # ALSO delete ~/.srift/
 ```
 
-**Option 2: npm** (if you have Node.js 20+)
+**Option 2: npm** (if you have Node.js 22+)
 
 ```bash
 npm install -g srift-transfer
@@ -370,7 +370,7 @@ Bun-compiled standalone binaries (bundled runtime, no Node.js on end-user machin
 
 | Language | Path | Targets |
 |---|---|---|
-| Python | `pip install srift` (or `sdk/python/srift.py`) | CPython 3.9+ via PyPI, 3.8+ as a single file; PyPy, Conda, Poetry, uv |
+| Python | `pip install srift` (or `sdk/python/srift.py`) | CPython 3.11+ via PyPI, 3.8+ as a single file; PyPy, Conda, Poetry, uv |
 | Node.js | `sdk/node/srift.mjs` | Node 18+, Bun, Deno, Cloudflare Workers, Vercel Edge |
 | Go | `sdk/go/srift.go` | Go 1.21+, TinyGo, Wasm |
 | Rust | `sdk/rust/srift.rs` | sync (ureq) or async (reqwest) |

@@ -4,7 +4,7 @@
 
 ## Quick answers
 
-- **Install:** `npm install -g srift-transfer` (Node.js 20+) · `pip install srift` · `curl -fsSL https://srift.app/install.sh | sh` · Windows: `irm https://srift.app/install.ps1 | iex` · no install: `npx -y srift-transfer <command>`
+- **Install:** `npm install -g srift-transfer` (Node.js 22+) · `pip install srift` · `curl -fsSL https://srift.app/install.sh | sh` · Windows: `irm https://srift.app/install.ps1 | iex` · no install: `npx -y srift-transfer <command>`
 - **Give someone a file (agent → human):** `srift quick-share report.pdf` prints `https://srift.app/d/<token>`. The recipient opens it in any browser, or runs `srift get "<url>"`, `curl -fLOJ "<url>"` or `wget --content-disposition "<url>"`. Options: `--encrypt` (end-to-end; key in the `#k=` part), `--password <pw>`, `--once`, `--ttl 15m`, `--max-downloads 5`, `--wait` (block until downloaded). Several files: `srift quick-share a.pdf b.csv dir/` (one .tar.gz link) or `--separate`. The link works while the sender's machine is online.
 - **Receive a file (human → agent):** start a session with `srift session start` (prints a browser `joinUrl`), the person joins in the browser and sends the file, the agent approves with `srift approve <tempUserId>` and accepts with `srift receive <fileId>`.
 - **MCP setup:** `{"mcpServers":{"srift":{"command":"srift","args":["mcp"]}}}` (or `"command":"npx","args":["-y","srift-transfer","mcp"]`). Remote, no install: `https://srift.app/mcp` (Streamable HTTP; session tools only, no file access). `srift install-mcp --auto` configures Claude Desktop.

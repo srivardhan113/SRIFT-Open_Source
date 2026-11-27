@@ -64,7 +64,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://srift.app/in
 curl -fsSL https://srift.app/install.bat -o "%TEMP%\srift-install.bat" && "%TEMP%\srift-install.bat"
 ```
 
-**Option B: npm** — if you have Node.js 20+ installed
+**Option B: npm** — if you have Node.js 22+ installed
 ```bash
 npm install -g srift-transfer
 ```

@@ -4887,15 +4887,22 @@ async function registerPubshare(fileId, absPath, filename, size, mime, opts = {}
   pubshares.set(fileId, entry);
   const ackP = new Promise((resolve, reject) => {
     pubshareRegResolvers.set(fileId, resolve);
-    setTimeout(() => {
-      if (pubshareRegResolvers.has(fileId)) {
-        pubshareRegResolvers.delete(fileId);
-        pubshares.delete(fileId);
-        reject(new Error(
-          "Signaler does not recognise pubshare_register \u2014 likely running an older server build. Until srift.app picks up the new release, the recipient must join the session in a browser."
-        ));
+    const startedAt = Date.now();
+    const check = () => {
+      if (!pubshareRegResolvers.has(fileId)) return;
+      const waited = Date.now() - startedAt;
+      const draining = !!wsConn && wsConn.readyState === WebSocket2.OPEN && wsConn.bufferedAmount > 0;
+      if (draining && waited < PUBSHARE_REG_MAX_WAIT_MS) {
+        setTimeout(check, 1e3);
+        return;
       }
-    }, timeoutMs);
+      pubshareRegResolvers.delete(fileId);
+      pubshares.delete(fileId);
+      reject(new Error(
+        `srift.app did not confirm the link within ${Math.round(waited / 1e3)} s` + (draining ? " (the connection is still busy sending another transfer)" : "") + ". Retry in a moment; if it keeps failing, run `srift doctor`."
+      ));
+    };
+    setTimeout(check, timeoutMs);
   });
   wsConn.send(JSON.stringify({
     type: "pubshare_register",
@@ -5320,7 +5327,7 @@ function embeddedDispatch(method, pathname, body) {
     }
   });
 }
-var _WebTorrentCtor, _webTorrentLoadError, SRIFT_HOME, EMBEDDED, STATE_PATH, logPath, DAEMON_LOG_MAX, openLog, logBytes, DAEMON_LOG_MAX_AGE_MS, pruneOldLogs, logStream, logRotating, logPending, writeLogLine, logMessage, fmtLogArg, crypto6, PORT, DEFAULT_SIGNALER_URL, activeSignalerUrl, lastDiag, session, activeTransfers, chatHistory, pendingJoins, participants, sseClients, wsConn, signalingMode, wsFailures, httpModeSince, WS_RETRY_AFTER_MS, wsUrl, csrfToken, heartbeatInterval, lastHeartbeatAckAt, encryptionKey, sessionTerminated, terminationReason, activeTorrents, wtClient, pubshares, pubsharesByToken, activePulls, pubshareRegResolvers, TEMP_DIR, TMP_CHUNK_MAX_AGE_MS, TMP_FILE_MAX_AGE_MS, KDF_ITERATIONS, IV_LEN2, RELAY_ENC, relayKeyCache, keyring, relayReceivers, relaySenders, PUBLIC_TRACKERS, STATE_STALE_MS, activeUploads, uploadKey, uploadsOf, RELAY_ACK_TIMEOUT_MS, RELAY_STALL_MS, RELAY_WINDOW, RELAY_LEGACY_CHUNK, RELAY_FAST_CHUNK, RELAY_FORMAT, RELAY_SOCKET_HIGH_BYTES, relayDownloads, partPathOf, app, LOCAL_HOSTS, DAEMON_START_TIME, PACKAGE_VERSION, hostSessionInflight, MAX_MULTI_PATHS, MULTI_CONCURRENCY, embeddedReady, httpServer;
+var _WebTorrentCtor, _webTorrentLoadError, SRIFT_HOME, EMBEDDED, STATE_PATH, logPath, DAEMON_LOG_MAX, openLog, logBytes, DAEMON_LOG_MAX_AGE_MS, pruneOldLogs, logStream, logRotating, logPending, writeLogLine, logMessage, fmtLogArg, crypto6, PORT, DEFAULT_SIGNALER_URL, activeSignalerUrl, lastDiag, session, activeTransfers, chatHistory, pendingJoins, participants, sseClients, wsConn, signalingMode, wsFailures, httpModeSince, WS_RETRY_AFTER_MS, wsUrl, csrfToken, heartbeatInterval, lastHeartbeatAckAt, encryptionKey, sessionTerminated, terminationReason, activeTorrents, wtClient, pubshares, pubsharesByToken, activePulls, pubshareRegResolvers, TEMP_DIR, TMP_CHUNK_MAX_AGE_MS, TMP_FILE_MAX_AGE_MS, KDF_ITERATIONS, IV_LEN2, RELAY_ENC, relayKeyCache, keyring, relayReceivers, relaySenders, PUBLIC_TRACKERS, STATE_STALE_MS, activeUploads, uploadKey, uploadsOf, RELAY_ACK_TIMEOUT_MS, RELAY_STALL_MS, RELAY_WINDOW, RELAY_LEGACY_CHUNK, RELAY_FAST_CHUNK, RELAY_FORMAT, RELAY_SOCKET_HIGH_BYTES, relayDownloads, partPathOf, app, LOCAL_HOSTS, DAEMON_START_TIME, PACKAGE_VERSION, PUBSHARE_REG_MAX_WAIT_MS, hostSessionInflight, MAX_MULTI_PATHS, MULTI_CONCURRENCY, embeddedReady, httpServer;
 var init_daemon = __esm({
   "cli/daemon.ts"() {
     "use strict";
@@ -5422,8 +5429,8 @@ var init_daemon = __esm({
       logMessage("WARN", args.map(fmtLogArg).join(" "));
     };
     crypto6 = globalThis.crypto || webcrypto;
-    dotenv.config({ path: ".env.local" });
-    dotenv.config();
+    dotenv.config({ path: ".env.local", quiet: true });
+    dotenv.config({ quiet: true });
     process.on("uncaughtException", (err) => {
       console.error("[DAEMON] Uncaught Exception:", err);
     });
@@ -5866,6 +5873,7 @@ var init_daemon = __esm({
         res.status(500).json({ error: err.message });
       }
     });
+    PUBSHARE_REG_MAX_WAIT_MS = 6e4;
     hostSessionInflight = null;
     MAX_MULTI_PATHS = 500;
     MULTI_CONCURRENCY = 4;

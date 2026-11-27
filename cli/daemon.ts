@@ -138,9 +138,10 @@ console.warn = (...args: any[]) => {
 
 const crypto = (globalThis.crypto || webcrypto) as any;
 
-// Load env variables
-dotenv.config({ path: '.env.local' });
-dotenv.config();
+// Load env variables. quiet: dotenv 18 prints its "injected env" notice to stderr, which the daemon log
+// records as [ERROR] on every start (and MCP hosts surface stderr to users).
+dotenv.config({ path: '.env.local', quiet: true });
+dotenv.config({ quiet: true });
 
 // Global Exception Handlers to prevent crashes from third-party WebRTC/P2P teardown
 process.on('uncaughtException', (err) => {
@@ -2100,6 +2101,9 @@ type PubshareOpts = {
   prefixLen?: number;
 };
 
+// Upper bound for a link registration while the signalling socket is busy with an upload (see registerPubshare).
+const PUBSHARE_REG_MAX_WAIT_MS = 60_000;
+
 async function registerPubshare(
   fileId: string,
   absPath: string,
@@ -2124,18 +2128,29 @@ async function registerPubshare(
   pubshares.set(fileId, entry);
   const ackP = new Promise<PubshareEntry>((resolve, reject) => {
     pubshareRegResolvers.set(fileId, resolve);
-    setTimeout(() => {
-      if (pubshareRegResolvers.has(fileId)) {
-        pubshareRegResolvers.delete(fileId);
-        // Cleanup the half-baked entry so /pubshare/list and reconnect-replay
-        // don't see a registration that never actually completed.
-        pubshares.delete(fileId);
-        reject(new Error(
-          'Signaler does not recognise pubshare_register — likely running an older server build. ' +
-          'Until srift.app picks up the new release, the recipient must join the session in a browser.'
-        ));
+    const startedAt = Date.now();
+    // The register message shares the socket with any upload in flight, so it (and its ack) can sit behind
+    // megabytes of file data on a slow uplink. Keep waiting while the socket is still draining, up to
+    // PUBSHARE_REG_MAX_WAIT_MS; only a quiet socket that never answers is a real failure.
+    const check = () => {
+      if (!pubshareRegResolvers.has(fileId)) return;
+      const waited = Date.now() - startedAt;
+      const draining = !!wsConn && wsConn.readyState === WebSocket.OPEN && wsConn.bufferedAmount > 0;
+      if (draining && waited < PUBSHARE_REG_MAX_WAIT_MS) {
+        setTimeout(check, 1000);
+        return;
       }
-    }, timeoutMs);
+      pubshareRegResolvers.delete(fileId);
+      // Cleanup the half-baked entry so /pubshare/list and reconnect-replay
+      // don't see a registration that never actually completed.
+      pubshares.delete(fileId);
+      reject(new Error(
+        `srift.app did not confirm the link within ${Math.round(waited / 1000)} s` +
+        (draining ? ' (the connection is still busy sending another transfer)' : '') +
+        '. Retry in a moment; if it keeps failing, run `srift doctor`.'
+      ));
+    };
+    setTimeout(check, timeoutMs);
   });
   wsConn.send(JSON.stringify({
     type: 'pubshare_register',

@@ -55,7 +55,7 @@ Privacy policy: <https://srift.app/privacy>
 
 ## Requirements
 
-Node.js 20 or later for the launcher. One of: an installed `srift`, `npx` (comes with Node.js), or `uvx` (from uv).
+Node.js 22 or later for the launcher. One of: an installed `srift`, `npx` (comes with Node.js), or `uvx` (from uv).
 
 ## Links
 

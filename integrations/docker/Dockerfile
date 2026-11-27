@@ -9,7 +9,7 @@
 #
 #   docker build -t srift-daemon:4.4.0 integrations/docker
 # ─────────────────────────────────────────────────────────────────────────────
-FROM node:24-alpine
+FROM node:26-alpine
 
 ARG SRIFT_VERSION=4.4.0
 RUN npm install -g "srift-transfer@${SRIFT_VERSION}" --no-audit --no-fund \

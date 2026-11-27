@@ -5,7 +5,7 @@ So a Lambda can hand out a file only while the invocation is still running (max 
 
 ## Pattern A — share from inside the invocation (recommended)
 
-Add Node.js 20+ to the function (or use a Node.js runtime) and run the CLI in-process. It needs only
+Add Node.js 22+ to the function (or use a Node.js runtime) and run the CLI in-process. It needs only
 outbound HTTPS/WSS on port 443 and no local server:
 
 ```python

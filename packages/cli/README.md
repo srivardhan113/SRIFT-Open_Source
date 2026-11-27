@@ -115,7 +115,7 @@ SRIFT runs across all server operating systems and deployment targets:
 
 ## 🚀 Installation
 
-### Global Install via npm (Node.js 20+)
+### Global Install via npm (Node.js 22+)
 ```bash
 npm install -g srift-transfer
 ```
@@ -483,7 +483,7 @@ Set custom configuration options via environment variables or `~/.srift/config.j
 First-party, zero-dependency SDKs for accessing SRIFT from any programming language:
 
 - **Node.js**: [`sdk/node`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/node) (`curl -O https://srift.app/sdk/node/srift.mjs` — not on npm yet)
-- **Python**: `pip install srift` (includes the CLI) — [`sdk/python`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/python) (`pip install srift` needs Python 3.9+; the single-file `srift.py` works on CPython 3.8+ and PyPy)
+- **Python**: `pip install srift` (includes the CLI) — [`sdk/python`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/python) (`pip install srift` needs Python 3.11+; the single-file `srift.py` works on CPython 3.8+ and PyPy)
 - **Go**: [`sdk/go`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/go) (Go 1.21+)
 - **Rust**: [`sdk/rust`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/rust) (sync/async)
 - **Java**: [`sdk/java`](https://github.com/srivardhan113/SRIFT-Open_Source/tree/main/sdk/java) (Java 11+)

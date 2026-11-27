@@ -1,6 +1,6 @@
 # SRIFT Python SDK
 
-Zero-dependency Python client. `pip install srift` needs Python 3.9+; the single-file srift.py works on CPython 3.8+ (and PyPy), in every Python environment
+Zero-dependency Python client. `pip install srift` needs Python 3.11+; the single-file srift.py works on CPython 3.8+ (and PyPy), in every Python environment
 (Lambda, Cloud Run, GKE, Colab, Jupyter, Databricks, SageMaker, RunPod, Modal, Replit, etc.).
 
 ## Install

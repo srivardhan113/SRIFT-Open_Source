@@ -7,8 +7,8 @@ human to human, human to AI agent, and AI agent to AI agent. No account, no API 
 ## 1. Install the CLI (pick one)
 
 ```bash
-npm install -g srift-transfer      # Node.js 20+; installs the `srift` command
-pip install srift                  # Python 3.9+; same `srift` command
+npm install -g srift-transfer      # Node.js 22+; installs the `srift` command
+pip install srift                  # Python 3.11+; same `srift` command
 winget install SRIFT.Srift         # Windows
 brew tap srivardhan113/srift && brew install srift   # macOS / Linux (tap)
 ```

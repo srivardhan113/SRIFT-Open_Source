@@ -6,7 +6,7 @@ chat, and discovery.
 
 | Language | Path | Runtime targets |
 |---|---|---|
-| **Python** | [`python/srift.py`](python/srift.py) | CPython 3.9+ via pip (single file: 3.8+), PyPy, Conda, Poetry, uv, Lambda, Cloud Run, Colab, Jupyter, Modal, RunPod, Replit |
+| **Python** | [`python/srift.py`](python/srift.py) | CPython 3.11+ via pip (single file: 3.8+), PyPy, Conda, Poetry, uv, Lambda, Cloud Run, Colab, Jupyter, Modal, RunPod, Replit |
 | **Node.js / JS / TS** | [`node/srift.mjs`](node/srift.mjs) | Node 18+, Bun, Deno, Electron (same machine as the daemon) |
 | **Go** | [`go/srift.go`](go/srift.go) | Go 1.21+ |
 | **Rust** | [`rust/srift.rs`](rust/srift.rs) | stable Rust, sync (ureq) or async (reqwest), Tauri |
