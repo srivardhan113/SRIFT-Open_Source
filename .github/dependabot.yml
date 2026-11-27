@@ -1,0 +1,15 @@
+# Dependabot for the public mirror (synced from the private repo's mirror/.github; edit it there).
+# The mirror is generated from the private repo, so apply a bump there; a Dependabot PR merged only here
+# is overwritten by the next sync.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /packages/cli
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -1,0 +1,38 @@
+# CodeQL code scanning for the public mirror (synced from the private repo's mirror/.github; edit it there).
+# Bundled build output is skipped: it is generated from the TypeScript sources that are scanned.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze (JavaScript/TypeScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          config: |
+            paths-ignore:
+              - packages/cli/dist
+              - packages/mcpb
+              - cli/index.js
+              - cli/daemon.js
+              - '**/*.min.js'
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript

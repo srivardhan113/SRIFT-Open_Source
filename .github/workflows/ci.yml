@@ -1,0 +1,39 @@
+# Public mirror CI (synced from the private repo's mirror/.github by scripts/sync-mirror.mjs; edit it there).
+# Installs the published CLI package from this repo, checks it starts, and checks the MCP server answers
+# initialize and lists its tools over stdio, the same handshake an MCP client (Claude, Cursor, Glama) does.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    name: CLI + MCP smoke test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Install the CLI package
+        working-directory: packages/cli
+        run: npm install --no-audit --no-fund
+
+      - name: CLI starts
+        run: node packages/cli/dist/index.js --version
+
+      - name: MCP server answers initialize and lists its tools
+        run: node .github/scripts/mcp-smoke.mjs packages/cli/dist/index.js
